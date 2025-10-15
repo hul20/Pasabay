@@ -3,6 +3,7 @@ import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../widgets/gradient_header.dart';
 import 'login_page.dart';
+import 'verify_page.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -39,11 +40,18 @@ class _SignUpPageState extends State<SignUpPage> {
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Account created successfully!'),
+          content: Text('Verification code sent!'),
           backgroundColor: AppConstants.primaryColor,
         ),
       );
-      // TODO: Handle actual registration
+
+      // Navigate to VerifyPage
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VerifyPage(email: _emailController.text),
+        ),
+      );
     }
   }
 
