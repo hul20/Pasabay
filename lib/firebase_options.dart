@@ -23,15 +23,12 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        return ios;
       case TargetPlatform.macOS:
-        return macos;
       case TargetPlatform.windows:
-        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions have not been configured for ${defaultTargetPlatform.name} - '
+          'this app is configured for Android only.',
         );
       default:
         throw UnsupportedError(
@@ -40,47 +37,21 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDPgivR9TGUwg-Y5lESOKF9ypSApfuhGCA',
-    appId: '1:421099113193:web:bfaa54ec9132de8a7dfe78',
-    messagingSenderId: '421099113193',
-    projectId: 'pasabay-c7384',
-    authDomain: 'pasabay-c7384.firebaseapp.com',
-    storageBucket: 'pasabay-c7384.firebasestorage.app',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBRv5e65fi49acdjMe6fC6wv_FyI360_JM',
-    appId: '1:421099113193:android:d62bf0e628ff15877dfe78',
+    appId: '1:421099113193:android:1031456da72236da7dfe78',
     messagingSenderId: '421099113193',
     projectId: 'pasabay-c7384',
     storageBucket: 'pasabay-c7384.firebasestorage.app',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyArdKPchNffQiwQHYX_0CQkfx7CWoSxN58',
-    appId: '1:421099113193:ios:74ab8818e8e6310d7dfe78',
-    messagingSenderId: '421099113193',
-    projectId: 'pasabay-c7384',
-    storageBucket: 'pasabay-c7384.firebasestorage.app',
-    iosBundleId: 'com.example.pasabayApp',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyArdKPchNffQiwQHYX_0CQkfx7CWoSxN58',
-    appId: '1:421099113193:ios:74ab8818e8e6310d7dfe78',
-    messagingSenderId: '421099113193',
-    projectId: 'pasabay-c7384',
-    storageBucket: 'pasabay-c7384.firebasestorage.app',
-    iosBundleId: 'com.example.pasabayApp',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
+  static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDPgivR9TGUwg-Y5lESOKF9ypSApfuhGCA',
-    appId: '1:421099113193:web:aec2aba10444d35d7dfe78',
+    appId: '1:421099113193:web:a6bc628a0c3067b07dfe78',
     messagingSenderId: '421099113193',
     projectId: 'pasabay-c7384',
     authDomain: 'pasabay-c7384.firebaseapp.com',
     storageBucket: 'pasabay-c7384.firebasestorage.app',
   );
+
 }
