@@ -33,6 +33,9 @@ class FirebaseService {
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(email: email, password: password);
 
+      // Send email verification
+      await userCredential.user!.sendEmailVerification();
+
       // Create user document in Firestore
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
         'uid': userCredential.user!.uid,
@@ -40,6 +43,8 @@ class FirebaseService {
         'firstName': firstName,
         'lastName': lastName,
         'middleInitial': middleInitial ?? '',
+        'emailVerified': false,
+        'role': null, // Will be set after role selection
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -49,6 +54,129 @@ class FirebaseService {
       throw _handleAuthException(e);
     } catch (e) {
       throw 'An unexpected error occurred: $e';
+    }
+  }
+
+  /// Save user role after selection
+  Future<void> saveUserRole({required String uid, required String role}) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'role': role,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw 'Error saving user role: $e';
+    }
+  }
+
+  /// Send email verification
+  Future<void> sendEmailVerification() async {
+    try {
+      if (currentUser != null && !currentUser!.emailVerified) {
+        await currentUser!.sendEmailVerification();
+      }
+    } catch (e) {
+      throw 'Error sending verification email: $e';
+    }
+  }
+
+  /// Check if email is verified
+  Future<bool> isEmailVerified() async {
+    try {
+      await currentUser?.reload();
+      return currentUser?.emailVerified ?? false;
+    } catch (e) {
+      throw 'Error checking email verification: $e';
+    }
+  }
+
+  /// Generate and send 4-digit OTP
+  Future<String> generateAndSendOTP(String email) async {
+    try {
+      // Generate 4-digit OTP
+      final otp = _generateOTP();
+
+      // Store OTP in Firestore with expiration time (5 minutes)
+      await _firestore.collection('otps').doc(email).set({
+        'otp': otp,
+        'email': email,
+        'createdAt': FieldValue.serverTimestamp(),
+        'expiresAt': DateTime.now()
+            .add(const Duration(minutes: 5))
+            .millisecondsSinceEpoch,
+        'verified': false,
+      });
+
+      // In production, you would send this via Firebase Functions + SendGrid/Mailgun
+      // For development, we'll print it (check console)
+      print('🔐 OTP for $email: $otp');
+      print('⚠️ Note: In production, this will be sent via email');
+
+      return otp;
+    } catch (e) {
+      throw 'Error generating OTP: $e';
+    }
+  }
+
+  /// Generate random 4-digit OTP
+  String _generateOTP() {
+    final random = DateTime.now().millisecondsSinceEpoch % 10000;
+    return random.toString().padLeft(4, '0');
+  }
+
+  /// Verify OTP
+  Future<bool> verifyOTP(String email, String otp) async {
+    try {
+      final otpDoc = await _firestore.collection('otps').doc(email).get();
+
+      if (!otpDoc.exists) {
+        throw 'No OTP found. Please request a new code.';
+      }
+
+      final data = otpDoc.data()!;
+      final storedOTP = data['otp'] as String;
+      final expiresAt = data['expiresAt'] as int;
+      final verified = data['verified'] as bool;
+
+      // Check if already verified
+      if (verified) {
+        throw 'This OTP has already been used. Please request a new code.';
+      }
+
+      // Check if expired
+      if (DateTime.now().millisecondsSinceEpoch > expiresAt) {
+        throw 'OTP has expired. Please request a new code.';
+      }
+
+      // Verify OTP
+      if (storedOTP != otp) {
+        throw 'Invalid OTP. Please try again.';
+      }
+
+      // Mark as verified
+      await _firestore.collection('otps').doc(email).update({
+        'verified': true,
+        'verifiedAt': FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    } catch (e) {
+      if (e is String) {
+        throw e;
+      }
+      throw 'Error verifying OTP: $e';
+    }
+  }
+
+  /// Update email verified status in Firestore
+  Future<void> updateEmailVerifiedStatus(String uid) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'emailVerified': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw 'Error updating email verification status: $e';
     }
   }
 

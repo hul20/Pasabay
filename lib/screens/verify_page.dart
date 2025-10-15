@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import '../utils/firebase_service.dart';
 import '../widgets/gradient_header.dart';
 import 'role_selection_page.dart';
 
@@ -21,10 +22,12 @@ class _VerifyPageState extends State<VerifyPage> {
     (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  final _firebaseService = FirebaseService();
 
   int _secondsRemaining = 15;
   Timer? _timer;
   bool _canResend = false;
+  bool _isVerifying = false;
 
   @override
   void initState() {
@@ -42,6 +45,21 @@ class _VerifyPageState extends State<VerifyPage> {
       node.dispose();
     }
     super.dispose();
+  }
+
+  void _navigateToRoleSelection() async {
+    if (_firebaseService.currentUser != null) {
+      await _firebaseService.updateEmailVerifiedStatus(
+        _firebaseService.currentUser!.uid,
+      );
+    }
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
+    );
   }
 
   void _startTimer() {
@@ -65,23 +83,69 @@ class _VerifyPageState extends State<VerifyPage> {
     });
   }
 
-  void _resendCode() {
-    if (_canResend) {
-      // TODO: Implement actual resend logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification code resent!'),
-          backgroundColor: AppConstants.primaryColor,
-        ),
-      );
-      _startTimer();
+  Future<void> _resendCode() async {
+    if (_canResend && widget.email != null) {
+      try {
+        await _firebaseService.generateAndSendOTP(widget.email!);
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('New 4-digit code sent to your email!'),
+            backgroundColor: AppConstants.primaryColor,
+          ),
+        );
+        _startTimer();
+      } catch (e) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
-  void _verifyCode() {
+  Future<void> _verifyCode() async {
+    // Collect the 4-digit code from all text fields
     String code = _controllers.map((c) => c.text).join();
-    if (code.length == 4) {
-      // TODO: Implement Firebase verification
+
+    if (code.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the complete 4-digit code'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (widget.email == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email address is missing'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+    });
+
+    try {
+      await _firebaseService.verifyOTP(widget.email!, code);
+
+      // Update email verified status in Firestore
+      if (_firebaseService.currentUser != null) {
+        await _firebaseService.updateEmailVerifiedStatus(
+          _firebaseService.currentUser!.uid,
+        );
+      }
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Verification successful!'),
@@ -89,18 +153,38 @@ class _VerifyPageState extends State<VerifyPage> {
         ),
       );
 
-      // Navigate to RoleSelectionPage
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
-      );
-    } else {
+      _navigateToRoleSelection();
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = 'Verification failed';
+
+      // Provide specific error messages
+      if (e.toString().contains('expired')) {
+        errorMessage = 'Code has expired. Please request a new code.';
+      } else if (e.toString().contains('already been used')) {
+        errorMessage = 'Code has already been used. Please request a new code.';
+      } else if (e.toString().contains('Invalid')) {
+        errorMessage = 'Invalid code. Please check and try again.';
+      } else if (e.toString().contains('not found')) {
+        errorMessage = 'No verification code found. Please request a new code.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the complete code'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
       );
+
+      // Clear the input fields on error
+      for (var controller in _controllers) {
+        controller.clear();
+      }
+      _focusNodes[0].requestFocus();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+        });
+      }
     }
   }
 
@@ -234,7 +318,7 @@ class _VerifyPageState extends State<VerifyPage> {
                       width: double.infinity,
                       height: 50 * scaleFactor,
                       child: ElevatedButton(
-                        onPressed: _verifyCode,
+                        onPressed: _isVerifying ? null : _verifyCode,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppConstants.primaryColor,
                           foregroundColor: Colors.white,
@@ -245,13 +329,24 @@ class _VerifyPageState extends State<VerifyPage> {
                             ),
                           ),
                         ),
-                        child: Text(
-                          'Enter Verification Code',
-                          style: TextStyle(
-                            fontSize: 16 * scaleFactor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: _isVerifying
+                            ? SizedBox(
+                                height: 20 * scaleFactor,
+                                width: 20 * scaleFactor,
+                                child: const CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                'Enter Verification Code',
+                                style: TextStyle(
+                                  fontSize: 16 * scaleFactor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                     SizedBox(height: 16 * scaleFactor),

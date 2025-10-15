@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import '../utils/firebase_service.dart';
 import '../widgets/gradient_header.dart';
 import 'login_page.dart';
 import 'verify_page.dart';
@@ -20,9 +21,11 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _emailController = TextEditingController();
+  final _firebaseService = FirebaseService();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -35,23 +38,63 @@ class _SignUpPageState extends State<SignUpPage> {
     super.dispose();
   }
 
-  void _handleContinue() {
+  Future<void> _handleContinue() async {
     if (_formKey.currentState!.validate()) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification code sent!'),
-          backgroundColor: AppConstants.primaryColor,
-        ),
-      );
+      setState(() {
+        _isLoading = true;
+      });
 
-      // Navigate to VerifyPage
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VerifyPage(email: _emailController.text),
-        ),
-      );
+      try {
+        // Create user account with Firebase
+        await _firebaseService.signUpWithEmail(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          middleInitial: _middleInitialController.text.trim().isEmpty
+              ? null
+              : _middleInitialController.text.trim(),
+        );
+
+        // Generate and send 4-digit OTP
+        await _firebaseService.generateAndSendOTP(_emailController.text.trim());
+
+        if (!mounted) return;
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created! 4-digit code sent to your email.'),
+            backgroundColor: AppConstants.primaryColor,
+            duration: Duration(seconds: 4),
+          ),
+        );
+
+        // Navigate to VerifyPage
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerifyPage(email: _emailController.text),
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -199,7 +242,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             width: double.infinity,
                             height: 57 * scaleFactor,
                             child: ElevatedButton(
-                              onPressed: _handleContinue,
+                              onPressed: _isLoading ? null : _handleContinue,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppConstants.primaryColor,
                                 shape: RoundedRectangleBorder(
@@ -210,14 +253,26 @@ class _SignUpPageState extends State<SignUpPage> {
                                 ),
                                 elevation: 0,
                               ),
-                              child: Text(
-                                'Continue',
-                                style: TextStyle(
-                                  fontSize: 19 * scaleFactor,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
+                              child: _isLoading
+                                  ? SizedBox(
+                                      height: 20 * scaleFactor,
+                                      width: 20 * scaleFactor,
+                                      child: const CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Continue',
+                                      style: TextStyle(
+                                        fontSize: 19 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                             ),
                           ),
                           SizedBox(height: 10 * scaleFactor),

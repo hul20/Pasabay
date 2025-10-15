@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import '../utils/firebase_service.dart';
 import '../widgets/gradient_header.dart';
 import 'signup_page.dart';
 import 'verify_page.dart';
+import 'role_selection_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,8 +18,10 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _firebaseService = FirebaseService();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -26,23 +30,91 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleContinue() {
+  Future<void> _handleContinue() async {
     if (_formKey.currentState!.validate()) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification code sent!'),
-          backgroundColor: AppConstants.primaryColor,
-        ),
-      );
+      setState(() {
+        _isLoading = true;
+      });
 
-      // Navigate to VerifyPage
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VerifyPage(email: _emailController.text),
-        ),
-      );
+      try {
+        // Sign in with Firebase
+        final userCredential = await _firebaseService.signInWithEmail(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (!mounted) return;
+
+        // Check if email is verified
+        final isVerified = await _firebaseService.isEmailVerified();
+
+        if (!isVerified) {
+          // Generate and send 4-digit OTP
+          await _firebaseService.generateAndSendOTP(
+            _emailController.text.trim(),
+          );
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('4-digit verification code sent to your email.'),
+              backgroundColor: AppConstants.primaryColor,
+              duration: Duration(seconds: 3),
+            ),
+          );
+
+          // Navigate to verification page
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerifyPage(email: _emailController.text),
+            ),
+          );
+          return;
+        }
+
+        // Get user data to check if role is set
+        final userData = await _firebaseService.getUserData(
+          userCredential!.user!.uid,
+        );
+
+        if (!mounted) return;
+
+        final role = userData.data() as Map<String, dynamic>?;
+
+        if (role == null || role['role'] == null) {
+          // Navigate to role selection
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
+          );
+        } else {
+          // Navigate to appropriate home page based on role
+          if (role['role'] == 'Traveler') {
+            Navigator.pushReplacementNamed(context, '/traveler-home');
+          } else {
+            Navigator.pushReplacementNamed(context, '/requester-home');
+          }
+        }
+      } catch (e) {
+        if (!mounted) return;
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -121,7 +193,7 @@ class _LoginPageState extends State<LoginPage> {
                             width: double.infinity,
                             height: 57 * scaleFactor,
                             child: ElevatedButton(
-                              onPressed: _handleContinue,
+                              onPressed: _isLoading ? null : _handleContinue,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppConstants.primaryColor,
                                 foregroundColor: Colors.white,
@@ -133,13 +205,25 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 elevation: 0,
                               ),
-                              child: Text(
-                                'Continue',
-                                style: TextStyle(
-                                  fontSize: 19 * scaleFactor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              child: _isLoading
+                                  ? SizedBox(
+                                      height: 20 * scaleFactor,
+                                      width: 20 * scaleFactor,
+                                      child: const CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Continue',
+                                      style: TextStyle(
+                                        fontSize: 19 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ),
 

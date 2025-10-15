@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import '../utils/firebase_service.dart';
 import 'traveler_home_page.dart';
 import 'requester_home_page.dart';
 
@@ -12,7 +13,53 @@ class RoleSelectionPage extends StatefulWidget {
 }
 
 class _RoleSelectionPageState extends State<RoleSelectionPage> {
+  final _firebaseService = FirebaseService();
   String _selectedRole = 'Traveler'; // Default selection
+  bool _isLoading = false;
+
+  Future<void> _handleContinue() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final currentUser = _firebaseService.currentUser;
+
+      if (currentUser == null) {
+        throw 'No user logged in';
+      }
+
+      // Save role to Firestore
+      await _firebaseService.saveUserRole(
+        uid: currentUser.uid,
+        role: _selectedRole,
+      );
+
+      if (!mounted) return;
+
+      // Navigate to appropriate home page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => _selectedRole == 'Traveler'
+              ? const TravelerHomePage()
+              : const RequesterHomePage(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,16 +307,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                       width: double.infinity,
                       height: 57 * scaleFactor,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => _selectedRole == 'Traveler'
-                                  ? const TravelerHomePage()
-                                  : const RequesterHomePage(),
-                            ),
-                          );
-                        },
+                        onPressed: _isLoading ? null : _handleContinue,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppConstants.primaryColor,
                           foregroundColor: Colors.white,
@@ -280,13 +318,24 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                             ),
                           ),
                         ),
-                        child: Text(
-                          'Continue',
-                          style: TextStyle(
-                            fontSize: 19 * scaleFactor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 20 * scaleFactor,
+                                width: 20 * scaleFactor,
+                                child: const CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                'Continue',
+                                style: TextStyle(
+                                  fontSize: 19 * scaleFactor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ],
