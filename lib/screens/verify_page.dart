@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../widgets/gradient_header.dart';
-import 'home_page.dart';
+import 'role_selection_page.dart';
 
 class VerifyPage extends StatefulWidget {
   final String? email;
@@ -89,10 +89,10 @@ class _VerifyPageState extends State<VerifyPage> {
         ),
       );
 
-      // Navigate to HomePage
+      // Navigate to RoleSelectionPage
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+        MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
