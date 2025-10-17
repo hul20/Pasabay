@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
-import '../utils/firebase_service.dart';
+import '../utils/supabase_service.dart';
 import 'traveler_home_page.dart';
 import 'requester_home_page.dart';
 
@@ -13,7 +13,7 @@ class RoleSelectionPage extends StatefulWidget {
 }
 
 class _RoleSelectionPageState extends State<RoleSelectionPage> {
-  final _firebaseService = FirebaseService();
+  final _supabaseService = SupabaseService();
   String _selectedRole = 'Traveler'; // Default selection
   bool _isLoading = false;
 
@@ -23,17 +23,14 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
     });
 
     try {
-      final currentUser = _firebaseService.currentUser;
+      final currentUser = _supabaseService.currentUser;
 
       if (currentUser == null) {
         throw 'No user logged in';
       }
 
-      // Save role to Firestore
-      await _firebaseService.saveUserRole(
-        uid: currentUser.uid,
-        role: _selectedRole,
-      );
+      // Save role to Supabase
+      await _supabaseService.saveUserRole(role: _selectedRole);
 
       if (!mounted) return;
 

@@ -1,4 +1,4 @@
-# Pasabay App - Quick Start Guide
+# Pasabay App - Quick Start Guide (Supabase)
 
 ## Running the App
 
@@ -6,7 +6,7 @@
 ```bash
 flutter run -d chrome
 ```
-This works perfectly with Firebase and allows rapid development.
+This works perfectly with Supabase and allows rapid development.
 
 ### Run on Android Emulator
 ```bash
@@ -17,37 +17,33 @@ flutter devices
 flutter run -d android
 ```
 
-### ❌ Windows Desktop (Currently Not Working)
-Windows build fails due to Firebase C++ SDK compatibility issues.
-See `WINDOWS_BUILD_ISSUE.md` for details.
-
 ## Project Status
 
 ### ✅ Completed
 - ✅ Project organization (screens, widgets, utils)
-- ✅ Firebase initialized successfully
-- ✅ FirebaseService utility class created
+- ✅ **Supabase initialized successfully** (Replaced Firebase)
+- ✅ SupabaseService utility class created
 - ✅ Custom responsive UI components
 - ✅ Landing, Login, and SignUp pages
+- ✅ Email verification with 6-digit OTP
+- ✅ Role selection (Traveler/Requester)
 - ✅ Works on Chrome/Web
 - ✅ Ready for Android/iOS deployment
 
 ### 🔄 Next Steps
-1. **Enable Email/Password Authentication** in Firebase Console
-   - Go to https://console.firebase.google.com/project/pasabay-c7384
-   - Navigate to Authentication → Sign-in method
-   - Enable "Email/Password"
 
-2. **Create Firestore Database**
-   - Go to Firestore Database section
-   - Create database (start in test mode for development)
+1. **Set Up Supabase Database** ⚠️ REQUIRED
+   - Go to https://supabase.com/dashboard
+   - Select your project
+   - Go to SQL Editor
+   - Run the SQL script from `SUPABASE_GUIDE.md`
 
-3. **Integrate Firebase into Screens**
-   - Update `lib/screens/signup_page.dart` to use `FirebaseService.signUpWithEmail()`
-   - Update `lib/screens/login_page.dart` to use `FirebaseService.signInWithEmail()`
-   - See `FIREBASE_GUIDE.md` for code examples
+2. **Configure Email Templates** (Optional but Recommended)
+   - Go to Authentication → Email Templates
+   - Customize the Magic Link template
+   - See `SUPABASE_GUIDE.md` for template code
 
-4. **Test Authentication Flow**
+3. **Test Authentication Flow**
    - Test user registration
    - Test user login
    - Test data storage in Firestore

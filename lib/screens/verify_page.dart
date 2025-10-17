@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
-import '../utils/firebase_service.dart';
+import '../utils/supabase_service.dart';
 import '../widgets/gradient_header.dart';
 import 'role_selection_page.dart';
 
@@ -18,11 +18,11 @@ class VerifyPage extends StatefulWidget {
 
 class _VerifyPageState extends State<VerifyPage> {
   final List<TextEditingController> _controllers = List.generate(
-    4,
+    6, // Supabase OTP is 6 digits
     (_) => TextEditingController(),
   );
-  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
-  final _firebaseService = FirebaseService();
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  final _supabaseService = SupabaseService();
 
   int _secondsRemaining = 15;
   Timer? _timer;
@@ -48,12 +48,6 @@ class _VerifyPageState extends State<VerifyPage> {
   }
 
   void _navigateToRoleSelection() async {
-    if (_firebaseService.currentUser != null) {
-      await _firebaseService.updateEmailVerifiedStatus(
-        _firebaseService.currentUser!.uid,
-      );
-    }
-
     if (!mounted) return;
 
     Navigator.pushReplacement(
@@ -86,12 +80,12 @@ class _VerifyPageState extends State<VerifyPage> {
   Future<void> _resendCode() async {
     if (_canResend && widget.email != null) {
       try {
-        await _firebaseService.generateAndSendOTP(widget.email!);
+        await _supabaseService.sendOTP(widget.email!);
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('New 4-digit code sent to your email!'),
+            content: Text('New verification code sent to your email!'),
             backgroundColor: AppConstants.primaryColor,
           ),
         );
@@ -107,13 +101,13 @@ class _VerifyPageState extends State<VerifyPage> {
   }
 
   Future<void> _verifyCode() async {
-    // Collect the 4-digit code from all text fields
+    // Collect the 6-digit code from all text fields
     String code = _controllers.map((c) => c.text).join();
 
-    if (code.length != 4) {
+    if (code.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter the complete 4-digit code'),
+          content: Text('Please enter the complete 6-digit code'),
           backgroundColor: Colors.red,
         ),
       );
@@ -135,14 +129,7 @@ class _VerifyPageState extends State<VerifyPage> {
     });
 
     try {
-      await _firebaseService.verifyOTP(widget.email!, code);
-
-      // Update email verified status in Firestore
-      if (_firebaseService.currentUser != null) {
-        await _firebaseService.updateEmailVerifiedStatus(
-          _firebaseService.currentUser!.uid,
-        );
-      }
+      await _supabaseService.verifyOTP(email: widget.email!, token: code);
 
       if (!mounted) return;
 
@@ -247,12 +234,12 @@ class _VerifyPageState extends State<VerifyPage> {
                     ),
                     SizedBox(height: 32 * scaleFactor),
 
-                    // PIN Input Fields
+                    // PIN Input Fields (6 digits for Supabase OTP)
                     SizedBox(
                       width: double.infinity,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(4, (index) {
+                        children: List.generate(6, (index) {
                           return Expanded(
                             child: Container(
                               height: 100 * scaleFactor,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
-import '../utils/firebase_service.dart';
+import '../utils/supabase_service.dart';
 import '../widgets/gradient_header.dart';
 import 'login_page.dart';
 import 'verify_page.dart';
@@ -21,7 +21,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _emailController = TextEditingController();
-  final _firebaseService = FirebaseService();
+  final _supabaseService = SupabaseService();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -45,8 +45,8 @@ class _SignUpPageState extends State<SignUpPage> {
       });
 
       try {
-        // Create user account with Firebase
-        await _firebaseService.signUpWithEmail(
+        // Create user account with Supabase
+        await _supabaseService.signUpWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           firstName: _firstNameController.text.trim(),
@@ -56,15 +56,17 @@ class _SignUpPageState extends State<SignUpPage> {
               : _middleInitialController.text.trim(),
         );
 
-        // Generate and send 4-digit OTP
-        await _firebaseService.generateAndSendOTP(_emailController.text.trim());
+        // Send OTP via Supabase native email
+        await _supabaseService.sendOTP(_emailController.text.trim());
 
         if (!mounted) return;
 
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Account created! 4-digit code sent to your email.'),
+            content: Text(
+              'Account created! Verification code sent to your email.',
+            ),
             backgroundColor: AppConstants.primaryColor,
             duration: Duration(seconds: 4),
           ),

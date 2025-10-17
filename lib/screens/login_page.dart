@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
-import '../utils/firebase_service.dart';
+import '../utils/supabase_service.dart';
 import '../widgets/gradient_header.dart';
 import 'signup_page.dart';
 import 'verify_page.dart';
@@ -18,7 +18,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _firebaseService = FirebaseService();
+  final _supabaseService = SupabaseService();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -37,28 +37,32 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       try {
-        // Sign in with Firebase
-        final userCredential = await _firebaseService.signInWithEmail(
+        // Sign in with Supabase
+        await _supabaseService.signInWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
 
         if (!mounted) return;
 
-        // Check if email is verified
-        final isVerified = await _firebaseService.isEmailVerified();
+        // Get user data to check verification and role
+        final userData = await _supabaseService.getUserData();
 
-        if (!isVerified) {
-          // Generate and send 4-digit OTP
-          await _firebaseService.generateAndSendOTP(
-            _emailController.text.trim(),
-          );
+        if (userData == null) {
+          throw 'Failed to fetch user data';
+        }
+
+        final isEmailVerified = userData['email_verified'] ?? false;
+
+        if (!isEmailVerified) {
+          // Send OTP via Supabase
+          await _supabaseService.sendOTP(_emailController.text.trim());
 
           if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('4-digit verification code sent to your email.'),
+              content: Text('Verification code sent to your email.'),
               backgroundColor: AppConstants.primaryColor,
               duration: Duration(seconds: 3),
             ),
@@ -74,16 +78,9 @@ class _LoginPageState extends State<LoginPage> {
           return;
         }
 
-        // Get user data to check if role is set
-        final userData = await _firebaseService.getUserData(
-          userCredential!.user!.uid,
-        );
+        final userRole = userData['role'];
 
-        if (!mounted) return;
-
-        final role = userData.data() as Map<String, dynamic>?;
-
-        if (role == null || role['role'] == null) {
+        if (userRole == null) {
           // Navigate to role selection
           Navigator.pushReplacement(
             context,
@@ -91,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
           );
         } else {
           // Navigate to appropriate home page based on role
-          if (role['role'] == 'Traveler') {
+          if (userRole == 'Traveler') {
             Navigator.pushReplacementNamed(context, '/traveler-home');
           } else {
             Navigator.pushReplacementNamed(context, '/requester-home');

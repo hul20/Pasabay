@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'utils/constants.dart';
+import 'utils/supabase_config.dart';
 import 'widgets/responsive_wrapper.dart';
 import 'screens/landing_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print("✅ Firebase successfully initialized!");
+
+  await Supabase.initialize(
+    url: SupabaseConfig.supabaseUrl,
+    anonKey: SupabaseConfig.supabaseAnonKey,
+  );
+  print("✅ Supabase successfully initialized!");
+
   runApp(const MyApp());
 }
 
