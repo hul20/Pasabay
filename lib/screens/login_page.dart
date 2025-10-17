@@ -6,6 +6,8 @@ import '../widgets/gradient_header.dart';
 import 'signup_page.dart';
 import 'verify_page.dart';
 import 'role_selection_page.dart';
+import 'traveler_home_page.dart';
+import 'requester_home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -88,11 +90,14 @@ class _LoginPageState extends State<LoginPage> {
           );
         } else {
           // Navigate to appropriate home page based on role
-          if (userRole == 'Traveler') {
-            Navigator.pushReplacementNamed(context, '/traveler-home');
-          } else {
-            Navigator.pushReplacementNamed(context, '/requester-home');
-          }
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => userRole == 'Traveler'
+                  ? const TravelerHomePage()
+                  : const RequesterHomePage(),
+            ),
+          );
         }
       } catch (e) {
         if (!mounted) return;

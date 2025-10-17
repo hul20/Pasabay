@@ -121,9 +121,18 @@ class SupabaseService {
       );
       print('✅ OTP sent to $email via Supabase');
     } on AuthException catch (e) {
+      // Provide more specific error messages
+      if (e.message.contains('Email rate limit exceeded')) {
+        throw 'Too many requests. Please wait a few minutes and try again.';
+      } else if (e.message.contains('SMTP')) {
+        throw 'Email service configuration error. Please contact support.';
+      } else if (e.message.contains('magic link')) {
+        throw 'Email sending failed. Please verify your email address and try again.';
+      }
       throw _handleAuthException(e);
     } catch (e) {
-      throw 'Failed to send verification code: $e';
+      print('❌ Error sending OTP: $e');
+      throw 'Failed to send verification code. Please check your email address and try again.';
     }
   }
 

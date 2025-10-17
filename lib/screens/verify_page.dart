@@ -215,7 +215,7 @@ class _VerifyPageState extends State<VerifyPage> {
                         children: [
                           const TextSpan(text: 'We have sent you a '),
                           TextSpan(
-                            text: '4-PIN Verification',
+                            text: '6-PIN Verification',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.black,
