@@ -51,3 +51,10 @@ SUPABASE_AUTH_IMPLEMENTATION.md
 
 # Supabase Configuration (contains API keys)
 lib/utils/supabase_config.dart
+
+# Firebase files (prevent accidental additions)
+firebase.json
+lib/firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/utils/firebase_service.dart

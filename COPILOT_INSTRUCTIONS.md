@@ -15,7 +15,7 @@ Before providing ANY solution, answer, or code change, **Copilot MUST**:
 - ✅ Identify all dependencies and relationships
 - ✅ Check for existing implementations
 - ✅ Review recent changes (check if files were edited)
-- ✅ Verify current authentication system (Supabase, not Firebase)
+- ✅ Verify current authentication system (Supabase)
 
 ### 3. 🔗 **CHECK CONSISTENCY**
 - ✅ Ensure imports match actual file names
@@ -55,8 +55,7 @@ lib/
 │   ├── constants.dart          # App constants (colors, sizes)
 │   ├── helpers.dart            # Helper functions
 │   ├── supabase_config.dart    # Supabase credentials (gitignored)
-│   ├── supabase_service.dart   # ⚠️ ACTIVE: All auth/DB operations
-│   └── firebase_service.dart   # ⚠️ DEPRECATED: Do not use
+│   └── supabase_service.dart   # All auth/DB operations ✅
 └── widgets/
     ├── custom_button.dart
     ├── custom_input_field.dart
@@ -69,7 +68,6 @@ lib/
 ## 🎯 Key Project Facts
 
 ### **Authentication System: SUPABASE** ✅
-- ❌ **NOT Firebase** (old, deprecated)
 - ✅ **Supabase** (current, active)
 - All auth uses `supabase_service.dart`
 
@@ -104,13 +102,7 @@ import '../screens/traveler_home_page.dart';
 import '../screens/requester_home_page.dart';
 ```
 
-### **2. Firebase vs Supabase**
-If user mentions Firebase:
-- ⚠️ Clarify they're now using Supabase
-- ❌ Don't suggest Firebase solutions
-- ✅ Always use Supabase equivalents
-
-### **3. Navigation Issues**
+### **2. Navigation Issues**
 Always use:
 ```dart
 // ✅ Correct
@@ -185,10 +177,12 @@ When answering, follow this structure:
 
 **NEVER**:
 1. Assume file contents without reading
-2. Suggest Firebase solutions (use Supabase)
-3. Use named routes (use MaterialPageRoute)
-4. Skip OTP verification
-5. Ignore security implications
+## ⚠️ Don't
+
+1. Assume named routes exist
+2. Use named routes (use MaterialPageRoute)
+3. Skip OTP verification
+4. Ignore security implications
 
 ---
 

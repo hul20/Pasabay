@@ -21,7 +21,7 @@ flutter run -d android
 
 ### ✅ Completed
 - ✅ Project organization (screens, widgets, utils)
-- ✅ **Supabase initialized successfully** (Replaced Firebase)
+- ✅ **Supabase initialized successfully**
 - ✅ SupabaseService utility class created
 - ✅ Custom responsive UI components
 - ✅ Landing, Login, and SignUp pages
@@ -79,12 +79,13 @@ flutter build web
 ## File Structure
 ```
 lib/
-├── main.dart                    # App entry (Firebase initialized ✅)
-├── firebase_options.dart        # Auto-generated config ✅
+├── main.dart                    # App entry (Supabase initialized ✅)
 ├── screens/
 │   ├── landing_page.dart       # Welcome screen ✅
-│   ├── signup_page.dart        # Registration (needs Firebase integration)
-│   └── login_page.dart         # Login (needs Firebase integration)
+│   ├── signup_page.dart        # Registration with Supabase ✅
+│   ├── login_page.dart         # Login with Supabase ✅
+│   ├── verify_page.dart        # OTP verification ✅
+│   └── role_selection_page.dart # Choose role ✅
 ├── widgets/
 │   ├── responsive_wrapper.dart
 │   ├── gradient_header.dart
@@ -93,26 +94,23 @@ lib/
 └── utils/
     ├── constants.dart          # App constants ✅
     ├── helpers.dart            # Validators ✅
-    └── firebase_service.dart   # Firebase operations ✅
+    └── supabase_service.dart   # Supabase operations ✅
 ```
 
-## Firebase Configuration
-- **Project ID**: pasabay-c7384
-- **Platforms Configured**: Android, iOS, macOS, Web, Windows (5 platforms)
-- **Authentication**: Email/Password (needs to be enabled in console)
-- **Database**: Firestore (needs to be created)
+## Backend Configuration
+- **Backend**: Supabase (replaced Firebase)
+- **Authentication**: Email/Password with OTP verification ✅
+- **Database**: PostgreSQL via Supabase ✅
 
 ## Known Issues
-- ❌ **Windows desktop build fails** - Firebase C++ SDK compatibility issue
-- ✅ **Solution**: Use Chrome for development
+- None currently
 
 ## Resources
-- `FIREBASE_GUIDE.md` - Complete Firebase integration documentation
-- `WINDOWS_BUILD_ISSUE.md` - Windows build issue explanation
+- `SUPABASE_GUIDE.md` - Complete Supabase integration documentation
 - `PROJECT_ORGANIZATION.md` - Project structure details
 - `README.md` - Project overview
 
 ## Support
-- Check Firebase Console: https://console.firebase.google.com/project/pasabay-c7384
+- Supabase Dashboard: Check your project dashboard
 - Flutter Documentation: https://docs.flutter.dev
-- Firebase Documentation: https://firebase.google.com/docs/flutter/setup
+- Supabase Documentation: https://supabase.com/docs
