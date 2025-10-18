@@ -6,6 +6,7 @@ import '../widgets/gradient_header.dart';
 import 'signup_page.dart';
 import 'verify_page.dart';
 import 'role_selection_page.dart';
+import 'traveler/identity_verification_screen.dart';
 import 'traveler_home_page.dart';
 import 'requester_home_page.dart';
 
@@ -88,15 +89,30 @@ class _LoginPageState extends State<LoginPage> {
             context,
             MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
           );
+        } else if (userRole == 'Traveler') {
+          // Check if traveler is identity verified
+          final isVerified = await _supabaseService.isUserVerified();
+
+          if (!isVerified) {
+            // Navigate to identity verification screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const IdentityVerificationScreen(),
+              ),
+            );
+          } else {
+            // Navigate to traveler home page
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const TravelerHomePage()),
+            );
+          }
         } else {
-          // Navigate to appropriate home page based on role
+          // Navigate to requester home page (no verification needed)
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => userRole == 'Traveler'
-                  ? const TravelerHomePage()
-                  : const RequesterHomePage(),
-            ),
+            MaterialPageRoute(builder: (context) => const RequesterHomePage()),
           );
         }
       } catch (e) {

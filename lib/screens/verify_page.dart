@@ -177,206 +177,211 @@ class _VerifyPageState extends State<VerifyPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
-
     return Scaffold(
       backgroundColor: AppConstants.backgroundColor,
-      body: Column(
-        children: [
-          // Header with gradient background
-          GradientHeader(
-            title: 'Verify',
-            subtitle: 'Confirm your identity to keep\nyour account secure',
-            scaleFactor: scaleFactor,
-            onBackPressed: () => Navigator.pop(context),
-          ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenWidth = constraints.maxWidth;
+          final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.all(
-                  AppConstants.defaultPadding * scaleFactor,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 24 * scaleFactor),
+          return Column(
+            children: [
+              // Header with gradient background
+              GradientHeader(
+                title: 'Verify',
+                subtitle: 'Confirm your identity to keep\nyour account secure',
+                scaleFactor: scaleFactor,
+                onBackPressed: () => Navigator.pop(context),
+              ),
 
-                    // Message
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: 14 * scaleFactor,
-                          color: const Color(0xFF667085),
-                          height: 1.5,
-                        ),
-                        children: [
-                          const TextSpan(text: 'We have sent you a '),
-                          TextSpan(
-                            text: '6-PIN Verification',
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.all(
+                      AppConstants.defaultPadding * scaleFactor,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 24 * scaleFactor),
+
+                        // Message
+                        RichText(
+                          text: TextSpan(
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                              fontSize: 14 * scaleFactor,
+                              color: const Color(0xFF667085),
+                              height: 1.5,
                             ),
-                          ),
-                          const TextSpan(text: ' code to\n'),
-                          TextSpan(
-                            text: widget.email ?? 'your email',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppConstants.primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 32 * scaleFactor),
-
-                    // PIN Input Fields (6 digits for Supabase OTP)
-                    SizedBox(
-                      width: double.infinity,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(6, (index) {
-                          return Expanded(
-                            child: Container(
-                              height: 100 * scaleFactor,
-                              margin: EdgeInsets.symmetric(
-                                horizontal: 6 * scaleFactor,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(
-                                  16 * scaleFactor,
-                                ),
-                                border: Border.all(
-                                  color: const Color(0xFFE0E0E0),
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: TextField(
-                                  controller: _controllers[index],
-                                  focusNode: _focusNodes[index],
-                                  textAlign: TextAlign.center,
-                                  textAlignVertical: TextAlignVertical.center,
-                                  keyboardType: TextInputType.number,
-                                  maxLength: 1,
-                                  style: TextStyle(
-                                    fontSize: 36 * scaleFactor,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    counterText: '',
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  onChanged: (value) {
-                                    if (value.isNotEmpty && index < 3) {
-                                      _focusNodes[index + 1].requestFocus();
-                                    } else if (value.isEmpty && index > 0) {
-                                      _focusNodes[index - 1].requestFocus();
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                    SizedBox(height: 32 * scaleFactor),
-
-                    // Verify Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50 * scaleFactor,
-                      child: ElevatedButton(
-                        onPressed: _isVerifying ? null : _verifyCode,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppConstants.primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              12 * scaleFactor,
-                            ),
-                          ),
-                        ),
-                        child: _isVerifying
-                            ? SizedBox(
-                                height: 20 * scaleFactor,
-                                width: 20 * scaleFactor,
-                                child: const CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                'Enter Verification Code',
+                            children: [
+                              const TextSpan(text: 'We have sent you a '),
+                              TextSpan(
+                                text: '6-PIN Verification',
                                 style: TextStyle(
-                                  fontSize: 16 * scaleFactor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                    SizedBox(height: 16 * scaleFactor),
-
-                    // Resend Timer
-                    Center(
-                      child: _canResend
-                          ? GestureDetector(
-                              onTap: _resendCode,
-                              child: Text(
-                                'Resend Code',
-                                style: TextStyle(
-                                  fontSize: 14 * scaleFactor,
-                                  color: AppConstants.primaryColor,
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.black,
                                 ),
                               ),
-                            )
-                          : RichText(
-                              text: TextSpan(
+                              const TextSpan(text: ' code to\n'),
+                              TextSpan(
+                                text: widget.email ?? 'your email',
                                 style: TextStyle(
-                                  fontSize: 14 * scaleFactor,
-                                  color: const Color(0xFF667085),
+                                  fontWeight: FontWeight.bold,
+                                  color: AppConstants.primaryColor,
                                 ),
-                                children: [
-                                  const TextSpan(text: 'Resend in '),
-                                  TextSpan(
-                                    text: '$_secondsRemaining Seconds',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppConstants.primaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 32 * scaleFactor),
+
+                        // PIN Input Fields (6 digits for Supabase OTP)
+                        SizedBox(
+                          width: double.infinity,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: List.generate(6, (index) {
+                              return Expanded(
+                                child: Container(
+                                  height: 100 * scaleFactor,
+                                  margin: EdgeInsets.symmetric(
+                                    horizontal: 6 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(
+                                      16 * scaleFactor,
+                                    ),
+                                    border: Border.all(
+                                      color: const Color(0xFFE0E0E0),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: TextField(
+                                      controller: _controllers[index],
+                                      focusNode: _focusNodes[index],
+                                      textAlign: TextAlign.center,
+                                      textAlignVertical:
+                                          TextAlignVertical.center,
+                                      keyboardType: TextInputType.number,
+                                      maxLength: 1,
+                                      style: TextStyle(
+                                        fontSize: 36 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        counterText: '',
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+                                      onChanged: (value) {
+                                        if (value.isNotEmpty && index < 5) {
+                                          _focusNodes[index + 1].requestFocus();
+                                        } else if (value.isEmpty && index > 0) {
+                                          _focusNodes[index - 1].requestFocus();
+                                        }
+                                      },
                                     ),
                                   ),
-                                ],
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                        SizedBox(height: 32 * scaleFactor),
+
+                        // Verify Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50 * scaleFactor,
+                          child: ElevatedButton(
+                            onPressed: _isVerifying ? null : _verifyCode,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppConstants.primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  12 * scaleFactor,
+                                ),
                               ),
                             ),
+                            child: _isVerifying
+                                ? SizedBox(
+                                    height: 20 * scaleFactor,
+                                    width: 20 * scaleFactor,
+                                    child: const CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    'Enter Verification Code',
+                                    style: TextStyle(
+                                      fontSize: 16 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
+
+                        // Resend Timer
+                        Center(
+                          child: _canResend
+                              ? GestureDetector(
+                                  onTap: _resendCode,
+                                  child: Text(
+                                    'Resend Code',
+                                    style: TextStyle(
+                                      fontSize: 14 * scaleFactor,
+                                      color: AppConstants.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : RichText(
+                                  text: TextSpan(
+                                    style: TextStyle(
+                                      fontSize: 14 * scaleFactor,
+                                      color: const Color(0xFF667085),
+                                    ),
+                                    children: [
+                                      const TextSpan(text: 'Resend in '),
+                                      TextSpan(
+                                        text: '$_secondsRemaining Seconds',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppConstants.primaryColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

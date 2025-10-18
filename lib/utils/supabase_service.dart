@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:math';
 
 /// Supabase service class for authentication and database operations
 class SupabaseService {
@@ -259,5 +258,43 @@ class SupabaseService {
   /// Get current user ID
   String? getCurrentUserId() {
     return currentUser?.id;
+  }
+
+  /// Check if user (traveler) is identity verified
+  Future<bool> isUserVerified() async {
+    try {
+      if (currentUser == null) return false;
+
+      final userData = await _supabase
+          .from('users')
+          .select('is_verified')
+          .eq('id', currentUser!.id)
+          .maybeSingle();
+
+      return userData?['is_verified'] ?? false;
+    } catch (e) {
+      print('Error checking verification status: $e');
+      return false;
+    }
+  }
+
+  /// Get verification status details
+  Future<Map<String, dynamic>?> getVerificationStatus() async {
+    try {
+      if (currentUser == null) return null;
+
+      final response = await _supabase
+          .from('verification_requests')
+          .select()
+          .eq('user_id', currentUser!.id)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      print('Error fetching verification status: $e');
+      return null;
+    }
   }
 }

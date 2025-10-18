@@ -4,6 +4,8 @@ import 'utils/constants.dart';
 import 'utils/supabase_config.dart';
 import 'widgets/responsive_wrapper.dart';
 import 'screens/landing_page.dart';
+import 'screens/traveler/identity_verification_screen.dart';
+import 'screens/traveler_home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +33,11 @@ class MyApp extends StatelessWidget {
         fontFamily: AppConstants.fontFamily,
       ),
       home: const ResponsiveWrapper(child: LandingPage()),
+      routes: {
+        '/identity_verification': (context) =>
+            const IdentityVerificationScreen(),
+        '/traveler_home': (context) => const TravelerHomePage(),
+      },
     );
   }
 }

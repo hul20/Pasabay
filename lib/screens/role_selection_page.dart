@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
-import 'traveler_home_page.dart';
+import 'traveler/identity_verification_screen.dart';
 import 'requester_home_page.dart';
 
 class RoleSelectionPage extends StatefulWidget {
@@ -34,12 +34,13 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
 
       if (!mounted) return;
 
-      // Navigate to appropriate home page
+      // Navigate to appropriate page
+      // Travelers go to identity verification first, requesters to their home page
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => _selectedRole == 'Traveler'
-              ? const TravelerHomePage()
+              ? const IdentityVerificationScreen()
               : const RequesterHomePage(),
         ),
       );

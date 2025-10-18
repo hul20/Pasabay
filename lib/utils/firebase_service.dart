@@ -162,7 +162,7 @@ class FirebaseService {
       return true;
     } catch (e) {
       if (e is String) {
-        throw e;
+        rethrow;
       }
       throw 'Error verifying OTP: $e';
     }
