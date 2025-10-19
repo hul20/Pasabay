@@ -4,10 +4,10 @@
 
 Your Pasabay app now has **TWO separate builds** in one project:
 
-1. **📱 Traveler App (Mobile-First)** - For travelers to submit verification documents
-2. **🖥️ Verifier Dashboard (Web-First)** - For verifiers to review and approve/reject requests
+1. **📱 Main User App** - For travelers and requesters to use the main features
+2. **🖥️ Verifier Dashboard** - For verifiers to review and approve/reject verification requests
 
-Both share the same codebase but run independently with complete access separation!
+Both share the same codebase but run independently with role-based access!
 
 ---
 
@@ -25,18 +25,18 @@ Choose option **3** to run both apps simultaneously!
 
 ## 🏃 Manual Testing
 
-### Test Traveler App (Mobile View)
+### Test Main User App (Travelers & Requesters)
 
 ```powershell
-flutter run -t lib/main_traveler.dart -d chrome --web-port=5000
+flutter run -t lib/main.dart -d chrome --web-port=5000
 ```
 
 Open in Chrome: http://localhost:5000
 
-### Test Verifier Dashboard (Web View)
+### Test Verifier Dashboard
 
 ```powershell
-flutter run -t lib/main_verifier.dart -d chrome --web-port=8080
+flutter run -t lib/verifier.dart -d chrome --web-port=8080
 ```
 
 Open in Chrome: http://localhost:8080
@@ -75,29 +75,30 @@ VALUES (
 ### Step 3: Test the Flow ✅
 
 1. Run both apps (use `test_apps.ps1`)
-2. **As Traveler:** Submit verification documents
+2. **As Main User (Traveler/Requester):** Submit verification documents
 3. **As Verifier:** Login → Review → Approve/Reject
-4. **As Traveler:** Check status update
+4. **As Main User:** Check status update
 
 ---
 
 ## 🎨 Features
 
-### Traveler App (Mobile)
+### Main User App (Travelers & Requesters)
 ✅ Submit identity documents (ID + Selfie)  
 ✅ Track verification status  
 ✅ Resubmit if rejected  
 ✅ View rejection reasons  
-❌ Cannot access from web browser  
+✅ Use traveler and requester features  
+✅ Works on all platforms  
 
-### Verifier Dashboard (Web)
+### Verifier Dashboard
 ✅ View all verification requests  
 ✅ Filter by status (Pending, Approved, etc.)  
 ✅ View documents in full size  
 ✅ Approve with notes  
 ✅ Reject with reason  
 ✅ Real-time statistics  
-❌ Cannot access from mobile  
+✅ Works on all platforms  
 
 ---
 
@@ -112,10 +113,10 @@ VALUES (
 
 ## 📦 Build for Production
 
-### Build Mobile App (Android)
+### Build Main User App (Android)
 
 ```powershell
-flutter build apk -t lib/main_traveler.dart --release
+flutter build apk -t lib/main.dart --release
 ```
 
 Output: `build\app\outputs\flutter-apk\app-release.apk`
@@ -123,7 +124,7 @@ Output: `build\app\outputs\flutter-apk\app-release.apk`
 ### Build Verifier Dashboard (Web)
 
 ```powershell
-flutter build web -t lib/main_verifier.dart --release
+flutter build web -t lib/verifier.dart --release
 ```
 
 Output: `build\web\` (deploy to Netlify, Vercel, Firebase Hosting, etc.)
@@ -175,10 +176,10 @@ Verified  Can Resubmit
 
 | Action | Command |
 |--------|---------|
-| Run Traveler | `flutter run -t lib/main_traveler.dart -d chrome` |
-| Run Verifier | `flutter run -t lib/main_verifier.dart -d chrome` |
-| Build APK | `flutter build apk -t lib/main_traveler.dart` |
-| Build Web | `flutter build web -t lib/main_verifier.dart` |
+| Run Main User App | `flutter run -t lib/main.dart -d chrome` |
+| Run Verifier | `flutter run -t lib/verifier.dart -d chrome` |
+| Build APK | `flutter build apk -t lib/main.dart` |
+| Build Web | `flutter build web -t lib/verifier.dart` |
 | Clean | `flutter clean` |
 | Get Packages | `flutter pub get` |
 

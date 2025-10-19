@@ -6,9 +6,8 @@
 pasabay_app/
 │
 ├── 📱 ENTRY POINTS
-│   ├── lib/main.dart                          # Original entry (can be kept or removed)
-│   ├── lib/main_traveler.dart                 # ✨ NEW: Mobile app entry
-│   └── lib/main_verifier.dart                 # ✨ NEW: Web dashboard entry
+│   ├── lib/main.dart                          # ✨ Main user app (Travelers & Requesters)
+│   └── lib/verifier.dart                      # ✨ Verifier dashboard entry
 │
 ├── 📦 MODELS (Shared)
 │   ├── lib/models/
@@ -31,7 +30,7 @@ pasabay_app/
 │   │       ├── verification_card.dart         # ✨ NEW: Request card
 │   │       └── statistics_card.dart           # ✨ NEW: Stats widget
 │
-├── 📱 TRAVELER (Mobile - Existing)
+├── 📱 MAIN USER APP (Travelers & Requesters - Existing)
 │   ├── lib/screens/
 │   │   ├── landing_page.dart                  # Existing
 │   │   ├── login_page.dart                    # Existing
@@ -75,8 +74,8 @@ pasabay_app/
 ### Entry Points
 | File | Purpose | Platform | Users |
 |------|---------|----------|-------|
-| `main_traveler.dart` | Mobile app entry | Mobile only | Travelers |
-| `main_verifier.dart` | Web dashboard entry | Web only | Verifiers |
+| `main.dart` | Main user app entry | All platforms | Travelers & Requesters |
+| `verifier.dart` | Verifier dashboard entry | All platforms | Verifiers |
 
 ### Models
 | File | Purpose |
@@ -133,19 +132,19 @@ pasabay_app/
 
 ## Build Targets
 
-### Mobile App (Traveler)
+### Main User App (Travelers & Requesters)
 ```
-Entry: lib/main_traveler.dart
-Platforms: Android, iOS
-Command: flutter build apk -t lib/main_traveler.dart
+Entry: lib/main.dart
+Platforms: All (Android, iOS, Web, Desktop)
+Command: flutter build apk -t lib/main.dart
 Output: build/app/outputs/flutter-apk/app-release.apk
 ```
 
-### Web Dashboard (Verifier)
+### Verifier Dashboard
 ```
-Entry: lib/main_verifier.dart
-Platform: Web (Chrome, Firefox, Edge, Safari)
-Command: flutter build web -t lib/main_verifier.dart
+Entry: lib/verifier.dart
+Platforms: All (Web, Android, iOS, Desktop)
+Command: flutter build web -t lib/verifier.dart
 Output: build/web/
 ```
 
@@ -177,15 +176,15 @@ All existing dependencies are reused - no new packages needed! ✅
 
 ### Separate Components
 ```
-📱 Traveler:
-   - main_traveler.dart
-   - Existing traveler screens
-   - Mobile-optimized layouts
+📱 Main User App:
+   - main.dart (entry point)
+   - Existing screens (travelers & requesters)
+   - Responsive layouts for all platforms
 
 🖥️ Verifier:
-   - main_verifier.dart
+   - verifier.dart (entry point)
    - verifier/ directory
-   - Web-optimized layouts
+   - Responsive layouts for all platforms
 ```
 
 ## Git Status (What Changed)
@@ -273,7 +272,7 @@ flutter format lib/
 ## Quick Navigation
 
 **Need to edit:**
-- Traveler screens? → `lib/screens/traveler/`
+- Main user screens (travelers/requesters)? → `lib/screens/`
 - Verifier screens? → `lib/verifier/screens/`
 - Shared logic? → `lib/services/` or `lib/models/`
 - Database? → `migrations/setup_verifier_system.sql`
