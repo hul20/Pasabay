@@ -91,32 +91,47 @@ class AuthWrapper extends StatelessWidget {
               if (roleSnapshot.data == true) {
                 return const VerifierDashboardScreen();
               } else {
-                // Not a verifier - show access denied
+                // Not a verifier - show error and sign out
                 return Scaffold(
                   body: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.block, size: 100, color: Colors.red),
-                        SizedBox(height: 24),
-                        Text(
+                        const Icon(Icons.block, size: 80, color: Colors.red),
+                        const SizedBox(height: 24),
+                        const Text(
                           'Access Denied',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            color: AppConstants.textPrimaryColor,
                           ),
                         ),
-                        SizedBox(height: 16),
-                        Text(
-                          'You do not have verifier permissions.',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        const SizedBox(height: 12),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 48),
+                          child: Text(
+                            'You do not have verifier permissions.\nPlease sign in with a verifier account.',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppConstants.textSecondaryColor,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
-                        SizedBox(height: 32),
-                        ElevatedButton(
+                        const SizedBox(height: 32),
+                        ElevatedButton.icon(
                           onPressed: () async {
                             await authService.signOut();
                           },
-                          child: Text('Sign Out'),
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Sign Out'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                          ),
                         ),
                       ],
                     ),

@@ -1,31 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
 import '../../utils/constants.dart';
+import '../../models/user_role.dart';
 
-class VerifierLoginScreen extends StatefulWidget {
-  const VerifierLoginScreen({super.key});
+class VerifierSignupScreen extends StatefulWidget {
+  const VerifierSignupScreen({super.key});
 
   @override
-  State<VerifierLoginScreen> createState() => _VerifierLoginScreenState();
+  State<VerifierSignupScreen> createState() => _VerifierSignupScreenState();
 }
 
-class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
+class _VerifierSignupScreenState extends State<VerifierSignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _errorMessage;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -34,16 +41,39 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
     });
 
     try {
-      await _authService.signIn(
+      // Sign up the user
+      final response = await _authService.signUp(
         _emailController.text.trim(),
         _passwordController.text,
+        UserRole.VERIFIER, // Always create as verifier
       );
 
-      // AuthWrapper will handle role verification and navigation
-      // No need to manually check or navigate here
+      // Update user profile with name
+      if (response.user != null) {
+        await Supabase.instance.client
+            .from('users')
+            .update({'full_name': _nameController.text.trim()})
+            .eq('id', response.user!.id);
+      }
+
+      if (mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Account created successfully! Please check your email to verify your account.',
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+
+        // Navigate back to login
+        Navigator.pop(context);
+      }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Invalid email or password';
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     } finally {
       if (mounted) {
@@ -104,7 +134,7 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                           ),
                           const SizedBox(height: 32),
                           const Text(
-                            'Pasabay Verifier',
+                            'Join as Verifier',
                             style: TextStyle(
                               fontSize: 42,
                               fontWeight: FontWeight.bold,
@@ -114,7 +144,7 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Secure verification dashboard for authorized verifiers',
+                            'Create your verifier account to start reviewing verification requests',
                             style: TextStyle(
                               fontSize: 18,
                               color: Colors.white.withOpacity(0.9),
@@ -133,20 +163,26 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                               ),
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFeatureItem(
-                                  Icons.check_circle_outline,
-                                  'Review verification requests',
+                                _buildBenefitItem(
+                                  Icons.check_circle,
+                                  'Access to verification dashboard',
                                 ),
                                 const SizedBox(height: 16),
-                                _buildFeatureItem(
-                                  Icons.security,
-                                  'Secure approval workflow',
+                                _buildBenefitItem(
+                                  Icons.check_circle,
+                                  'Review and approve requests',
                                 ),
                                 const SizedBox(height: 16),
-                                _buildFeatureItem(
-                                  Icons.analytics,
-                                  'Real-time statistics',
+                                _buildBenefitItem(
+                                  Icons.check_circle,
+                                  'Real-time statistics and analytics',
+                                ),
+                                const SizedBox(height: 16),
+                                _buildBenefitItem(
+                                  Icons.check_circle,
+                                  'Secure and reliable platform',
                                 ),
                               ],
                             ),
@@ -158,7 +194,7 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                 ),
               ),
 
-            // Right side - Login form
+            // Right side - Signup form
             Expanded(
               flex: screenWidth > 900 ? 1 : 2,
               child: Center(
@@ -190,7 +226,7 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                               ],
 
                               const Text(
-                                'Sign In',
+                                'Create Account',
                                 style: TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
@@ -199,7 +235,7 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                'Access your verifier dashboard',
+                                'Sign up as a verifier',
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: AppConstants.textSecondaryColor,
@@ -238,6 +274,31 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                                   ),
                                 ),
 
+                              // Name field
+                              TextFormField(
+                                controller: _nameController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: InputDecoration(
+                                  labelText: 'Full Name',
+                                  prefixIcon: const Icon(Icons.person_outlined),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppConstants.inputBorderRadius,
+                                    ),
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your full name';
+                                  }
+                                  if (value.trim().split(' ').length < 2) {
+                                    return 'Please enter your full name (first and last name)';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 20),
+
                               // Email field
                               TextFormField(
                                 controller: _emailController,
@@ -255,7 +316,9 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                                   if (value == null || value.isEmpty) {
                                     return 'Please enter your email';
                                   }
-                                  if (!value.contains('@')) {
+                                  if (!RegExp(
+                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                  ).hasMatch(value)) {
                                     return 'Please enter a valid email';
                                   }
                                   return null;
@@ -287,19 +350,62 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                                       AppConstants.inputBorderRadius,
                                     ),
                                   ),
+                                  helperText: 'Minimum 6 characters',
+                                  helperMaxLines: 2,
                                 ),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
-                                    return 'Please enter your password';
+                                    return 'Please enter a password';
+                                  }
+                                  if (value.length < 6) {
+                                    return 'Password must be at least 6 characters';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Confirm Password field
+                              TextFormField(
+                                controller: _confirmPasswordController,
+                                obscureText: _obscureConfirmPassword,
+                                decoration: InputDecoration(
+                                  labelText: 'Confirm Password',
+                                  prefixIcon: const Icon(Icons.lock_outlined),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureConfirmPassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscureConfirmPassword =
+                                            !_obscureConfirmPassword;
+                                      });
+                                    },
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppConstants.inputBorderRadius,
+                                    ),
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please confirm your password';
+                                  }
+                                  if (value != _passwordController.text) {
+                                    return 'Passwords do not match';
                                   }
                                   return null;
                                 },
                               ),
                               const SizedBox(height: 32),
 
-                              // Login button
+                              // Signup button
                               ElevatedButton(
-                                onPressed: _isLoading ? null : _handleLogin,
+                                onPressed: _isLoading ? null : _handleSignup,
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 16,
@@ -323,7 +429,7 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                                         ),
                                       )
                                     : const Text(
-                                        'Sign In',
+                                        'Create Account',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
@@ -331,48 +437,41 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
                                       ),
                               ),
 
-                              // Info text - no signup option
-                              const SizedBox(height: 32),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppConstants.primaryColor.withOpacity(
-                                    0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppConstants.primaryColor
-                                        .withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.info_outline,
-                                      color: AppConstants.primaryColor,
-                                      size: 20,
+                              // Login link
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Already have an account? ',
+                                    style: TextStyle(
+                                      color: AppConstants.textSecondaryColor,
                                     ),
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      'Authorized Verifiers Only',
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                    },
+                                    child: const Text(
+                                      'Sign In',
                                       style: TextStyle(
-                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
-                                        color: AppConstants.textPrimaryColor,
+                                        color: AppConstants.primaryColor,
                                       ),
-                                      textAlign: TextAlign.center,
                                     ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'Verifier credentials are provided by administrators.\nContact support if you need access.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppConstants.textSecondaryColor,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
+                                  ),
+                                ],
+                              ),
+
+                              // Terms text
+                              const SizedBox(height: 16),
+                              const Text(
+                                'By signing up, you agree to our Terms of Service and Privacy Policy.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppConstants.textSecondaryColor,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
@@ -389,15 +488,15 @@ class _VerifierLoginScreenState extends State<VerifierLoginScreen> {
     );
   }
 
-  Widget _buildFeatureItem(IconData icon, String text) {
+  Widget _buildBenefitItem(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white, size: 24),
+        Icon(icon, color: Colors.white, size: 20),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: const TextStyle(color: Colors.white, fontSize: 14),
           ),
         ),
       ],
