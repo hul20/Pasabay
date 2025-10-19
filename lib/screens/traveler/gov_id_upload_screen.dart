@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import '../../widgets/responsive_wrapper.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../utils/supabase_service.dart';
 import 'selfie_upload_screen.dart';
 
 class GovIdUploadScreen extends StatefulWidget {
@@ -14,9 +15,11 @@ class GovIdUploadScreen extends StatefulWidget {
 }
 
 class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
-  File? _selectedFile;
+  Uint8List? _selectedFileBytes;
   String? _fileName;
   bool _isLoading = false;
+  String? _uploadedUrl;
+  final _supabaseService = SupabaseService();
 
   Future<void> _pickFile() async {
     try {
@@ -27,15 +30,43 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
 
       if (result != null) {
         setState(() {
-          _selectedFile = File(result.files.single.path!);
-          _fileName = result.files.single.name;
+          _isLoading = true;
         });
+
+        final bytes = result.files.single.bytes;
+        final fileName = result.files.single.name;
+
+        if (bytes == null) {
+          throw 'Failed to read file';
+        }
+
+        // Upload to Supabase Storage
+        final url = await _supabaseService.uploadGovernmentId(bytes, fileName);
+
+        setState(() {
+          _selectedFileBytes = bytes;
+          _fileName = fileName;
+          _uploadedUrl = url;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Government ID uploaded successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error picking file: $e'),
+            content: Text('Error uploading file: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -44,9 +75,7 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
   }
 
   void _continue() {
-    // TODO: Re-enable validation for production
-    // For testing: Allow proceeding without file upload
-    /* if (_selectedFile == null) {
+    if (_selectedFileBytes == null || _uploadedUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please upload your Government ID first'),
@@ -54,17 +83,15 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
         ),
       );
       return;
-    } */
+    }
 
     // Navigate to Step 2: Selfie Upload
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SelfieUploadScreen(
-          governmentIdFile: _selectedFile,
-          governmentIdFileName:
-              _selectedFile?.path.split('/').last ??
-              _selectedFile?.path.split('\\').last,
+          governmentIdUrl: _uploadedUrl!,
+          governmentIdFileName: _fileName!,
         ),
       ),
     );
@@ -276,7 +303,7 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 28 * scaleFactor),
       child: GestureDetector(
-        onTap: _pickFile,
+        onTap: _isLoading ? null : _pickFile,
         child: Container(
           height: 237 * scaleFactor,
           decoration: BoxDecoration(
@@ -288,83 +315,118 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
             ),
             borderRadius: BorderRadius.circular(19 * scaleFactor),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // File Icon
-              Container(
-                width: 58 * scaleFactor,
-                height: 58 * scaleFactor,
-                decoration: BoxDecoration(
-                  color: AppConstants.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12 * scaleFactor),
-                ),
-                child: Icon(
-                  Icons.insert_drive_file_outlined,
-                  size: 32 * scaleFactor,
-                  color: AppConstants.primaryColor,
-                ),
-              ),
-
-              SizedBox(height: 16 * scaleFactor),
-
-              // Upload Text
-              Text(
-                _fileName ?? 'Upload Your Document',
-                style: TextStyle(
-                  fontSize: 17 * scaleFactor,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF101828),
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              SizedBox(height: 8 * scaleFactor),
-
-              if (_fileName == null)
-                Text(
-                  'Drag and drop your file here, or click to browse',
-                  style: TextStyle(
-                    fontSize: 14 * scaleFactor,
-                    color: const Color(0xFF4A5565),
+          child: _isLoading
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppConstants.primaryColor,
+                        ),
+                      ),
+                      SizedBox(height: 16 * scaleFactor),
+                      Text(
+                        'Uploading...',
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: AppConstants.primaryColor,
+                        ),
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
-                ),
-
-              SizedBox(height: 16 * scaleFactor),
-
-              // Choose File Button
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 16 * scaleFactor,
-                  vertical: 10 * scaleFactor,
-                ),
-                decoration: BoxDecoration(
-                  color: AppConstants.primaryColor,
-                  borderRadius: BorderRadius.circular(9.5 * scaleFactor),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.upload_outlined,
-                      size: 20 * scaleFactor,
-                      color: Colors.white,
+                    // File Icon
+                    Container(
+                      width: 58 * scaleFactor,
+                      height: 58 * scaleFactor,
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                      ),
+                      child: Icon(
+                        _fileName != null
+                            ? Icons.check_circle
+                            : Icons.insert_drive_file_outlined,
+                        size: 32 * scaleFactor,
+                        color: AppConstants.primaryColor,
+                      ),
                     ),
-                    SizedBox(width: 8 * scaleFactor),
+
+                    SizedBox(height: 16 * scaleFactor),
+
+                    // Upload Text
                     Text(
-                      'Choose File',
+                      _fileName ?? 'Upload Your Document',
                       style: TextStyle(
-                        fontSize: 14 * scaleFactor,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        fontSize: 17 * scaleFactor,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF101828),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+
+                    SizedBox(height: 8 * scaleFactor),
+
+                    if (_fileName == null)
+                      Text(
+                        'Drag and drop your file here, or click to browse',
+                        style: TextStyle(
+                          fontSize: 14 * scaleFactor,
+                          color: const Color(0xFF4A5565),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                    if (_fileName != null)
+                      Text(
+                        'File uploaded successfully!',
+                        style: TextStyle(
+                          fontSize: 14 * scaleFactor,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                    SizedBox(height: 16 * scaleFactor),
+
+                    // Choose File Button
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16 * scaleFactor,
+                        vertical: 10 * scaleFactor,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor,
+                        borderRadius: BorderRadius.circular(9.5 * scaleFactor),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.upload_outlined,
+                            size: 20 * scaleFactor,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 8 * scaleFactor),
+                          Text(
+                            _fileName != null ? 'Change File' : 'Choose File',
+                            style: TextStyle(
+                              fontSize: 14 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

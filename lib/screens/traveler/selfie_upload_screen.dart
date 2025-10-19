@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
+import 'dart:io' show Platform;
 import '../../widgets/responsive_wrapper.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../utils/supabase_service.dart';
 import 'review_documents_screen.dart';
 
 class SelfieUploadScreen extends StatefulWidget {
-  final File? governmentIdFile;
-  final String? governmentIdFileName;
+  final String governmentIdUrl;
+  final String governmentIdFileName;
 
   const SelfieUploadScreen({
     super.key,
-    this.governmentIdFile,
-    this.governmentIdFileName,
+    required this.governmentIdUrl,
+    required this.governmentIdFileName,
   });
 
   @override
@@ -22,29 +25,113 @@ class SelfieUploadScreen extends StatefulWidget {
 }
 
 class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
-  File? _selectedImage;
-  final ImagePicker _picker = ImagePicker();
+  Uint8List? _selectedImageBytes;
+  String? _selfieFileName;
   bool _isLoading = false;
+  String? _uploadedUrl;
+  final ImagePicker _picker = ImagePicker();
+  final _supabaseService = SupabaseService();
 
+  /// Check if platform supports camera
+  bool get _isCameraSupported {
+    if (kIsWeb) return true; // Web browsers support camera
+    try {
+      return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Take photo with platform-specific handling
   Future<void> _takePhoto() async {
     try {
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.front,
-        imageQuality: 85,
-      );
+      setState(() {
+        _isLoading = true;
+      });
+
+      XFile? photo;
+
+      // Check if camera is supported on this platform
+      if (_isCameraSupported) {
+        // Use camera for supported platforms (Android, iOS, macOS, Web)
+        photo = await _picker.pickImage(
+          source: ImageSource.camera,
+          preferredCameraDevice: CameraDevice.front,
+          imageQuality: 85,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
+      } else {
+        // For Windows/Linux/unsupported platforms, use gallery instead
+        // Show a message to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Camera not available. Please select an image from gallery.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        
+        // Open gallery/file picker instead
+        photo = await _picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
+      }
 
       if (photo != null) {
+        final bytes = await photo.readAsBytes();
+        final fileName = 'selfie_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+        // Upload to Supabase Storage
+        final url = await _supabaseService.uploadSelfie(bytes, fileName);
+
         setState(() {
-          _selectedImage = File(photo.path);
+          _selectedImageBytes = bytes;
+          _selfieFileName = fileName;
+          _uploadedUrl = url;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo uploaded successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        // User cancelled
+        setState(() {
+          _isLoading = false;
         });
       }
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       if (mounted) {
+        String errorMessage = 'Error taking photo: $e';
+        
+        // Provide helpful message based on error type
+        if (e.toString().contains('permission') || 
+            e.toString().contains('denied')) {
+          errorMessage = 'Camera permission denied. Please enable camera access in your device settings.';
+        } else if (e.toString().contains('camera')) {
+          errorMessage = 'Camera not available. Please use the Upload button to select an image.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error taking photo: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -53,17 +140,50 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
 
   Future<void> _uploadPhoto() async {
     try {
+      setState(() {
+        _isLoading = true;
+      });
+
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
       );
 
-      if (result != null && result.files.single.path != null) {
+      if (result != null) {
+        final bytes = result.files.single.bytes;
+        final fileName = result.files.single.name;
+
+        if (bytes == null) {
+          throw 'Failed to read file';
+        }
+
+        // Upload to Supabase Storage
+        final url = await _supabaseService.uploadSelfie(bytes, fileName);
+
         setState(() {
-          _selectedImage = File(result.files.single.path!);
+          _selectedImageBytes = bytes;
+          _selfieFileName = fileName;
+          _uploadedUrl = url;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo uploaded successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
         });
       }
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -76,9 +196,7 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
   }
 
   void _continue() {
-    // TODO: Re-enable validation for production
-    // For testing: Allow proceeding without photo capture
-    /* if (_selectedImage == null) {
+    if (_selectedImageBytes == null || _uploadedUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please take a selfie or upload a photo first'),
@@ -86,19 +204,17 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
         ),
       );
       return;
-    } */
+    }
 
     // Navigate to Step 3 (Review & Submit)
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ReviewDocumentsScreen(
-          governmentIdFile: widget.governmentIdFile,
-          selfieFile: _selectedImage,
+          governmentIdUrl: widget.governmentIdUrl,
+          selfieUrl: _uploadedUrl!,
           governmentIdFileName: widget.governmentIdFileName,
-          selfieFileName:
-              _selectedImage?.path.split('/').last ??
-              _selectedImage?.path.split('\\').last,
+          selfieFileName: _selfieFileName!,
         ),
       ),
     );
@@ -348,44 +464,87 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
           ),
           borderRadius: BorderRadius.circular(19 * scaleFactor),
         ),
-        child: _selectedImage != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(19 * scaleFactor),
-                child: Image.file(
-                  _selectedImage!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
+        child: _isLoading
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppConstants.primaryColor,
+                      ),
+                    ),
+                    SizedBox(height: 16 * scaleFactor),
+                    Text(
+                      'Uploading...',
+                      style: TextStyle(
+                        fontSize: 16 * scaleFactor,
+                        fontWeight: FontWeight.w600,
+                        color: AppConstants.primaryColor,
+                      ),
+                    ),
+                  ],
                 ),
               )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Camera Icon
-                  Icon(
-                    Icons.camera_alt_outlined,
-                    size: 58 * scaleFactor,
-                    color: const Color(0xFF9CA3AF),
-                  ),
-
-                  SizedBox(height: 16 * scaleFactor),
-
-                  // Instruction Text
-                  Text(
-                    'Position your face in the frame',
-                    style: TextStyle(
-                      fontSize: 17 * scaleFactor,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF464646),
+            : _selectedImageBytes != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(19 * scaleFactor),
+                    child: Stack(
+                      children: [
+                        Image.memory(
+                          _selectedImageBytes!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
+                        // Success overlay
+                        Positioned(
+                          top: 10 * scaleFactor,
+                          right: 10 * scaleFactor,
+                          child: Container(
+                            padding: EdgeInsets.all(8 * scaleFactor),
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 20 * scaleFactor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
-                  ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Camera Icon
+                      Icon(
+                        Icons.camera_alt_outlined,
+                        size: 58 * scaleFactor,
+                        color: const Color(0xFF9CA3AF),
+                      ),
 
-                  SizedBox(height: 8 * scaleFactor),
+                      SizedBox(height: 16 * scaleFactor),
 
-                  Text(
-                    'Make sure your face is clearly visible',
-                    style: TextStyle(
+                      // Instruction Text
+                      Text(
+                        'Position your face in the frame',
+                        style: TextStyle(
+                          fontSize: 17 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF464646),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      SizedBox(height: 8 * scaleFactor),
+
+                      Text(
+                        'Make sure your face is clearly visible',
+                        style: TextStyle(
                       fontSize: 14 * scaleFactor,
                       color: const Color(0xFF464646),
                       fontWeight: FontWeight.w400,
@@ -401,7 +560,7 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
                     children: [
                       // Take A Photo Button
                       GestureDetector(
-                        onTap: _takePhoto,
+                        onTap: _isLoading ? null : _takePhoto,
                         child: Container(
                           width: 147 * scaleFactor,
                           padding: EdgeInsets.symmetric(
@@ -409,13 +568,15 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
                             vertical: 10 * scaleFactor,
                           ),
                           decoration: BoxDecoration(
-                            color: AppConstants.primaryColor,
+                            color: _isLoading
+                                ? AppConstants.primaryColor.withOpacity(0.5)
+                                : AppConstants.primaryColor,
                             borderRadius: BorderRadius.circular(
                               9.5 * scaleFactor,
                             ),
                           ),
                           child: Text(
-                            'Take A Photo',
+                            _isCameraSupported ? 'Take A Photo' : 'Select Photo',
                             style: TextStyle(
                               fontSize: 14 * scaleFactor,
                               fontWeight: FontWeight.w600,
@@ -430,7 +591,7 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
 
                       // Upload Button
                       GestureDetector(
-                        onTap: _uploadPhoto,
+                        onTap: _isLoading ? null : _uploadPhoto,
                         child: Container(
                           width: 128 * scaleFactor,
                           padding: EdgeInsets.symmetric(
@@ -438,17 +599,21 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
                             vertical: 10 * scaleFactor,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: _isLoading
+                                ? Colors.grey.shade300
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(
                               9.5 * scaleFactor,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.07),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            boxShadow: _isLoading
+                                ? []
+                                : [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.07),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                           ),
                           child: Text(
                             'Upload',

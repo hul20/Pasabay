@@ -13,132 +13,120 @@ class LandingPage extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Get available width
             final screenWidth = constraints.maxWidth;
-
-            // Calculate responsive sizes
             final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
             return Center(
               child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 26.0 * scaleFactor,
-                    vertical: 20.0,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo - responsive size
-                      Container(
-                        width: 326 * scaleFactor,
-                        height: 326 * scaleFactor,
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: NetworkImage(AppConstants.logoUrl),
-                            fit: BoxFit.cover,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 26.0 * scaleFactor,
+                  vertical: 20.0,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // ✅ Responsive logo (no fixed width/height)
+                    Image.network(
+                      AppConstants.logoUrl,
+                      width: screenWidth * 0.6, // 60% of screen width
+                      height: screenWidth * 0.6,
+                      fit: BoxFit.contain,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+
+                    // ✅ Title
+                    Text(
+                      'Pasabay',
+                      style: TextStyle(
+                        fontSize: (64 * scaleFactor).clamp(32, 64),
+                        fontWeight: FontWeight.bold,
+                        color: AppConstants.primaryColor,
+                        letterSpacing: 1,
+                        height: 1.0,
+                      ),
+                    ),
+                    SizedBox(height: 10 * scaleFactor),
+
+                    // ✅ Tagline
+                    Text(
+                      '"Hatid ng kapwa biyahero"',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: (16 * scaleFactor).clamp(12, 16),
+                        color: AppConstants.textPrimaryColor,
+                        height: 2.4,
+                      ),
+                    ),
+                    SizedBox(height: 50 * scaleFactor),
+
+                    // ✅ Responsive button
+                    SizedBox(
+                      width: screenWidth * 0.85, // 85% of available width
+                      height: (57 * scaleFactor).clamp(44, 57),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SignUpPage(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppConstants.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.defaultBorderRadius * scaleFactor,
+                            ),
                           ),
+                          elevation: 0,
                         ),
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-
-                      // Title "Pasabay" - responsive font size
-                      Text(
-                        'Pasabay',
-                        style: TextStyle(
-                          fontSize: 64 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: AppConstants.primaryColor,
-                          letterSpacing: 1,
-                          height: 1.0,
-                        ),
-                      ),
-                      SizedBox(height: 10 * scaleFactor),
-
-                      // Tagline - responsive
-                      SizedBox(
-                        width: 239 * scaleFactor,
                         child: Text(
-                          '"Hatid ng kapwa biyahero"',
-                          textAlign: TextAlign.center,
+                          'Get Started',
                           style: TextStyle(
-                            fontSize: 16 * scaleFactor,
-                            color: AppConstants.textPrimaryColor,
-                            height: 2.4,
+                            fontSize: (20 * scaleFactor).clamp(16, 20),
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                      SizedBox(height: 50 * scaleFactor),
+                    ),
+                    SizedBox(height: 7 * scaleFactor),
 
-                      // Get Started Button - responsive
-                      SizedBox(
-                        width: (359 * scaleFactor).clamp(200, 359),
-                        height: (57 * scaleFactor).clamp(44, 57),
-                        child: ElevatedButton(
-                          onPressed: () {
+                    // ✅ Already have an account? Login
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Already have an account? ',
+                          style: TextStyle(
+                            fontSize: (14.3 * scaleFactor).clamp(12, 14.3),
+                            color: Colors.black,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const SignUpPage(),
+                                builder: (context) => const LoginPage(),
                               ),
                             );
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppConstants.primaryColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppConstants.defaultBorderRadius * scaleFactor,
-                              ),
-                            ),
-                            elevation: 0,
-                          ),
                           child: Text(
-                            'Get Started',
+                            'Login',
                             style: TextStyle(
-                              fontSize: (20 * scaleFactor).clamp(16, 20),
+                              fontSize: (16.7 * scaleFactor).clamp(14, 16.7),
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: AppConstants.primaryColor,
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: 7 * scaleFactor),
-
-                      // Already have an account? Login - responsive
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            'Already have an account? ',
-                            style: TextStyle(
-                              fontSize: (14.3 * scaleFactor).clamp(12, 14.3),
-                              color: Colors.black,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const LoginPage(),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              'Login',
-                              style: TextStyle(
-                                fontSize: (16.7 * scaleFactor).clamp(14, 16.7),
-                                fontWeight: FontWeight.bold,
-                                color: AppConstants.primaryColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 28 * scaleFactor),
-                    ],
-                  ),
+                      ],
+                    ),
+                    SizedBox(height: 28 * scaleFactor),
+                  ],
                 ),
               ),
             );

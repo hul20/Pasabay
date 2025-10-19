@@ -1,20 +1,20 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pasabay_app/utils/helpers.dart';
+import 'package:pasabay_app/utils/supabase_service.dart';
 import 'verification_successful_screen.dart';
 
 class ReviewDocumentsScreen extends StatefulWidget {
-  final File? governmentIdFile;
-  final File? selfieFile;
-  final String? governmentIdFileName;
-  final String? selfieFileName;
+  final String governmentIdUrl;
+  final String selfieUrl;
+  final String governmentIdFileName;
+  final String selfieFileName;
 
   const ReviewDocumentsScreen({
     super.key,
-    this.governmentIdFile,
-    this.selfieFile,
-    this.governmentIdFileName,
-    this.selfieFileName,
+    required this.governmentIdUrl,
+    required this.selfieUrl,
+    required this.governmentIdFileName,
+    required this.selfieFileName,
   });
 
   @override
@@ -23,6 +23,7 @@ class ReviewDocumentsScreen extends StatefulWidget {
 
 class _ReviewDocumentsScreenState extends State<ReviewDocumentsScreen> {
   bool _isSubmitting = false;
+  final _supabaseService = SupabaseService();
 
   Future<void> _submitForVerification() async {
     setState(() {
@@ -30,18 +31,23 @@ class _ReviewDocumentsScreenState extends State<ReviewDocumentsScreen> {
     });
 
     try {
-      // TODO: Implement Supabase Storage upload
-      // 1. Upload government ID to Supabase Storage
-      // 2. Upload selfie to Supabase Storage
-      // 3. Create verification request in database
-      // 4. Update user's is_verified status to 'pending'
-      // 5. Send notification to admins
-      // 6. Send email confirmation to user
-
-      // Simulate upload delay for testing
-      await Future.delayed(const Duration(seconds: 2));
+      // Submit verification request to Supabase database
+      await _supabaseService.submitVerificationRequest(
+        govIdUrl: widget.governmentIdUrl,
+        selfieUrl: widget.selfieUrl,
+        govIdFileName: widget.governmentIdFileName,
+        selfieFileName: widget.selfieFileName,
+      );
 
       if (!mounted) return;
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Documents submitted successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
 
       // Navigate to Verification Successful screen
       Navigator.pushAndRemoveUntil(
@@ -106,8 +112,7 @@ class _ReviewDocumentsScreenState extends State<ReviewDocumentsScreen> {
                           context,
                           scaleFactor,
                           title: 'Government ID',
-                          fileName:
-                              widget.governmentIdFileName ?? '3213131231.jpeg',
+                          fileName: widget.governmentIdFileName,
                           icon: Icons.credit_card,
                           onView: () => _viewDocument('Government ID'),
                         ),
@@ -116,7 +121,7 @@ class _ReviewDocumentsScreenState extends State<ReviewDocumentsScreen> {
                           context,
                           scaleFactor,
                           title: 'Selfie Photo',
-                          fileName: widget.selfieFileName ?? '203213312.jpeg',
+                          fileName: widget.selfieFileName,
                           icon: Icons.camera_alt,
                           onView: () => _viewDocument('Selfie Photo'),
                         ),

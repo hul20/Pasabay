@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:typed_data';
 
 /// Supabase service class for authentication and database operations
 class SupabaseService {
@@ -295,6 +296,94 @@ class SupabaseService {
     } catch (e) {
       print('Error fetching verification status: $e');
       return null;
+    }
+  }
+
+  // File Upload Methods for Identity Verification
+
+  /// Upload Government ID to Supabase Storage
+  Future<String> uploadGovernmentId(
+    Uint8List fileBytes,
+    String fileName,
+  ) async {
+    try {
+      if (currentUser == null) throw 'User not authenticated';
+
+      final userId = currentUser!.id;
+      final fileExtension = fileName.split('.').last;
+      final storagePath =
+          '$userId/gov_id_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+
+      // Upload to Supabase Storage bucket 'verification-documents'
+      await _supabase.storage
+          .from('verification-documents')
+          .uploadBinary(storagePath, fileBytes);
+
+      // Get public URL
+      final publicUrl = _supabase.storage
+          .from('verification-documents')
+          .getPublicUrl(storagePath);
+
+      return publicUrl;
+    } catch (e) {
+      throw 'Error uploading Government ID: $e';
+    }
+  }
+
+  /// Upload Selfie to Supabase Storage
+  Future<String> uploadSelfie(Uint8List fileBytes, String fileName) async {
+    try {
+      if (currentUser == null) throw 'User not authenticated';
+
+      final userId = currentUser!.id;
+      final fileExtension = fileName.split('.').last;
+      final storagePath =
+          '$userId/selfie_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+
+      // Upload to Supabase Storage bucket 'verification-documents'
+      await _supabase.storage
+          .from('verification-documents')
+          .uploadBinary(storagePath, fileBytes);
+
+      // Get public URL
+      final publicUrl = _supabase.storage
+          .from('verification-documents')
+          .getPublicUrl(storagePath);
+
+      return publicUrl;
+    } catch (e) {
+      throw 'Error uploading Selfie: $e';
+    }
+  }
+
+  /// Submit verification request with document URLs
+  Future<void> submitVerificationRequest({
+    required String govIdUrl,
+    required String selfieUrl,
+    required String govIdFileName,
+    required String selfieFileName,
+  }) async {
+    try {
+      if (currentUser == null) throw 'User not authenticated';
+
+      final userId = currentUser!.id;
+
+      // Insert verification request into database
+      await _supabase.from('verification_requests').insert({
+        'user_id': userId,
+        'gov_id_url': govIdUrl,
+        'selfie_url': selfieUrl,
+        'gov_id_filename': govIdFileName,
+        'selfie_filename': selfieFileName,
+        'status': 'pending',
+        'submitted_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      print('✅ Verification request submitted successfully');
+    } catch (e) {
+      throw 'Error submitting verification request: $e';
     }
   }
 }
