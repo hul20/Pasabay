@@ -75,7 +75,8 @@ class AuthService {
       await _supabase.from('users').insert({
         'id': response.user!.id,
         'email': email,
-        'role': role.name,
+        'role':
+            role.displayName, // Save as Title Case to match database constraint
         'created_at': DateTime.now().toIso8601String(),
       });
     }

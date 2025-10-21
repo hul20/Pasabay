@@ -8,6 +8,22 @@ enum VerificationStatus {
   REJECTED,
   RESUBMITTED;
 
+  /// Get the database value (Title Case for database constraint)
+  String get dbValue {
+    switch (this) {
+      case VerificationStatus.PENDING:
+        return 'Pending';
+      case VerificationStatus.UNDER_REVIEW:
+        return 'Under Review';
+      case VerificationStatus.APPROVED:
+        return 'Approved';
+      case VerificationStatus.REJECTED:
+        return 'Rejected';
+      case VerificationStatus.RESUBMITTED:
+        return 'Resubmitted';
+    }
+  }
+
   String get displayName {
     switch (this) {
       case VerificationStatus.PENDING:

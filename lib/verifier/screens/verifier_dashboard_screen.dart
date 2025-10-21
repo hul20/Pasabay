@@ -231,7 +231,7 @@ class _VerifierDashboardScreenState extends State<VerifierDashboardScreen> {
                         request: request,
                         onTap: () => _navigateToDetail(request),
                       );
-                    }).toList(),
+                    }),
                 ],
               ),
             ),

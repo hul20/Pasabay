@@ -32,12 +32,28 @@ class VerificationRequest {
 
   /// Create from Supabase JSON
   factory VerificationRequest.fromJson(Map<String, dynamic> json) {
+    // Handle both old format (documents map) and new format (individual URLs)
+    Map<String, String> documents = {};
+    
+    if (json['documents'] != null) {
+      // Old format: documents stored as JSON
+      documents = Map<String, String>.from(json['documents'] as Map);
+    } else if (json['gov_id_url'] != null && json['selfie_url'] != null) {
+      // New format: individual URL columns
+      documents = {
+        'gov_id': json['gov_id_url'] as String,
+        'selfie': json['selfie_url'] as String,
+        'gov_id_filename': json['gov_id_filename'] as String? ?? '',
+        'selfie_filename': json['selfie_filename'] as String? ?? '',
+      };
+    }
+    
     return VerificationRequest(
       id: json['id'] as String,
       travelerId: json['traveler_id'] as String,
       travelerName: json['traveler_name'] as String? ?? 'Unknown',
       travelerEmail: json['traveler_email'] as String? ?? '',
-      documents: Map<String, String>.from(json['documents'] as Map? ?? {}),
+      documents: documents,
       status: VerificationStatus.fromString(
         json['status'] as String? ?? 'PENDING',
       ),

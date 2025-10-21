@@ -330,7 +330,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                 SizedBox(height: 16),
                 ..._request.documents.entries.map((entry) {
                   return _buildDocumentCard(entry.key, entry.value);
-                }).toList(),
+                }),
 
                 // Notes Section
                 if (_request.verifierNotes != null ||

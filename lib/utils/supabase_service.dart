@@ -367,15 +367,34 @@ class SupabaseService {
       if (currentUser == null) throw 'User not authenticated';
 
       final userId = currentUser!.id;
+      final userEmail = currentUser!.email ?? '';
+      
+      // Get user's full name from users table
+      String travelerName = userEmail;
+      try {
+        final userProfile = await _supabase
+            .from('users')
+            .select('first_name, last_name, full_name')
+            .eq('id', userId)
+            .single();
+        
+        travelerName = userProfile['full_name'] ?? 
+                      '${userProfile['first_name'] ?? ''} ${userProfile['last_name'] ?? ''}'.trim();
+        if (travelerName.isEmpty) travelerName = userEmail;
+      } catch (e) {
+        print('Could not fetch user name: $e');
+      }
 
       // Insert verification request into database
       await _supabase.from('verification_requests').insert({
-        'user_id': userId,
+        'traveler_id': userId,              // Changed from user_id
+        'traveler_name': travelerName,      // Added
+        'traveler_email': userEmail,        // Added
         'gov_id_url': govIdUrl,
         'selfie_url': selfieUrl,
         'gov_id_filename': govIdFileName,
         'selfie_filename': selfieFileName,
-        'status': 'pending',
+        'status': 'Pending',                // Changed to Title Case to match constraint
         'submitted_at': DateTime.now().toIso8601String(),
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),

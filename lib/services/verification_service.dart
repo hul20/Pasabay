@@ -21,7 +21,7 @@ class VerificationService {
             'traveler_name': travelerName,
             'traveler_email': travelerEmail,
             'documents': documents,
-            'status': VerificationStatus.PENDING.name,
+            'status': VerificationStatus.PENDING.dbValue,
             'submitted_at': DateTime.now().toIso8601String(),
           })
           .select('id')
@@ -76,7 +76,7 @@ class VerificationService {
       final response = await _supabase
           .from('verification_requests')
           .select()
-          .eq('status', VerificationStatus.PENDING.name)
+          .eq('status', VerificationStatus.PENDING.dbValue)
           .order('submitted_at', ascending: true);
 
       return (response as List)
@@ -96,7 +96,7 @@ class VerificationService {
       var query = _supabase.from('verification_requests').select();
 
       if (status != null) {
-        query = query.eq('status', status.name);
+        query = query.eq('status', status.dbValue);
       }
 
       final response = await query.order('submitted_at', ascending: false);
@@ -122,7 +122,7 @@ class VerificationService {
           .update({
             'verifier_id': verifierId,
             'verifier_name': verifierName,
-            'status': VerificationStatus.UNDER_REVIEW.name,
+            'status': VerificationStatus.UNDER_REVIEW.dbValue,
           })
           .eq('id', requestId);
       return true;
@@ -142,7 +142,7 @@ class VerificationService {
       await _supabase
           .from('verification_requests')
           .update({
-            'status': VerificationStatus.APPROVED.name,
+            'status': VerificationStatus.APPROVED.dbValue,
             'verifier_id': verifierId,
             'reviewed_at': DateTime.now().toIso8601String(),
             'verifier_notes': notes,
@@ -179,7 +179,7 @@ class VerificationService {
       await _supabase
           .from('verification_requests')
           .update({
-            'status': VerificationStatus.REJECTED.name,
+            'status': VerificationStatus.REJECTED.dbValue,
             'verifier_id': verifierId,
             'reviewed_at': DateTime.now().toIso8601String(),
             'rejection_reason': reason,
@@ -198,7 +198,7 @@ class VerificationService {
     return _supabase
         .from('verification_requests')
         .stream(primaryKey: ['id'])
-        .eq('status', VerificationStatus.PENDING.name)
+        .eq('status', VerificationStatus.PENDING.dbValue)
         .order('submitted_at')
         .map(
           (data) =>
