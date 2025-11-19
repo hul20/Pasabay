@@ -34,9 +34,9 @@ class AppConstants {
 
   // Asset URLs
   static const String logoUrl =
-      'https://www.figma.com/api/mcp/asset/833ec9d8-708a-4f49-9b11-78f53b5ee4bf';
+      'https://czodfzjqkvpicbnhtqhv.supabase.co/storage/v1/object/sign/assets/PasabayLogo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNjliNjQzNy0yNzFmLTQzMTYtODczYS02NWYxN2Y1OWIzYTAiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvUGFzYWJheUxvZ28ucG5nIiwiaWF0IjoxNzYzNTY3MDQwLCJleHAiOjE3OTUxMDMwNDB9.gPvJ52aNEAbfRh9M7JX6sKRimacIw-4J6NsyON7UAtk';
   static const String smallLogoUrl =
-      'https://www.figma.com/api/mcp/asset/5f8ed6b7-e3d3-499d-baa9-7de40dd6d28c';
+      'https://czodfzjqkvpicbnhtqhv.supabase.co/storage/v1/object/sign/assets/SmallLogo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNjliNjQzNy0yNzFmLTQzMTYtODczYS02NWYxN2Y1OWIzYTAiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvU21hbGxMb2dvLnBuZyIsImlhdCI6MTc2MzU2NzA3NSwiZXhwIjoxNzk1MTAzMDc1fQ.Hml6lggzfhAn-VLdJOMz2Z5wC7Ev2oG6XoEJpOcnFkI';
 }
 
 /// Gradient configurations

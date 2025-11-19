@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
+import 'dart:io';
 import '../../widgets/responsive_wrapper.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
@@ -33,8 +34,13 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
           _isLoading = true;
         });
 
-        final bytes = result.files.single.bytes;
+        Uint8List? bytes = result.files.single.bytes;
         final fileName = result.files.single.name;
+
+        // If bytes is null, try reading from path
+        if (bytes == null && result.files.single.path != null) {
+          bytes = await File(result.files.single.path!).readAsBytes();
+        }
 
         if (bytes == null) {
           throw 'Failed to read file';
@@ -101,46 +107,44 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final screenWidth = constraints.maxWidth;
-          final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = constraints.maxWidth;
+            final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
-          return ResponsiveWrapper(
-            child: Column(
-              children: [
-                // Gradient Header with Progress
-                _buildGradientHeader(scaleFactor),
+            return ResponsiveWrapper(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: 40 * scaleFactor,
+                ), // Prevent overflow
+                child: Column(
+                  children: [
+                    // Gradient Header with Progress
+                    _buildGradientHeader(scaleFactor),
 
-                // Scrollable Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        SizedBox(height: 20 * scaleFactor),
+                    SizedBox(height: 20 * scaleFactor),
 
-                        // Upload Area
-                        _buildUploadArea(scaleFactor),
+                    // Upload Area
+                    _buildUploadArea(scaleFactor),
 
-                        SizedBox(height: 20 * scaleFactor),
+                    SizedBox(height: 20 * scaleFactor),
 
-                        // Document Requirements
-                        _buildRequirements(scaleFactor),
+                    // Document Requirements
+                    _buildRequirements(scaleFactor),
 
-                        SizedBox(height: 36 * scaleFactor),
+                    SizedBox(height: 36 * scaleFactor),
 
-                        // Buttons
-                        _buildButtons(scaleFactor),
+                    // Buttons
+                    _buildButtons(scaleFactor),
 
-                        SizedBox(height: 20 * scaleFactor),
-                      ],
-                    ),
-                  ),
+                    SizedBox(height: 20 * scaleFactor),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -179,7 +183,7 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
+                        image: NetworkImage(AppConstants.smallLogoUrl),
                         fit: BoxFit.cover,
                       ),
                     ),

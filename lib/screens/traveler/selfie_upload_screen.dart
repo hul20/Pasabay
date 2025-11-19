@@ -67,13 +67,15 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Camera not available. Please select an image from gallery.'),
+              content: Text(
+                'Camera not available. Please select an image from gallery.',
+              ),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 3),
             ),
           );
         }
-        
+
         // Open gallery/file picker instead
         photo = await _picker.pickImage(
           source: ImageSource.gallery,
@@ -118,15 +120,17 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
       });
       if (mounted) {
         String errorMessage = 'Error taking photo: $e';
-        
+
         // Provide helpful message based on error type
-        if (e.toString().contains('permission') || 
+        if (e.toString().contains('permission') ||
             e.toString().contains('denied')) {
-          errorMessage = 'Camera permission denied. Please enable camera access in your device settings.';
+          errorMessage =
+              'Camera permission denied. Please enable camera access in your device settings.';
         } else if (e.toString().contains('camera')) {
-          errorMessage = 'Camera not available. Please use the Upload button to select an image.';
+          errorMessage =
+              'Camera not available. Please use the Upload button to select an image.';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -224,46 +228,45 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final screenWidth = constraints.maxWidth;
-          final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = constraints.maxWidth;
+            final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
-          return ResponsiveWrapper(
-            child: Column(
-              children: [
-                // Gradient Header with Progress
-                _buildGradientHeader(scaleFactor),
+            return ResponsiveWrapper(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: 60 * scaleFactor,
+                ), // Increased padding
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Gradient Header with Progress
+                    _buildGradientHeader(scaleFactor),
 
-                // Scrollable Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        SizedBox(height: 20 * scaleFactor),
+                    SizedBox(height: 20 * scaleFactor),
 
-                        // Camera/Upload Area
-                        _buildCameraArea(scaleFactor),
+                    // Camera/Upload Area
+                    _buildCameraArea(scaleFactor),
 
-                        SizedBox(height: 20 * scaleFactor),
+                    SizedBox(height: 20 * scaleFactor),
 
-                        // Photo Guidelines
-                        _buildGuidelines(scaleFactor),
+                    // Photo Guidelines
+                    _buildGuidelines(scaleFactor),
 
-                        SizedBox(height: 36 * scaleFactor),
+                    SizedBox(height: 36 * scaleFactor),
 
-                        // Buttons
-                        _buildButtons(scaleFactor),
+                    // Buttons
+                    _buildButtons(scaleFactor),
 
-                        SizedBox(height: 20 * scaleFactor),
-                      ],
-                    ),
-                  ),
+                    SizedBox(height: 20 * scaleFactor),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -487,64 +490,64 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
                 ),
               )
             : _selectedImageBytes != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(19 * scaleFactor),
-                    child: Stack(
-                      children: [
-                        Image.memory(
-                          _selectedImageBytes!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                        ),
-                        // Success overlay
-                        Positioned(
-                          top: 10 * scaleFactor,
-                          right: 10 * scaleFactor,
-                          child: Container(
-                            padding: EdgeInsets.all(8 * scaleFactor),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 20 * scaleFactor,
-                            ),
-                          ),
-                        ),
-                      ],
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(19 * scaleFactor),
+                child: Stack(
+                  children: [
+                    Image.memory(
+                      _selectedImageBytes!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
                     ),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Camera Icon
-                      Icon(
-                        Icons.camera_alt_outlined,
-                        size: 58 * scaleFactor,
-                        color: const Color(0xFF9CA3AF),
-                      ),
-
-                      SizedBox(height: 16 * scaleFactor),
-
-                      // Instruction Text
-                      Text(
-                        'Position your face in the frame',
-                        style: TextStyle(
-                          fontSize: 17 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF464646),
+                    // Success overlay
+                    Positioned(
+                      top: 10 * scaleFactor,
+                      right: 10 * scaleFactor,
+                      child: Container(
+                        padding: EdgeInsets.all(8 * scaleFactor),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
                         ),
-                        textAlign: TextAlign.center,
+                        child: Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: 20 * scaleFactor,
+                        ),
                       ),
+                    ),
+                  ],
+                ),
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Camera Icon
+                  Icon(
+                    Icons.camera_alt_outlined,
+                    size: 58 * scaleFactor,
+                    color: const Color(0xFF9CA3AF),
+                  ),
 
-                      SizedBox(height: 8 * scaleFactor),
+                  SizedBox(height: 16 * scaleFactor),
 
-                      Text(
-                        'Make sure your face is clearly visible',
-                        style: TextStyle(
+                  // Instruction Text
+                  Text(
+                    'Position your face in the frame',
+                    style: TextStyle(
+                      fontSize: 17 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF464646),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  SizedBox(height: 8 * scaleFactor),
+
+                  Text(
+                    'Make sure your face is clearly visible',
+                    style: TextStyle(
                       fontSize: 14 * scaleFactor,
                       color: const Color(0xFF464646),
                       fontWeight: FontWeight.w400,
@@ -576,7 +579,9 @@ class _SelfieUploadScreenState extends State<SelfieUploadScreen> {
                             ),
                           ),
                           child: Text(
-                            _isCameraSupported ? 'Take A Photo' : 'Select Photo',
+                            _isCameraSupported
+                                ? 'Take A Photo'
+                                : 'Select Photo',
                             style: TextStyle(
                               fontSize: 14 * scaleFactor,
                               fontWeight: FontWeight.w600,
