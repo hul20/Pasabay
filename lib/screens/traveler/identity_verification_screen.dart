@@ -3,10 +3,57 @@ import '../../widgets/responsive_wrapper.dart';
 import '../../widgets/custom_button.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../utils/supabase_service.dart';
 import 'gov_id_upload_screen.dart';
 
-class IdentityVerificationScreen extends StatelessWidget {
+class IdentityVerificationScreen extends StatefulWidget {
   const IdentityVerificationScreen({super.key});
+
+  @override
+  State<IdentityVerificationScreen> createState() =>
+      _IdentityVerificationScreenState();
+}
+
+class _IdentityVerificationScreenState
+    extends State<IdentityVerificationScreen> {
+  bool _isLoading = true;
+  String? _verificationStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVerificationStatus();
+  }
+
+  Future<void> _fetchVerificationStatus() async {
+    setState(() {
+      _isLoading = true;
+    });
+    final supabaseService = SupabaseService();
+    final result = await supabaseService.getVerificationStatus();
+    setState(() {
+      _verificationStatus = result != null ? result['status'] as String? : null;
+      _isLoading = false;
+    });
+    if (_verificationStatus == 'Approved') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Verification Complete'),
+            content: const Text('Your identity has been verified!'),
+            actions: [
+              TextButton(
+                onPressed: () =>
+                    Navigator.pushReplacementNamed(context, '/traveler_home'),
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +64,53 @@ class IdentityVerificationScreen extends StatelessWidget {
           final screenWidth = constraints.maxWidth;
           final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
+          if (_isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (_verificationStatus == 'Approved') {
+            // Show confirmation screen
+            return ResponsiveWrapper(
+              child: SafeArea(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.verified,
+                        color: Colors.green,
+                        size: 80 * scaleFactor,
+                      ),
+                      SizedBox(height: 24 * scaleFactor),
+                      Text(
+                        'You are verified!',
+                        style: TextStyle(
+                          fontSize: 28 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      SizedBox(height: 16 * scaleFactor),
+                      Text(
+                        'Thank you for verifying your identity.',
+                        style: TextStyle(fontSize: 16 * scaleFactor),
+                      ),
+                      SizedBox(height: 32 * scaleFactor),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pushReplacementNamed(
+                          context,
+                          '/traveler_home',
+                        ),
+                        child: const Text('Continue'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // Not verified: show normal verification flow
           return ResponsiveWrapper(
             child: SafeArea(
               child: Column(
