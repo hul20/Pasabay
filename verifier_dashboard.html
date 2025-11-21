@@ -1,0 +1,264 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pasabay – Verifier Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary: #00aaf3;
+      --danger: #ff5f5f;
+      --success: #24c28c;
+      --bg: #f5f7fb;
+      --card: #fff;
+      --text: #1f2933;
+      --muted: #6b7280;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    header {
+      background: var(--card);
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 2rem auto; padding: 0 1rem 2rem; }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 30px rgba(15,23,42,.06);
+      margin-bottom: 1.5rem;
+    }
+    .login-card { max-width: 420px; margin: 4rem auto; }
+    label { display: block; margin-bottom: 0.35rem; font-weight: 600; }
+    input, textarea, select {
+      width: 100%; border: 1px solid #d1d5db; border-radius: 10px;
+      padding: 0.75rem 0.9rem; font-size: 1rem; margin-bottom: 1rem; background: #fff;
+    }
+    button {
+      border: none; border-radius: 10px; padding: 0.85rem 1.4rem;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+    button:hover { transform: translateY(-1px); opacity: .95; }
+    .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .request-header { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .badge { border-radius: 999px; padding: 0.35rem 0.9rem; font-size: 0.85rem; font-weight: 600; }
+    .badge.pending { background: #fff5d1; color: #996c00; }
+    .badge.approved { background: #d7f9ef; color: #0f7b56; }
+    .badge.rejected { background: #ffe2e2; color: #a01212; }
+    .docs { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
+    .docs a {
+      background: #e5efff; color: #1140c8; padding: 0.5rem 0.85rem;
+      border-radius: 8px; font-weight: 500; text-decoration: none;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; background: var(--card);
+      border-left: 4px solid var(--primary); padding: 0.95rem 1.4rem;
+      border-radius: 12px; box-shadow: 0 12px 30px rgba(15,23,42,.15);
+      display: flex; align-items: center; gap: 0.7rem; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Pasabay – Verifier Portal</h1>
+    <div>
+      <span id="verifier-email" style="color: var(--muted); margin-right: 1rem;"></span>
+      <button id="logout-btn" class="btn-danger hidden">Sign Out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="login-view" class="card login-card">
+      <h2>Verifier Sign In</h2>
+      <p style="color: var(--muted); margin-top: 0;">Use the verifier credentials provided by the admin.</p>
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="verifier@example.com" autocomplete="email" />
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+      <button id="login-btn" class="btn-primary">Sign In</button>
+      <p id="login-error" style="color: var(--danger); margin-top: 0.75rem;"></p>
+    </section>
+
+    <section id="dashboard-view" class="hidden">
+      <div class="card" style="display:flex; justify-content: space-between; align-items:center;">
+        <div>
+          <h2 style="margin: 0;">Verification Requests</h2>
+          <p style="color: var(--muted); margin: 0.4rem 0 0;">Review pending submissions and approve or reject.</p>
+        </div>
+        <select id="status-filter">
+          <option value="All">All statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Under Review">Under Review</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+      </div>
+      <div id="requests-container"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://czodfzjqkvpicbnhtqhv.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6b2Rmempxa3ZwaWNibmh0cWh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MDA2MDAsImV4cCI6MjA3NjI3NjYwMH0.jmegrTiS_SssfQrAqc66xGLn3LIz12tMdHeIu3WYYfQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    const loginView = document.getElementById('login-view');
+    const dashboardView = document.getElementById('dashboard-view');
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const loginError = document.getElementById('login-error');
+    const verifierEmail = document.getElementById('verifier-email');
+    const requestsContainer = document.getElementById('requests-container');
+    const statusFilter = document.getElementById('status-filter');
+    const toast = document.getElementById('toast');
+
+    const showToast = (message, ok = true) => {
+      toast.textContent = message;
+      toast.style.borderLeftColor = ok ? 'var(--success)' : 'var(--danger)';
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 4000);
+    };
+
+    const toggleViews = (isLoggedIn, email = '') => {
+      loginView.classList.toggle('hidden', isLoggedIn);
+      dashboardView.classList.toggle('hidden', !isLoggedIn);
+      logoutBtn.classList.toggle('hidden', !isLoggedIn);
+      verifierEmail.textContent = isLoggedIn ? email : '';
+    };
+
+    const fetchRequests = async () => {
+      requestsContainer.innerHTML = '<div class="card">Loading requests…</div>';
+      const status = statusFilter.value;
+      let query = supabase.from('verification_requests').select('*').order('submitted_at', { ascending: false });
+      if (status !== 'All') query = query.eq('status', status);
+      const { data, error } = await query;
+      if (error) {
+        requestsContainer.innerHTML = `<div class="card" style="color: var(--danger);">Failed to load requests: ${error.message}</div>`;
+        return;
+      }
+      if (!data.length) {
+        requestsContainer.innerHTML = '<div class="card">No requests found.</div>';
+        return;
+      }
+      requestsContainer.innerHTML = data.map(renderRequestCard).join('');
+    };
+
+    const renderRequestCard = (req) => {
+      const documents = [];
+      if (req.gov_id_url) documents.push({ label: 'Government ID', url: req.gov_id_url });
+      if (req.selfie_url) documents.push({ label: 'Selfie', url: req.selfie_url });
+      const statusLower = (req.status || '').toLowerCase().replace(' ', '-');
+      return `
+        <article class="card">
+          <div class="request-header">
+            <div>
+              <h3 style="margin: 0 0 0.3rem;">${req.traveler_name || 'Traveler'}</h3>
+              <p style="margin: 0; color: var(--muted);">${req.traveler_email || ''}</p>
+              <small style="color: var(--muted);">Submitted: ${new Date(req.submitted_at).toLocaleString()}</small>
+            </div>
+            <span class="badge ${statusLower}">${req.status || 'Unknown'}</span>
+          </div>
+          <div style="margin-top: 1rem;">
+            <strong>Documents</strong>
+            <div class="docs">
+              ${documents.length ? documents.map(doc => `<a href="${doc.url}" target="_blank">${doc.label}</a>`).join('') : '<span style="color: var(--muted);">No documents available.</span>'}
+            </div>
+          </div>
+          <label>Approve / Reject Notes</label>
+          <textarea id="notes-${req.id}" placeholder="Optional notes for this request...">${req.verifier_notes || ''}</textarea>
+          <div class="actions">
+            <button class="btn-success" onclick="approveRequest('${req.id}')">Approve</button>
+            <button class="btn-danger" onclick="rejectRequest('${req.id}')">Reject</button>
+          </div>
+        </article>
+      `;
+    };
+
+    window.approveRequest = async (requestId) => {
+      const notes = document.getElementById(`notes-${requestId}`)?.value || '';
+      const { error } = await supabase.rpc('approve_verification_request', {
+        request_id: requestId,
+        _verifier_notes: notes || null,
+      });
+      if (error) {
+        showToast(`Failed to approve: ${error.message}`, false);
+        console.error(error);
+        return;
+      }
+      showToast('Request approved!');
+      fetchRequests();
+    };
+
+    window.rejectRequest = async (requestId) => {
+      const notes = document.getElementById(`notes-${requestId}`)?.value || '';
+      if (!notes.trim()) {
+        showToast('Please provide a rejection reason.', false);
+        return;
+      }
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('verification_requests')
+        .update({
+          status: 'Rejected',
+          rejection_reason: notes,
+          verifier_notes: notes,
+          verifier_id: userData.user?.id || null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', requestId);
+      if (error) {
+        showToast(`Failed to reject: ${error.message}`, false);
+        console.error(error);
+        return;
+      }
+      showToast('Request rejected.');
+      fetchRequests();
+    };
+
+    loginBtn.addEventListener('click', async () => {
+      loginError.textContent = '';
+      loginBtn.disabled = true;
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      loginBtn.disabled = false;
+      if (error) {
+        loginError.textContent = error.message;
+        return;
+      }
+      toggleViews(true, data.user.email);
+      fetchRequests();
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      toggleViews(false);
+      requestsContainer.innerHTML = '';
+    });
+
+    statusFilter.addEventListener('change', fetchRequests);
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        toggleViews(true, data.session.user.email);
+        fetchRequests();
+      }
+    })();
+  </script>
+</body>
+</html>
