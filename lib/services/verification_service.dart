@@ -132,38 +132,20 @@ class VerificationService {
     }
   }
 
-  /// Approve verification request
+  /// Approve verification request by calling the Supabase RPC function
   Future<bool> approveRequest(
     String requestId,
-    String verifierId,
     String? notes,
   ) async {
     try {
-      await _supabase
-          .from('verification_requests')
-          .update({
-            'status': VerificationStatus.APPROVED.dbValue,
-            'verifier_id': verifierId,
-            'reviewed_at': DateTime.now().toIso8601String(),
-            'verifier_notes': notes,
-          })
-          .eq('id', requestId);
-
-      // Update user verification status
-      final request = await getVerificationRequest(requestId);
-      if (request != null) {
-        await _supabase
-            .from('users')
-            .update({
-              'is_verified': true,
-              'verified_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id', request.travelerId);
-      }
+      await _supabase.rpc('approve_verification_request', params: {
+        'request_id': requestId,
+        'verifier_notes': notes,
+      });
 
       return true;
     } catch (e) {
-      print('Error approving request: $e');
+      print('Error approving request via RPC: $e');
       return false;
     }
   }
