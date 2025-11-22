@@ -58,3 +58,10 @@ lib/firebase_options.dart
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 lib/utils/firebase_service.dart
+
+# Google Maps API Keys (SENSITIVE - DO NOT COMMIT!)
+android/local.properties
+ios/Flutter/local.properties
+.env
+.env.local
+lib/config/api_keys.dart

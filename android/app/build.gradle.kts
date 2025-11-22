@@ -9,6 +9,16 @@ dependencies {
 
 }
 
+// Load local.properties file to read API keys
+val localProperties = java.util.Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+
+// Get Google Maps API Key from local.properties
+val googleMapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: "YOUR_API_KEY_HERE"
+
 android {
     namespace = "com.pasabay.app"
     compileSdk = flutter.compileSdkVersion
@@ -32,6 +42,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Pass Google Maps API Key to AndroidManifest.xml
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
     }
 
     buildTypes {

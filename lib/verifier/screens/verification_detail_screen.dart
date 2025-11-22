@@ -90,29 +90,41 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
     if (confirm == true) {
       setState(() => _isProcessing = true);
 
-      final success = await _verificationService.approveRequest(
-        _request.id,
-        _authService.currentUserId!,
-        _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-      );
+      try {
+        // Call the simplified approveRequest method
+        final success = await _verificationService.approveRequest(
+          _request.id,
+          _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+        );
 
-      if (mounted) {
-        setState(() => _isProcessing = false);
-
-        if (success) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Request approved successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.pop(context, true); // Return to dashboard with refresh flag
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to approve request. Check Supabase logs.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Request approved successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.pop(context, true); // Return to dashboard with refresh flag
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to approve request'),
+              content: Text('Error: $e'),
               backgroundColor: Colors.red,
             ),
           );

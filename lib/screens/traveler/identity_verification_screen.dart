@@ -101,7 +101,79 @@ class _IdentityVerificationScreenState
                           context,
                           '/traveler_home',
                         ),
-                        child: const Text('Continue'),
+                        child: const Text('Continue to Home'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          if (_verificationStatus == 'Pending' || _verificationStatus == 'Under Review') {
+            // Show Pending/In Progress screen
+            return ResponsiveWrapper(
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.all(24 * scaleFactor),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(24 * scaleFactor),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.hourglass_top_rounded,
+                          color: Colors.blue,
+                          size: 64 * scaleFactor,
+                        ),
+                      ),
+                      SizedBox(height: 32 * scaleFactor),
+                      Text(
+                        'Verification in Progress',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: AppConstants.primaryColor,
+                        ),
+                      ),
+                      SizedBox(height: 16 * scaleFactor),
+                      Text(
+                        'Your identity verification request has been submitted and is currently under review.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          color: Colors.grey[600],
+                          height: 1.5,
+                        ),
+                      ),
+                      SizedBox(height: 8 * scaleFactor),
+                      Text(
+                        'Please wait for approval.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 40 * scaleFactor),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pushReplacementNamed(
+                          context,
+                          '/traveler_home',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppConstants.primaryColor,
+                          side: BorderSide(color: AppConstants.primaryColor),
+                          minimumSize: Size(double.infinity, 50 * scaleFactor),
+                        ),
+                        child: const Text('Back to Home'),
                       ),
                     ],
                   ),

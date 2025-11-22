@@ -287,11 +287,12 @@ class SupabaseService {
       final response = await _supabase
           .from('verification_requests')
           .select()
-          .eq('user_id', currentUser!.id)
+          .eq('traveler_id', currentUser!.id) // FIXED: Changed from 'user_id' to 'traveler_id'
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
 
+      print('Verification status response: $response'); // Debug log
       return response;
     } catch (e) {
       print('Error fetching verification status: $e');
@@ -403,6 +404,57 @@ class SupabaseService {
       print('✅ Verification request submitted successfully');
     } catch (e) {
       throw 'Error submitting verification request: $e';
+    }
+  }
+
+  /// Switch user role between Traveler and Requester
+  Future<bool> switchUserRole(String newRole) async {
+    try {
+      if (currentUser == null) throw 'No user logged in';
+      
+      // Validate role
+      if (newRole != 'Traveler' && newRole != 'Requester') {
+        throw 'Invalid role. Only Traveler and Requester are allowed.';
+      }
+
+      // Update role in database
+      await _supabase
+          .from('users')
+          .update({
+            'role': newRole,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', currentUser!.id);
+
+      print('✅ User role switched to $newRole');
+      return true;
+    } catch (e) {
+      print('Error switching role: $e');
+      return false;
+    }
+  }
+
+  /// Upload file to Supabase Storage
+  Future<String> uploadFile(String bucket, String fileName, dynamic file) async {
+    try {
+      if (currentUser == null) throw 'User not authenticated';
+
+      // Upload file to storage
+      final filePath = '$fileName';
+      await _supabase.storage.from(bucket).upload(
+            filePath,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      // Get public URL
+      final publicUrl = _supabase.storage.from(bucket).getPublicUrl(filePath);
+      
+      print('✅ File uploaded successfully: $publicUrl');
+      return publicUrl;
+    } catch (e) {
+      print('Error uploading file: $e');
+      throw 'Error uploading file: $e';
     }
   }
 }
