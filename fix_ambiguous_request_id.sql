@@ -158,3 +158,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 3. Or use table alias (c.request_id) in queries
 -- ============================================================
 
+

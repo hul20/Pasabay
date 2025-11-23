@@ -438,3 +438,4 @@ If you're still having issues after following this guide:
 
 **Your real-time chat should now be working! 🚀**
 
+

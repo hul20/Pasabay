@@ -364,3 +364,4 @@ Supabase Dashboard → Settings → Usage
 
 **Your real-time chat is powered by this architecture! 🚀**
 
+

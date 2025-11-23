@@ -486,3 +486,4 @@ The messaging system is now fully functional! After a traveler accepts a request
 3. Test the flow from request submission to messaging
 4. Enjoy seamless communication! 💬
 
+
