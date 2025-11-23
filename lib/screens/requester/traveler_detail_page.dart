@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
+import 'package:intl/intl.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../models/trip.dart';
+import '../../services/request_service.dart';
 
 class TravelerDetailPage extends StatefulWidget {
-  final String name;
-  final String route;
-  final String date;
-  final String rating;
-  final String imageUrl;
+  final Trip trip;
+  final Map<String, dynamic> travelerInfo;
 
   const TravelerDetailPage({
     super.key,
-    required this.name,
-    required this.route,
-    required this.date,
-    required this.rating,
-    required this.imageUrl,
+    required this.trip,
+    required this.travelerInfo,
   });
 
   @override
@@ -27,22 +25,48 @@ class TravelerDetailPage extends StatefulWidget {
 
 class _TravelerDetailPageState extends State<TravelerDetailPage> {
   String? _selectedServiceType; // 'Pabakal' or 'Pasabay'
+  bool _isSubmitting = false;
   
   // Pabakal fields
   final _productNameController = TextEditingController();
+  final _storeNameController = TextEditingController();
   final _storeLocationController = TextEditingController();
   final _costController = TextEditingController();
   final _descriptionController = TextEditingController();
   
   // Pasabay fields
-  final _claimantNameController = TextEditingController();
-  final _claimLocationController = TextEditingController();
+  final _recipientNameController = TextEditingController();
+  final _recipientPhoneController = TextEditingController();
+  final _pickupLocationController = TextEditingController();
+  final _dropoffLocationController = TextEditingController();
   final _claimTimeController = TextEditingController();
+  final _packageDescriptionController = TextEditingController();
   
   // File attachments
   final ImagePicker _imagePicker = ImagePicker();
+  final RequestService _requestService = RequestService();
+  final _supabase = Supabase.instance.client;
   List<File> _attachedImages = [];
   List<File> _attachedFiles = [];
+  List<String> _uploadedPhotoUrls = [];
+  List<String> _uploadedDocumentUrls = [];
+  
+  double get _serviceFee {
+    // Base service fee calculation
+    // Could be based on distance, product cost, etc.
+    if (_selectedServiceType == 'Pabakal') {
+      final productCost = double.tryParse(_costController.text) ?? 0;
+      return productCost * 0.10; // 10% service fee
+    } else if (_selectedServiceType == 'Pasabay') {
+      return 50.0; // Flat rate for pasabay
+    }
+    return 0.0;
+  }
+  
+  double get _totalAmount {
+    final productCost = double.tryParse(_costController.text) ?? 0;
+    return productCost + _serviceFee;
+  }
 
   @override
   void initState() {
@@ -56,12 +80,16 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
   @override
   void dispose() {
     _productNameController.dispose();
+    _storeNameController.dispose();
     _storeLocationController.dispose();
     _costController.dispose();
     _descriptionController.dispose();
-    _claimantNameController.dispose();
-    _claimLocationController.dispose();
+    _recipientNameController.dispose();
+    _recipientPhoneController.dispose();
+    _pickupLocationController.dispose();
+    _dropoffLocationController.dispose();
     _claimTimeController.dispose();
+    _packageDescriptionController.dispose();
     super.dispose();
   }
 
@@ -318,7 +346,49 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     );
   }
 
-  void _submitRequest() {
+  Future<void> _uploadFiles() async {
+    // Upload images
+    for (var imageFile in _attachedImages) {
+      try {
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
+        final filePath = 'request_photos/$fileName';
+        
+        await _supabase.storage
+            .from('attachments')
+            .upload(filePath, imageFile);
+        
+        final publicUrl = _supabase.storage
+            .from('attachments')
+            .getPublicUrl(filePath);
+        
+        _uploadedPhotoUrls.add(publicUrl);
+      } catch (e) {
+        print('❌ Error uploading image: $e');
+      }
+    }
+    
+    // Upload documents
+    for (var docFile in _attachedFiles) {
+      try {
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${docFile.path.split('/').last}';
+        final filePath = 'request_documents/$fileName';
+        
+        await _supabase.storage
+            .from('attachments')
+            .upload(filePath, docFile);
+        
+        final publicUrl = _supabase.storage
+            .from('attachments')
+            .getPublicUrl(filePath);
+        
+        _uploadedDocumentUrls.add(publicUrl);
+      } catch (e) {
+        print('❌ Error uploading document: $e');
+      }
+    }
+  }
+
+  Future<void> _submitRequest() async {
     // Validate inputs
     if (_selectedServiceType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -343,10 +413,21 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
         );
         return;
       }
+      
+      // Validate cost
+      if (double.tryParse(_costController.text) == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Please enter a valid cost'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
     } else if (_selectedServiceType == 'Pasabay') {
-      if (_claimantNameController.text.isEmpty ||
-          _claimLocationController.text.isEmpty ||
-          _claimTimeController.text.isEmpty) {
+      if (_recipientNameController.text.isEmpty ||
+          _recipientPhoneController.text.isEmpty ||
+          _dropoffLocationController.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Please fill in all required fields'),
@@ -357,13 +438,115 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       }
     }
 
-    // Show success screen
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const RequestSentScreen(),
-      ),
-    );
+    // Start submission
+    setState(() => _isSubmitting = true);
+
+    try {
+      // Upload files first
+      if (_attachedImages.isNotEmpty || _attachedFiles.isNotEmpty) {
+        await _uploadFiles();
+      }
+
+      // Create request based on service type
+      bool success = false;
+      
+      if (_selectedServiceType == 'Pabakal') {
+        success = await _requestService.createRequest(
+          travelerId: widget.trip.travelerId,
+          tripId: widget.trip.id,
+          serviceType: 'Pabakal',
+          productName: _productNameController.text.trim(),
+          storeName: _storeNameController.text.trim(),
+          storeLocation: _storeLocationController.text.trim(),
+          productCost: double.parse(_costController.text),
+          productDescription: _descriptionController.text.trim().isNotEmpty 
+              ? _descriptionController.text.trim() 
+              : null,
+          serviceFee: _serviceFee,
+          photoUrls: _uploadedPhotoUrls.isNotEmpty ? _uploadedPhotoUrls : null,
+          documentUrls: _uploadedDocumentUrls.isNotEmpty ? _uploadedDocumentUrls : null,
+        );
+      } else if (_selectedServiceType == 'Pasabay') {
+        print('📮 Creating Pasabay request...');
+        success = await _requestService.createRequest(
+          travelerId: widget.trip.travelerId,
+          tripId: widget.trip.id,
+          serviceType: 'Pasabay',
+          recipientName: _recipientNameController.text.trim(),
+          recipientPhone: _recipientPhoneController.text.trim(),
+          pickupLocation: _pickupLocationController.text.trim().isNotEmpty 
+              ? _pickupLocationController.text.trim() 
+              : null,
+          dropoffLocation: _dropoffLocationController.text.trim(),
+          pickupTime: _claimTimeController.text.isNotEmpty 
+              ? _parseTime(_claimTimeController.text) 
+              : null,
+          packageDescription: _packageDescriptionController.text.trim().isNotEmpty 
+              ? _packageDescriptionController.text.trim() 
+              : null,
+          serviceFee: _serviceFee,
+          photoUrls: _uploadedPhotoUrls.isNotEmpty ? _uploadedPhotoUrls : null,
+          documentUrls: _uploadedDocumentUrls.isNotEmpty ? _uploadedDocumentUrls : null,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+
+      if (success) {
+        print('✅ Request submitted successfully!');
+        // Show success screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const RequestSentScreen(),
+          ),
+        );
+      } else {
+        print('❌ Request submission failed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to submit request. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Exception during submission: $e');
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+  
+  DateTime? _parseTime(String timeString) {
+    try {
+      // Parse time string like "2:30 PM"
+      final now = DateTime.now();
+      final timeParts = timeString.split(' ');
+      final hourMinute = timeParts[0].split(':');
+      int hour = int.parse(hourMinute[0]);
+      final minute = int.parse(hourMinute[1]);
+      
+      if (timeParts.length > 1 && timeParts[1].toUpperCase() == 'PM' && hour != 12) {
+        hour += 12;
+      } else if (timeParts.length > 1 && timeParts[1].toUpperCase() == 'AM' && hour == 12) {
+        hour = 0;
+      }
+      
+      return DateTime(now.year, now.month, now.day, hour, minute);
+    } catch (e) {
+      print('❌ Error parsing time: $e');
+      return null;
+    }
   }
 
   @override
@@ -466,60 +649,166 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                           ),
                         ],
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          ClipOval(
-                            child: Image.network(
-                              widget.imageUrl,
-                              width: 80 * scaleFactor,
-                              height: 80 * scaleFactor,
-                              fit: BoxFit.cover,
-                            ),
+                          Row(
+                            children: [
+                              ClipOval(
+                                child: widget.travelerInfo['profile_image_url'] != null
+                                    ? Image.network(
+                                        widget.travelerInfo['profile_image_url'],
+                                        width: 80 * scaleFactor,
+                                        height: 80 * scaleFactor,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            width: 80 * scaleFactor,
+                                            height: 80 * scaleFactor,
+                                            color: Color(0xFF00B4D8),
+                                            child: Icon(
+                                              Icons.person,
+                                              size: 40 * scaleFactor,
+                                              color: Colors.white,
+                                            ),
+                                          );
+                                        },
+                                      )
+                                    : Container(
+                                        width: 80 * scaleFactor,
+                                        height: 80 * scaleFactor,
+                                        color: Color(0xFF00B4D8),
+                                        child: Icon(
+                                          Icons.person,
+                                          size: 40 * scaleFactor,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
+                              SizedBox(width: 16 * scaleFactor),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Traveler',
+                                      style: TextStyle(
+                                        fontSize: 12 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    SizedBox(height: 4 * scaleFactor),
+                                    Text(
+                                      '${widget.travelerInfo['first_name']} ${widget.travelerInfo['last_name']}',
+                                      style: TextStyle(
+                                        fontSize: 20 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4 * scaleFactor),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.star, color: Colors.amber, size: 16 * scaleFactor),
+                                        SizedBox(width: 4 * scaleFactor),
+                                        Text(
+                                          '4.8',
+                                          style: TextStyle(
+                                            fontSize: 13 * scaleFactor,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          SizedBox(width: 16 * scaleFactor),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Traveler',
-                                  style: TextStyle(
-                                    fontSize: 12 * scaleFactor,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                SizedBox(height: 4 * scaleFactor),
-                                Text(
-                                  widget.name,
-                                  style: TextStyle(
-                                    fontSize: 20 * scaleFactor,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                SizedBox(height: 8 * scaleFactor),
-                                ElevatedButton(
-                                  onPressed: () {},
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Color(0xFF00B4D8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8 * scaleFactor),
+                          
+                          SizedBox(height: 16 * scaleFactor),
+                          Divider(height: 1, color: Colors.grey[200]),
+                          SizedBox(height: 16 * scaleFactor),
+                          
+                          // Trip details
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Route',
+                                      style: TextStyle(
+                                        fontSize: 12 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
                                     ),
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 20 * scaleFactor,
-                                      vertical: 8 * scaleFactor,
+                                    SizedBox(height: 4 * scaleFactor),
+                                    Text(
+                                      '${widget.trip.departureLocation} → ${widget.trip.destinationLocation}',
+                                      style: TextStyle(
+                                        fontSize: 14 * scaleFactor,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black,
+                                      ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    'View Profile',
-                                    style: TextStyle(
-                                      fontSize: 13 * scaleFactor,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
+                          ),
+                          
+                          SizedBox(height: 12 * scaleFactor),
+                          
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Date',
+                                      style: TextStyle(
+                                        fontSize: 12 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    SizedBox(height: 4 * scaleFactor),
+                                    Text(
+                                      DateFormat('MMM dd, yyyy').format(widget.trip.departureDate),
+                                      style: TextStyle(
+                                        fontSize: 14 * scaleFactor,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Time',
+                                      style: TextStyle(
+                                        fontSize: 12 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    SizedBox(height: 4 * scaleFactor),
+                                    Text(
+                                      widget.trip.departureTime,
+                                      style: TextStyle(
+                                        fontSize: 14 * scaleFactor,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -550,8 +839,15 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                       ),
                       SizedBox(height: 16 * scaleFactor),
                       _buildInputField(
-                        label: 'Store Name and Location',
-                        hint: 'Enter Complete Address and Store Name',
+                        label: 'Store Name',
+                        hint: 'Enter Store Name (e.g., SM City Iloilo)',
+                        controller: _storeNameController,
+                        scaleFactor: scaleFactor,
+                      ),
+                      SizedBox(height: 16 * scaleFactor),
+                      _buildInputField(
+                        label: 'Store Location',
+                        hint: 'Enter Complete Address',
                         controller: _storeLocationController,
                         scaleFactor: scaleFactor,
                       ),
@@ -574,16 +870,32 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                     ] else if (_selectedServiceType == 'Pasabay') ...[
                       // PASABAY FORM
                       _buildInputField(
-                        label: 'Person Claiming the Package',
+                        label: 'Recipient Name',
                         hint: 'Enter full name of recipient',
-                        controller: _claimantNameController,
+                        controller: _recipientNameController,
                         scaleFactor: scaleFactor,
                       ),
                       SizedBox(height: 16 * scaleFactor),
                       _buildInputField(
-                        label: 'Claim Location',
-                        hint: 'Enter complete address for package delivery',
-                        controller: _claimLocationController,
+                        label: 'Recipient Phone Number',
+                        hint: 'Enter phone number (e.g., 09123456789)',
+                        controller: _recipientPhoneController,
+                        keyboardType: TextInputType.phone,
+                        scaleFactor: scaleFactor,
+                      ),
+                      SizedBox(height: 16 * scaleFactor),
+                      _buildInputField(
+                        label: 'Pickup Location (Optional)',
+                        hint: 'Where will the package be picked up?',
+                        controller: _pickupLocationController,
+                        maxLines: 2,
+                        scaleFactor: scaleFactor,
+                      ),
+                      SizedBox(height: 16 * scaleFactor),
+                      _buildInputField(
+                        label: 'Drop-off Location',
+                        hint: 'Enter complete delivery address',
+                        controller: _dropoffLocationController,
                         maxLines: 2,
                         scaleFactor: scaleFactor,
                       ),
@@ -602,7 +914,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                         },
                         child: AbsorbPointer(
                           child: _buildInputField(
-                            label: 'Time to be Claimed',
+                            label: 'Preferred Delivery Time (Optional)',
                             hint: 'Select time',
                             controller: _claimTimeController,
                             scaleFactor: scaleFactor,
@@ -614,7 +926,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                       _buildInputField(
                         label: 'Package Description (Optional)',
                         hint: 'Describe the package contents',
-                        controller: _descriptionController,
+                        controller: _packageDescriptionController,
                         maxLines: 3,
                         scaleFactor: scaleFactor,
                       ),
@@ -712,56 +1024,131 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                     SizedBox(height: 24 * scaleFactor),
 
                     // Total Fee and Submit Button
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Total Fee',
-                                style: TextStyle(
-                                  fontSize: 14 * scaleFactor,
-                                  color: Colors.grey[600],
-                                ),
+                    if (_selectedServiceType != null) ...[
+                      Container(
+                        padding: EdgeInsets.all(16 * scaleFactor),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12 * scaleFactor),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Column(
+                          children: [
+                            if (_selectedServiceType == 'Pabakal') ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Product Cost',
+                                    style: TextStyle(
+                                      fontSize: 14 * scaleFactor,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  Text(
+                                    '₱${_costController.text.isEmpty ? "0" : _costController.text}',
+                                    style: TextStyle(
+                                      fontSize: 14 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              SizedBox(height: 4 * scaleFactor),
-                              Text(
-                                '₱3,201',
-                                style: TextStyle(
-                                  fontSize: 32 * scaleFactor,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
+                              SizedBox(height: 8 * scaleFactor),
+                            ],
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Service Fee',
+                                  style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    color: Colors.grey[600],
+                                  ),
                                 ),
+                                Text(
+                                  '₱${_serviceFee.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_selectedServiceType == 'Pabakal') ...[
+                              Divider(height: 24 * scaleFactor, color: Colors.grey[300]),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Amount',
+                                    style: TextStyle(
+                                      fontSize: 16 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  Text(
+                                    '₱${_totalAmount.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 20 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF00B4D8),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
+                          ],
+                        ),
+                      ),
+                      
+                      SizedBox(height: 16 * scaleFactor),
+                      
+                      ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submitRequest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFF00B4D8),
+                          disabledBackgroundColor: Colors.grey[400],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            vertical: 16 * scaleFactor,
                           ),
                         ),
-                        SizedBox(width: 16 * scaleFactor),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _submitRequest,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF00B4D8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        child: _isSubmitting
+                            ? SizedBox(
+                                height: 20 * scaleFactor,
+                                width: 20 * scaleFactor,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.send,
+                                    color: Colors.white,
+                                    size: 20 * scaleFactor,
+                                  ),
+                                  SizedBox(width: 8 * scaleFactor),
+                                  Text(
+                                    'Submit Request',
+                                    style: TextStyle(
+                                      fontSize: 16 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              padding: EdgeInsets.symmetric(
-                                vertical: 16 * scaleFactor,
-                              ),
-                            ),
-                            child: Text(
-                              'Submit Request',
-                              style: TextStyle(
-                                fontSize: 16 * scaleFactor,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
 
                     SizedBox(height: 32 * scaleFactor),
                   ],

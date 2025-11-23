@@ -3,10 +3,13 @@ import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../models/trip.dart';
+import '../models/request.dart';
 import '../services/trip_service.dart';
+import '../services/request_service.dart';
 import 'messages_page.dart';
 import 'profile_page.dart';
 import 'traveler/edit_trip_page.dart';
+import 'traveler/request_detail_page.dart';
 
 class ActivityPage extends StatefulWidget {
   const ActivityPage({super.key});
@@ -18,9 +21,13 @@ class ActivityPage extends StatefulWidget {
 class _ActivityPageState extends State<ActivityPage> {
   bool _showRequests = true; // true for "Requests", false for "Ongoing"
   final TripService _tripService = TripService();
+  final RequestService _requestService = RequestService();
   List<Trip> _myTrips = [];
   Trip? _selectedTrip;
   bool _isLoading = true;
+  List<ServiceRequest> _pendingRequests = [];
+  List<ServiceRequest> _ongoingRequests = [];
+  Map<String, Map<String, dynamic>> _requesterInfoCache = {};
 
   @override
   void initState() {
@@ -44,6 +51,11 @@ class _ActivityPageState extends State<ActivityPage> {
           }
           _isLoading = false;
         });
+        
+        // Load requests for the selected trip
+        if (_selectedTrip != null) {
+          await _loadRequests();
+        }
       }
     } catch (e) {
       print('Error loading trips: $e');
@@ -55,141 +67,606 @@ class _ActivityPageState extends State<ActivityPage> {
     }
   }
 
+  Future<void> _loadRequests() async {
+    if (_selectedTrip == null) return;
+
+    try {
+      // Get all requests for the traveler
+      final allRequests = await _requestService.getTravelerRequests();
+      
+      // Filter by selected trip
+      final tripRequests = allRequests.where((req) => 
+        req.tripId == _selectedTrip!.id
+      ).toList();
+      
+      // Separate into pending and ongoing
+      final pending = tripRequests.where((req) => 
+        req.status == 'Pending'
+      ).toList();
+      
+      final ongoing = tripRequests.where((req) => 
+        req.status == 'Accepted'
+      ).toList();
+      
+      // Load requester info for each request
+      for (var request in tripRequests) {
+        if (!_requesterInfoCache.containsKey(request.requesterId)) {
+          final info = await _requestService.getRequesterInfo(request.requesterId);
+          if (info != null) {
+            _requesterInfoCache[request.requesterId] = info;
+          }
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _pendingRequests = pending;
+          _ongoingRequests = ongoing;
+        });
+      }
+    } catch (e) {
+      print('Error loading requests: $e');
+    }
+  }
+
   void _showTripSelectionModal(double scaleFactor) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24 * scaleFactor),
-              topRight: Radius.circular(24 * scaleFactor),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Padding(
-                padding: EdgeInsets.all(20 * scaleFactor),
-                child: Row(
-                  children: [
-                    Text(
-                      'Select Trip',
-                      style: TextStyle(
-                        fontSize: 20 * scaleFactor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Spacer(),
-                    IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24 * scaleFactor),
+                  topRight: Radius.circular(24 * scaleFactor),
                 ),
               ),
-              // Trip List
-              if (_myTrips.isEmpty)
-                Padding(
-                  padding: EdgeInsets.all(40 * scaleFactor),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.route_outlined,
-                        size: 60 * scaleFactor,
-                        color: Colors.grey[400],
+              child: Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: EdgeInsets.all(20 * scaleFactor),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Select Trip',
+                          style: TextStyle(
+                            fontSize: 20 * scaleFactor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Spacer(),
+                        IconButton(
+                          icon: Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1),
+                  
+                  // Scrollable Trip List
+                  Expanded(
+                    child: _myTrips.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(40 * scaleFactor),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.route_outlined,
+                                    size: 60 * scaleFactor,
+                                    color: Colors.grey[400],
+                                  ),
+                                  SizedBox(height: 12 * scaleFactor),
+                                  Text(
+                                    'No Active Trips',
+                                    style: TextStyle(
+                                      fontSize: 16 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                  SizedBox(height: 8 * scaleFactor),
+                                  Text(
+                                    'Log a trip from the home page',
+                                    style: TextStyle(
+                                      fontSize: 14 * scaleFactor,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            padding: EdgeInsets.symmetric(vertical: 8 * scaleFactor),
+                            itemCount: _myTrips.length,
+                            itemBuilder: (context, index) {
+                              final trip = _myTrips[index];
+                              final isSelected = _selectedTrip?.id == trip.id;
+                              final canDelete = trip.currentRequests == 0; // Can delete if no bookings
+                              
+                              return Container(
+                                margin: EdgeInsets.symmetric(
+                                  horizontal: 12 * scaleFactor,
+                                  vertical: 4 * scaleFactor,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected 
+                                      ? AppConstants.primaryColor.withOpacity(0.05)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12 * scaleFactor),
+                                  border: isSelected 
+                                      ? Border.all(
+                                          color: AppConstants.primaryColor.withOpacity(0.3),
+                                          width: 1,
+                                        )
+                                      : null,
+                                ),
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12 * scaleFactor,
+                                    vertical: 8 * scaleFactor,
+                                  ),
+                                  leading: Icon(
+                                    Icons.route,
+                                    color: isSelected ? AppConstants.primaryColor : Colors.grey,
+                                    size: 28 * scaleFactor,
+                                  ),
+                                  title: Text(
+                                    '${trip.departureLocation} → ${trip.destinationLocation}',
+                                    style: TextStyle(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                      fontSize: 15 * scaleFactor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(height: 4 * scaleFactor),
+                                      Text(
+                                        '${trip.formattedDepartureDate}',
+                                        style: TextStyle(
+                                          fontSize: 12 * scaleFactor,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      SizedBox(height: 2 * scaleFactor),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            size: 12 * scaleFactor,
+                                            color: Colors.grey[500],
+                                          ),
+                                          SizedBox(width: 4 * scaleFactor),
+                                          Text(
+                                            trip.formattedDepartureTime,
+                                            style: TextStyle(
+                                              fontSize: 12 * scaleFactor,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                          SizedBox(width: 12 * scaleFactor),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 6 * scaleFactor,
+                                              vertical: 2 * scaleFactor,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: trip.currentRequests == 0
+                                                  ? Colors.green.withOpacity(0.1)
+                                                  : Colors.orange.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(4 * scaleFactor),
+                                            ),
+                                            child: Text(
+                                              '${trip.currentRequests}/${trip.availableCapacity} requests',
+                                              style: TextStyle(
+                                                fontSize: 11 * scaleFactor,
+                                                fontWeight: FontWeight.w600,
+                                                color: trip.currentRequests == 0
+                                                    ? Colors.green[700]
+                                                    : Colors.orange[700],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isSelected)
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: AppConstants.primaryColor,
+                                          size: 24 * scaleFactor,
+                                        ),
+                                      if (canDelete) ...[
+                                        SizedBox(width: 8 * scaleFactor),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red[400],
+                                            size: 22 * scaleFactor,
+                                          ),
+                                          onPressed: () => _confirmDeleteTrip(trip, scaleFactor),
+                                          tooltip: 'Delete trip',
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  onTap: () async {
+                                    setState(() {
+                                      _selectedTrip = trip;
+                                    });
+                                    Navigator.pop(context);
+                                    await _loadRequests();
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  
+                  // Add New Trip Button
+                  Container(
+                    padding: EdgeInsets.all(20 * scaleFactor),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.primaryColor,
+                        foregroundColor: Colors.white,
+                        minimumSize: Size(double.infinity, 50 * scaleFactor),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        ),
+                        elevation: 0,
                       ),
-                      SizedBox(height: 12 * scaleFactor),
-                      Text(
-                        'No Active Trips',
+                      icon: Icon(Icons.add, size: 22 * scaleFactor),
+                      label: Text(
+                        'Add New Trip',
                         style: TextStyle(
                           fontSize: 16 * scaleFactor,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
                         ),
                       ),
-                      SizedBox(height: 8 * scaleFactor),
-                      Text(
-                        'Log a trip from the home page',
-                        style: TextStyle(
-                          fontSize: 14 * scaleFactor,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _myTrips.length,
-                  itemBuilder: (context, index) {
-                    final trip = _myTrips[index];
-                    final isSelected = _selectedTrip?.id == trip.id;
-                    return ListTile(
-                      selected: isSelected,
-                      selectedTileColor: AppConstants.primaryColor.withOpacity(0.1),
-                      leading: Icon(
-                        Icons.route,
-                        color: isSelected ? AppConstants.primaryColor : Colors.grey,
-                      ),
-                      title: Text(
-                        '${trip.departureLocation} → ${trip.destinationLocation}',
-                        style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${trip.formattedDepartureDate} • ${trip.formattedDepartureTime}',
-                        style: TextStyle(fontSize: 12 * scaleFactor),
-                      ),
-                      trailing: isSelected
-                          ? Icon(Icons.check_circle, color: AppConstants.primaryColor)
-                          : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedTrip = trip;
-                        });
+                      onPressed: () {
                         Navigator.pop(context);
+                        Navigator.pop(context); // Go back to home page
                       },
-                    );
-                  },
-                ),
-              // Add New Trip Button
-              Padding(
-                padding: EdgeInsets.all(20 * scaleFactor),
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.primaryColor,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 50 * scaleFactor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12 * scaleFactor),
                     ),
                   ),
-                  icon: Icon(Icons.add),
-                  label: Text('Add New Trip'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.pop(context); // Go back to home page
-                  },
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
+  Future<void> _confirmDeleteTrip(Trip trip, double scaleFactor) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16 * scaleFactor),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.orange,
+              size: 28 * scaleFactor,
+            ),
+            SizedBox(width: 12 * scaleFactor),
+            Expanded(
+              child: Text(
+                'Delete Trip?',
+                style: TextStyle(fontSize: 20 * scaleFactor),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete this trip?',
+              style: TextStyle(fontSize: 15 * scaleFactor),
+            ),
+            SizedBox(height: 12 * scaleFactor),
+            Container(
+              padding: EdgeInsets.all(12 * scaleFactor),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8 * scaleFactor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 16 * scaleFactor,
+                        color: Colors.grey[700],
+                      ),
+                      SizedBox(width: 6 * scaleFactor),
+                      Expanded(
+                        child: Text(
+                          '${trip.departureLocation} → ${trip.destinationLocation}',
+                          style: TextStyle(
+                            fontSize: 14 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6 * scaleFactor),
+                  Text(
+                    '${trip.formattedDepartureDate} • ${trip.formattedDepartureTime}',
+                    style: TextStyle(
+                      fontSize: 13 * scaleFactor,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 12 * scaleFactor),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                fontSize: 13 * scaleFactor,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 15 * scaleFactor,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8 * scaleFactor),
+              ),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(fontSize: 15 * scaleFactor),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _deleteTrip(trip);
+    }
+  }
+
+  Future<void> _deleteTrip(Trip trip) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      await _tripService.deleteTrip(trip.id);
+      
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+      
+      // Close trip selection modal if open
+      if (mounted) Navigator.pop(context);
+      
+      // Update state
+      setState(() {
+        _myTrips.removeWhere((t) => t.id == trip.id);
+        if (_selectedTrip?.id == trip.id) {
+          _selectedTrip = _myTrips.isNotEmpty ? _myTrips.first : null;
+        }
+      });
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Trip deleted successfully'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Failed to delete trip: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   String _getTruncatedLocation(String location, int maxLength) {
     if (location.length <= maxLength) return location;
     return '${location.substring(0, maxLength)}...';
+  }
+
+  List<Widget> _buildPendingRequestsList(double scaleFactor) {
+    if (_pendingRequests.isEmpty) {
+      return [
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(40 * scaleFactor),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 60 * scaleFactor,
+                  color: Colors.grey[400],
+                ),
+                SizedBox(height: 12 * scaleFactor),
+                Text(
+                  'No Pending Requests',
+                  style: TextStyle(
+                    fontSize: 18 * scaleFactor,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 8 * scaleFactor),
+                Text(
+                  'New requests for this trip\nwill appear here',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14 * scaleFactor,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return _pendingRequests.map((request) {
+      final requesterInfo = _requesterInfoCache[request.requesterId];
+      return Padding(
+        padding: EdgeInsets.only(bottom: 12 * scaleFactor),
+        child: _buildRequestCard(
+          request: request,
+          requesterInfo: requesterInfo,
+          scaleFactor: scaleFactor,
+        ),
+      );
+    }).toList();
+  }
+
+  List<Widget> _buildOngoingRequestsList(double scaleFactor) {
+    if (_ongoingRequests.isEmpty) {
+      return [
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(40 * scaleFactor),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.pending_actions,
+                  size: 60 * scaleFactor,
+                  color: Colors.grey[400],
+                ),
+                SizedBox(height: 12 * scaleFactor),
+                Text(
+                  'No Ongoing Requests',
+                  style: TextStyle(
+                    fontSize: 18 * scaleFactor,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 8 * scaleFactor),
+                Text(
+                  'Accepted requests will\nappear here',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14 * scaleFactor,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return _ongoingRequests.map((request) {
+      final requesterInfo = _requesterInfoCache[request.requesterId];
+      return Padding(
+        padding: EdgeInsets.only(bottom: 12 * scaleFactor),
+        child: _buildRequestCard(
+          request: request,
+          requesterInfo: requesterInfo,
+          scaleFactor: scaleFactor,
+        ),
+      );
+    }).toList();
   }
 
   @override
@@ -561,14 +1038,9 @@ class _ActivityPageState extends State<ActivityPage> {
                             ),
                           )
                         else if (_showRequests)
-                          _buildRequestCard(
-                            name: 'Maria Santos',
-                            route: '${_selectedTrip!.departureLocation} → ${_selectedTrip!.destinationLocation}',
-                            items: 'Polo Shirts, Blazer, and Pants',
-                            rating: 4.5,
-                            imageUrl: 'https://i.pravatar.cc/150?img=5',
-                            scaleFactor: scaleFactor,
-                          ),
+                          ..._buildPendingRequestsList(scaleFactor)
+                        else
+                          ..._buildOngoingRequestsList(scaleFactor),
 
                         SizedBox(height: 80 * scaleFactor),
                       ],
@@ -628,129 +1100,202 @@ class _ActivityPageState extends State<ActivityPage> {
 
 
   Widget _buildRequestCard({
-    required String name,
-    required String route,
-    required String items,
-    required double rating,
-    required String imageUrl,
+    required ServiceRequest request,
+    Map<String, dynamic>? requesterInfo,
     required double scaleFactor,
   }) {
-    return Container(
-      padding: EdgeInsets.all(16 * scaleFactor),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16 * scaleFactor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Profile Image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12 * scaleFactor),
-            child: Image.network(
-              imageUrl,
-              width: 70 * scaleFactor,
-              height: 70 * scaleFactor,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 70 * scaleFactor,
-                  height: 70 * scaleFactor,
-                  color: Colors.grey[300],
-                  child: Icon(
-                    Icons.person,
-                    size: 35 * scaleFactor,
-                    color: Colors.grey[600],
-                  ),
-                );
-              },
+    final String requesterName = requesterInfo != null
+        ? '${requesterInfo['first_name']} ${requesterInfo['last_name']}'
+        : 'Unknown';
+    final String? imageUrl = requesterInfo?['profile_image_url'];
+    
+    final String itemsDescription = request.serviceType == 'Pabakal'
+        ? request.productName ?? 'Items'
+        : (request.packageDescription ?? 'Package delivery');
+
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RequestDetailPage(
+              request: request,
+              requesterInfo: requesterInfo,
             ),
           ),
-          SizedBox(width: 14 * scaleFactor),
-
-          // Info Section
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 17 * scaleFactor,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                SizedBox(height: 4 * scaleFactor),
-                Text(
-                  route,
-                  style: TextStyle(
-                    fontSize: 13 * scaleFactor,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                SizedBox(height: 4 * scaleFactor),
-                Text(
-                  items,
-                  style: TextStyle(
-                    fontSize: 13 * scaleFactor,
-                    color: Color(0xFF00B4D8),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+        );
+        
+        // Refresh if needed (if request was accepted/rejected)
+        if (result == true) {
+          await _loadRequests();
+        }
+      },
+      child: Container(
+        padding: EdgeInsets.all(16 * scaleFactor),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16 * scaleFactor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
-          ),
-          SizedBox(width: 8 * scaleFactor),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Profile Image
+            CircleAvatar(
+              radius: 35 * scaleFactor,
+              backgroundColor: Color(0xFF00B4D8),
+              backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+              child: imageUrl == null
+                  ? Icon(
+                      Icons.person,
+                      size: 35 * scaleFactor,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+            SizedBox(width: 14 * scaleFactor),
 
-          // Right Section: Rating & Arrow
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 8 * scaleFactor,
-                  vertical: 4 * scaleFactor,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8 * scaleFactor),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.star,
-                      color: Colors.amber,
-                      size: 14 * scaleFactor,
-                    ),
-                    SizedBox(width: 4 * scaleFactor),
-                    Text(
-                      rating.toString(),
-                      style: TextStyle(
-                        fontSize: 13 * scaleFactor,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+            // Info Section
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          requesterName,
+                          style: TextStyle(
+                            fontSize: 16 * scaleFactor,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8 * scaleFactor,
+                          vertical: 4 * scaleFactor,
+                        ),
+                        decoration: BoxDecoration(
+                          color: request.serviceType == 'Pabakal'
+                              ? Colors.blue.withOpacity(0.1)
+                              : Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        ),
+                        child: Text(
+                          request.serviceType,
+                          style: TextStyle(
+                            fontSize: 11 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                            color: request.serviceType == 'Pabakal'
+                                ? Colors.blue[700]
+                                : Colors.green[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6 * scaleFactor),
+                  Row(
+                    children: [
+                      Icon(
+                        request.serviceType == 'Pabakal' 
+                            ? Icons.shopping_bag
+                            : Icons.local_shipping,
+                        size: 14 * scaleFactor,
+                        color: Colors.grey[600],
+                      ),
+                      SizedBox(width: 4 * scaleFactor),
+                      Expanded(
+                        child: Text(
+                          itemsDescription,
+                          style: TextStyle(
+                            fontSize: 13 * scaleFactor,
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 5 * scaleFactor),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.attach_money,
+                        size: 14 * scaleFactor,
+                        color: Colors.green[700],
+                      ),
+                      Text(
+                        '₱${request.serviceFee.toStringAsFixed(2)} fee',
+                        style: TextStyle(
+                          fontSize: 13 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                      Spacer(),
+                      if (request.status == 'Accepted')
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8 * scaleFactor,
+                            vertical: 3 * scaleFactor,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.circular(10 * scaleFactor),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                size: 12 * scaleFactor,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4 * scaleFactor),
+                              Text(
+                                'Accepted',
+                                style: TextStyle(
+                                  fontSize: 11 * scaleFactor,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 5 * scaleFactor),
+                  Text(
+                    request.formattedCreatedAt,
+                    style: TextStyle(
+                      fontSize: 11 * scaleFactor,
+                      color: Colors.grey[500],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              SizedBox(height: 8 * scaleFactor),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: 18 * scaleFactor,
-              ),
-            ],
-          ),
-        ],
+            ),
+
+            // Arrow Icon
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 18 * scaleFactor,
+              color: Colors.grey[400],
+            ),
+          ],
+        ),
       ),
     );
   }
