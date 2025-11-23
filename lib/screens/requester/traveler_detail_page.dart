@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+<<<<<<< HEAD
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
@@ -17,6 +18,26 @@ class TravelerDetailPage extends StatefulWidget {
     super.key,
     required this.trip,
     required this.travelerInfo,
+=======
+import 'dart:io';
+import '../../utils/constants.dart';
+import '../../utils/helpers.dart';
+
+class TravelerDetailPage extends StatefulWidget {
+  final String name;
+  final String route;
+  final String date;
+  final String rating;
+  final String imageUrl;
+
+  const TravelerDetailPage({
+    super.key,
+    required this.name,
+    required this.route,
+    required this.date,
+    required this.rating,
+    required this.imageUrl,
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   });
 
   @override
@@ -25,16 +46,23 @@ class TravelerDetailPage extends StatefulWidget {
 
 class _TravelerDetailPageState extends State<TravelerDetailPage> {
   String? _selectedServiceType; // 'Pabakal' or 'Pasabay'
+<<<<<<< HEAD
   bool _isSubmitting = false;
   
   // Pabakal fields
   final _productNameController = TextEditingController();
   final _storeNameController = TextEditingController();
+=======
+  
+  // Pabakal fields
+  final _productNameController = TextEditingController();
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   final _storeLocationController = TextEditingController();
   final _costController = TextEditingController();
   final _descriptionController = TextEditingController();
   
   // Pasabay fields
+<<<<<<< HEAD
   final _recipientNameController = TextEditingController();
   final _recipientPhoneController = TextEditingController();
   final _pickupLocationController = TextEditingController();
@@ -67,6 +95,16 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     final productCost = double.tryParse(_costController.text) ?? 0;
     return productCost + _serviceFee;
   }
+=======
+  final _claimantNameController = TextEditingController();
+  final _claimLocationController = TextEditingController();
+  final _claimTimeController = TextEditingController();
+  
+  // File attachments
+  final ImagePicker _imagePicker = ImagePicker();
+  List<File> _attachedImages = [];
+  List<File> _attachedFiles = [];
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 
   @override
   void initState() {
@@ -80,6 +118,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
   @override
   void dispose() {
     _productNameController.dispose();
+<<<<<<< HEAD
     _storeNameController.dispose();
     _storeLocationController.dispose();
     _costController.dispose();
@@ -90,6 +129,14 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     _dropoffLocationController.dispose();
     _claimTimeController.dispose();
     _packageDescriptionController.dispose();
+=======
+    _storeLocationController.dispose();
+    _costController.dispose();
+    _descriptionController.dispose();
+    _claimantNameController.dispose();
+    _claimLocationController.dispose();
+    _claimTimeController.dispose();
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
     super.dispose();
   }
 
@@ -346,6 +393,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     );
   }
 
+<<<<<<< HEAD
   Future<void> _uploadFiles() async {
     // Upload images
     for (var imageFile in _attachedImages) {
@@ -389,6 +437,9 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
   }
 
   Future<void> _submitRequest() async {
+=======
+  void _submitRequest() {
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
     // Validate inputs
     if (_selectedServiceType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -413,6 +464,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
         );
         return;
       }
+<<<<<<< HEAD
       
       // Validate cost
       if (double.tryParse(_costController.text) == null) {
@@ -428,6 +480,12 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       if (_recipientNameController.text.isEmpty ||
           _recipientPhoneController.text.isEmpty ||
           _dropoffLocationController.text.isEmpty) {
+=======
+    } else if (_selectedServiceType == 'Pasabay') {
+      if (_claimantNameController.text.isEmpty ||
+          _claimLocationController.text.isEmpty ||
+          _claimTimeController.text.isEmpty) {
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Please fill in all required fields'),
@@ -438,6 +496,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       }
     }
 
+<<<<<<< HEAD
     // Start submission
     setState(() => _isSubmitting = true);
 
@@ -547,6 +606,15 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       print('❌ Error parsing time: $e');
       return null;
     }
+=======
+    // Show success screen
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RequestSentScreen(),
+      ),
+    );
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   }
 
   @override
@@ -649,6 +717,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                           ),
                         ],
                       ),
+<<<<<<< HEAD
                       child: Column(
                         children: [
                           Row(
@@ -809,6 +878,62 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                                 ),
                               ),
                             ],
+=======
+                      child: Row(
+                        children: [
+                          ClipOval(
+                            child: Image.network(
+                              widget.imageUrl,
+                              width: 80 * scaleFactor,
+                              height: 80 * scaleFactor,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          SizedBox(width: 16 * scaleFactor),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Traveler',
+                                  style: TextStyle(
+                                    fontSize: 12 * scaleFactor,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                SizedBox(height: 4 * scaleFactor),
+                                Text(
+                                  widget.name,
+                                  style: TextStyle(
+                                    fontSize: 20 * scaleFactor,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                SizedBox(height: 8 * scaleFactor),
+                                ElevatedButton(
+                                  onPressed: () {},
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Color(0xFF00B4D8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                    ),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 20 * scaleFactor,
+                                      vertical: 8 * scaleFactor,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'View Profile',
+                                    style: TextStyle(
+                                      fontSize: 13 * scaleFactor,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                           ),
                         ],
                       ),
@@ -839,6 +964,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                       ),
                       SizedBox(height: 16 * scaleFactor),
                       _buildInputField(
+<<<<<<< HEAD
                         label: 'Store Name',
                         hint: 'Enter Store Name (e.g., SM City Iloilo)',
                         controller: _storeNameController,
@@ -848,6 +974,10 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                       _buildInputField(
                         label: 'Store Location',
                         hint: 'Enter Complete Address',
+=======
+                        label: 'Store Name and Location',
+                        hint: 'Enter Complete Address and Store Name',
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                         controller: _storeLocationController,
                         scaleFactor: scaleFactor,
                       ),
@@ -870,13 +1000,20 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                     ] else if (_selectedServiceType == 'Pasabay') ...[
                       // PASABAY FORM
                       _buildInputField(
+<<<<<<< HEAD
                         label: 'Recipient Name',
                         hint: 'Enter full name of recipient',
                         controller: _recipientNameController,
+=======
+                        label: 'Person Claiming the Package',
+                        hint: 'Enter full name of recipient',
+                        controller: _claimantNameController,
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                         scaleFactor: scaleFactor,
                       ),
                       SizedBox(height: 16 * scaleFactor),
                       _buildInputField(
+<<<<<<< HEAD
                         label: 'Recipient Phone Number',
                         hint: 'Enter phone number (e.g., 09123456789)',
                         controller: _recipientPhoneController,
@@ -896,6 +1033,11 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                         label: 'Drop-off Location',
                         hint: 'Enter complete delivery address',
                         controller: _dropoffLocationController,
+=======
+                        label: 'Claim Location',
+                        hint: 'Enter complete address for package delivery',
+                        controller: _claimLocationController,
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                         maxLines: 2,
                         scaleFactor: scaleFactor,
                       ),
@@ -914,7 +1056,11 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                         },
                         child: AbsorbPointer(
                           child: _buildInputField(
+<<<<<<< HEAD
                             label: 'Preferred Delivery Time (Optional)',
+=======
+                            label: 'Time to be Claimed',
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                             hint: 'Select time',
                             controller: _claimTimeController,
                             scaleFactor: scaleFactor,
@@ -926,7 +1072,11 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                       _buildInputField(
                         label: 'Package Description (Optional)',
                         hint: 'Describe the package contents',
+<<<<<<< HEAD
                         controller: _packageDescriptionController,
+=======
+                        controller: _descriptionController,
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                         maxLines: 3,
                         scaleFactor: scaleFactor,
                       ),
@@ -1024,6 +1174,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                     SizedBox(height: 24 * scaleFactor),
 
                     // Total Fee and Submit Button
+<<<<<<< HEAD
                     if (_selectedServiceType != null) ...[
                       Container(
                         padding: EdgeInsets.all(16 * scaleFactor),
@@ -1149,6 +1300,58 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                               ),
                       ),
                     ],
+=======
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Total Fee',
+                                style: TextStyle(
+                                  fontSize: 14 * scaleFactor,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              SizedBox(height: 4 * scaleFactor),
+                              Text(
+                                '₱3,201',
+                                style: TextStyle(
+                                  fontSize: 32 * scaleFactor,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 16 * scaleFactor),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _submitRequest,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF00B4D8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12 * scaleFactor),
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 16 * scaleFactor,
+                              ),
+                            ),
+                            child: Text(
+                              'Submit Request',
+                              style: TextStyle(
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 
                     SizedBox(height: 32 * scaleFactor),
                   ],

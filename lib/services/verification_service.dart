@@ -140,7 +140,11 @@ class VerificationService {
     try {
       await _supabase.rpc('approve_verification_request', params: {
         'request_id': requestId,
+<<<<<<< HEAD
             'verifier_notes': notes,
+=======
+        'verifier_notes': notes,
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
       });
 
       return true;

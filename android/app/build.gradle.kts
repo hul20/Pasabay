@@ -13,7 +13,11 @@ dependencies {
 }
 
 // Load local.properties file to read API keys
+<<<<<<< HEAD
 val localProperties = Properties()
+=======
+val localProperties = java.util.Properties()
+>>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
