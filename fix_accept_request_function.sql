@@ -111,4 +111,3 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- This has been corrected to use "current_requests"
 -- ============================================================
 
-

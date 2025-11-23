@@ -53,13 +53,12 @@ DECLARE
     v_traveler_id UUID;
     v_requester_id UUID;
     v_conversation_id UUID;
-    v_request_id UUID := request_id;  -- Store parameter to avoid ambiguity
 BEGIN
     -- Get request details
     SELECT trip_id, traveler_id, requester_id 
     INTO v_trip_id, v_traveler_id, v_requester_id
     FROM public.service_requests
-    WHERE id = v_request_id AND status = 'Pending';
+    WHERE id = request_id AND status = 'Pending';
     
     IF NOT FOUND THEN
         RETURN FALSE;
@@ -82,7 +81,7 @@ BEGIN
     -- Accept the request
     UPDATE public.service_requests
     SET status = 'Accepted', updated_at = NOW()
-    WHERE id = v_request_id;
+    WHERE id = request_id;
     
     -- Update trip capacity (FIXED: use current_requests)
     UPDATE public.trips
@@ -93,8 +92,8 @@ BEGIN
     
     -- ✅ CREATE CONVERSATION (automatically!)
     SELECT id INTO v_conversation_id
-    FROM public.conversations c
-    WHERE c.request_id = v_request_id;
+    FROM public.conversations
+    WHERE request_id = request_id;
     
     IF v_conversation_id IS NULL THEN
         INSERT INTO public.conversations (
@@ -104,7 +103,7 @@ BEGIN
             created_at,
             updated_at
         ) VALUES (
-            v_request_id,
+            request_id,
             v_requester_id,
             v_traveler_id,
             NOW(),
@@ -120,46 +119,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
--- FIX #3: Reject Request - Fix ambiguous reference
--- ============================================================
-
-CREATE OR REPLACE FUNCTION public.reject_service_request(
-    request_id UUID,
-    rejection_reason TEXT DEFAULT NULL
-)
-RETURNS BOOLEAN AS $$
-DECLARE
-    v_traveler_id UUID;
-    v_request_id UUID := request_id;  -- Store parameter to avoid ambiguity
-BEGIN
-    -- Get traveler_id from the request
-    SELECT traveler_id INTO v_traveler_id
-    FROM public.service_requests
-    WHERE id = v_request_id AND status = 'Pending';
-    
-    IF NOT FOUND THEN
-        RETURN FALSE;
-    END IF;
-    
-    -- Check if the current user is the traveler
-    IF auth.uid() != v_traveler_id THEN
-        RETURN FALSE;
-    END IF;
-    
-    -- Reject the request
-    UPDATE public.service_requests
-    SET 
-        status = 'Rejected',
-        rejection_reason = rejection_reason,
-        updated_at = NOW()
-    WHERE id = v_request_id;
-    
-    RETURN TRUE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================================
--- FIX #4: Cancel Request - Fix column name
+-- FIX #3: Cancel Request - Fix column name
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.cancel_service_request(request_id UUID)
@@ -168,12 +128,11 @@ DECLARE
     v_trip_id UUID;
     v_requester_id UUID;
     v_current_status VARCHAR(20);
-    v_request_id UUID := request_id;  -- Store parameter to avoid ambiguity
 BEGIN
     SELECT trip_id, requester_id, status 
     INTO v_trip_id, v_requester_id, v_current_status
     FROM public.service_requests
-    WHERE id = v_request_id;
+    WHERE id = request_id;
     
     IF NOT FOUND THEN RETURN FALSE; END IF;
     IF auth.uid() != v_requester_id THEN RETURN FALSE; END IF;
@@ -189,7 +148,7 @@ BEGIN
     
     UPDATE public.service_requests
     SET status = 'Cancelled', updated_at = NOW()
-    WHERE id = v_request_id;
+    WHERE id = request_id;
     
     RETURN TRUE;
 END;

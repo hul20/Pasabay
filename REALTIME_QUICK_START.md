@@ -129,4 +129,3 @@ See **SUPABASE_REALTIME_SETUP_GUIDE.md** for:
 **Difficulty: Easy** 🟢  
 **Result: Professional real-time chat** 🚀
 
-

@@ -476,4 +476,3 @@ Requester                          System                        Traveler
 
 The complete traveler request management and messaging system is now fully functional. Travelers can view, accept/reject requests, and communicate with requesters seamlessly!
 
-

@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../models/conversation.dart';
 import '../services/messaging_service.dart';
-=======
-import '../utils/constants.dart';
-import '../utils/helpers.dart';
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 import 'chat_detail_page.dart';
 import 'profile_page.dart';
 import 'activity_page.dart';
@@ -21,7 +16,6 @@ class MessagesPage extends StatefulWidget {
 }
 
 class _MessagesPageState extends State<MessagesPage> {
-<<<<<<< HEAD
   final MessagingService _messagingService = MessagingService();
   List<Conversation> _conversations = [];
   bool _isLoading = true;
@@ -83,8 +77,6 @@ class _MessagesPageState extends State<MessagesPage> {
       _loadConversations();
     });
   }
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -221,7 +213,6 @@ class _MessagesPageState extends State<MessagesPage> {
 
             // Scrollable Content
             Expanded(
-<<<<<<< HEAD
               child: _isLoading
                   ? Center(child: CircularProgressIndicator())
                   : _conversations.isEmpty
@@ -268,56 +259,6 @@ class _MessagesPageState extends State<MessagesPage> {
                             },
                           ),
                         ),
-=======
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Messages Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Messages',
-                            style: TextStyle(
-                              fontSize: 28 * scaleFactor,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          Text(
-                            '3 Unread',
-                            style: TextStyle(
-                              fontSize: 15 * scaleFactor,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 18 * scaleFactor),
-
-                      // Message Card
-                      _buildMessageCard(
-                        name: 'Maria Santos',
-                        message: 'Hello Sir! Thank you gid sa pag accept.',
-                        time: '16m',
-                        unreadCount: 2,
-                        isOnline: true,
-                        imageUrl: 'https://i.pravatar.cc/150?img=5',
-                        itemId: 'ID#12313',
-                        route: 'Iloilo City → Roxas City',
-                        items: 'Polo Shirts, Blazer, and Pants',
-                        scaleFactor: scaleFactor,
-                      ),
-
-                      SizedBox(height: 80 * scaleFactor),
-                    ],
-                  ),
-                ),
-              ),
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
             ),
           ],
         ),
@@ -368,7 +309,6 @@ class _MessagesPageState extends State<MessagesPage> {
     );
   }
 
-<<<<<<< HEAD
   Widget _buildEmptyState(double scaleFactor) {
     return Center(
       child: Padding(
@@ -563,9 +503,6 @@ class _MessagesPageState extends State<MessagesPage> {
 
   // Old method - no longer used, kept for reference
   Widget _buildMessageCard_OLD({
-=======
-  Widget _buildMessageCard({
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
     required String name,
     required String message,
     required String time,
@@ -579,24 +516,7 @@ class _MessagesPageState extends State<MessagesPage> {
   }) {
     return GestureDetector(
       onTap: () {
-<<<<<<< HEAD
         // Old navigation - replaced by _buildConversationCard
-=======
-        // Navigate to chat detail page
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatDetailPage(
-              name: name,
-              imageUrl: imageUrl,
-              isOnline: isOnline,
-              itemId: itemId,
-              route: route,
-              items: items,
-            ),
-          ),
-        );
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
       },
       child: Container(
         padding: EdgeInsets.all(14 * scaleFactor),

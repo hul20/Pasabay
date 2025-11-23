@@ -388,4 +388,3 @@ After fixing the RLS policy:
 
 **Run the SQL fix now and test! No code changes needed!** 🚀
 
-

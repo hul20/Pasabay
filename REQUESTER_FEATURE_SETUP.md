@@ -441,4 +441,3 @@ dependencies:
 
 The requester feature is now fully functional. Users can search for travelers, view trip details, and submit service requests for both Pabakal and Pasabay services!
 
-

@@ -332,4 +332,3 @@ Both bugs are now fixed with:
 
 **The app should now work smoothly for finding travelers and submitting requests!** 🎉
 
-

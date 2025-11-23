@@ -300,4 +300,3 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 **Go to Supabase and run the fix now!** 🚀
 
-

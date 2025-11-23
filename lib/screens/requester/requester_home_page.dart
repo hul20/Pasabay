@@ -2,18 +2,12 @@ import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
-<<<<<<< HEAD
 import '../../services/request_service.dart';
 import '../../models/trip.dart';
 import 'requester_activity_page.dart';
 import 'requester_messages_page.dart';
 import 'requester_profile_page.dart';
 import 'traveler_search_results_page.dart';
-=======
-import 'requester_activity_page.dart';
-import 'requester_messages_page.dart';
-import 'requester_profile_page.dart';
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 
 class RequesterHomePage extends StatefulWidget {
   const RequesterHomePage({super.key});
@@ -25,14 +19,11 @@ class RequesterHomePage extends StatefulWidget {
 class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   String userName = "Maria";
-<<<<<<< HEAD
   
   // Location controllers
   final TextEditingController _departureController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
   final RequestService _requestService = RequestService();
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 
   @override
   void initState() {
@@ -43,16 +34,12 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
 
   @override
   void dispose() {
-<<<<<<< HEAD
     _departureController.dispose();
     _destinationController.dispose();
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-<<<<<<< HEAD
   Future<void> _searchTravelers() async {
     if (_departureController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,8 +111,6 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
     }
   }
 
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   Future<void> _fetchUserProfile() async {
     final supabaseService = SupabaseService();
     final userData = await supabaseService.getUserData();
@@ -436,19 +421,12 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           ),
                         ),
                         SizedBox(height: 16 * scaleFactor),
-<<<<<<< HEAD
                         
                         // Departure Location Input
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 16 * scaleFactor,
                             vertical: 4 * scaleFactor,
-=======
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16 * scaleFactor,
-                            vertical: 14 * scaleFactor,
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -457,7 +435,6 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           child: Row(
                             children: [
                               Icon(
-<<<<<<< HEAD
                                 Icons.trip_origin,
                                 color: Color(0xFF00B4D8),
                                 size: 22 * scaleFactor,
@@ -522,26 +499,6 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-=======
-                                Icons.location_on_outlined,
-                                color: Colors.black,
-                                size: 24 * scaleFactor,
-                              ),
-                              SizedBox(width: 12 * scaleFactor),
-                              Text(
-                                'Add Location',
-                                style: TextStyle(
-                                  fontSize: 16 * scaleFactor,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              Spacer(),
-                              Icon(
-                                Icons.add,
-                                color: Colors.black,
-                                size: 24 * scaleFactor,
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                               ),
                             ],
                           ),
@@ -552,7 +509,6 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                   
                   SizedBox(height: 16 * scaleFactor),
                   
-<<<<<<< HEAD
                   // Search Travelers Button
                   ElevatedButton(
                     onPressed: _searchTravelers,
@@ -588,9 +544,6 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                   SizedBox(height: 16 * scaleFactor),
                   
                   // Ideal Schedule Card (Gray-Blue) - Optional filter
-=======
-                  // Ideal Schedule Card (Gray-Blue)
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                   Container(
                     padding: EdgeInsets.all(20 * scaleFactor),
                     decoration: BoxDecoration(
@@ -601,30 +554,18 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-<<<<<<< HEAD
                           'Filter by Schedule',
                           style: TextStyle(
                             fontSize: 24 * scaleFactor,
-=======
-                          'Ideal Schedule',
-                          style: TextStyle(
-                            fontSize: 32 * scaleFactor,
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
                         SizedBox(height: 8 * scaleFactor),
                         Text(
-<<<<<<< HEAD
                           'Optional: Filter by preferred travel date',
                           style: TextStyle(
                             fontSize: 13 * scaleFactor,
-=======
-                          'Tap to add travel date and time range',
-                          style: TextStyle(
-                            fontSize: 14 * scaleFactor,
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                             color: Colors.white.withOpacity(0.9),
                           ),
                         ),
@@ -651,11 +592,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                     ),
                                     SizedBox(width: 8 * scaleFactor),
                                     Text(
-<<<<<<< HEAD
                                       'Any Date',
-=======
-                                      'Select Date',
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                                       style: TextStyle(
                                         fontSize: 14 * scaleFactor,
                                         fontWeight: FontWeight.w500,
@@ -687,11 +624,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                     ),
                                     SizedBox(width: 8 * scaleFactor),
                                     Text(
-<<<<<<< HEAD
                                       'Any Time',
-=======
-                                      'Select Time',
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
                                       style: TextStyle(
                                         fontSize: 14 * scaleFactor,
                                         fontWeight: FontWeight.w500,

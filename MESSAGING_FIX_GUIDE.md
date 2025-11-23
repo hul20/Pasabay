@@ -314,4 +314,3 @@ SELECT * FROM users  -- Would expose email, etc.
 
 **Run the fix now and test!** 🔥
 
-

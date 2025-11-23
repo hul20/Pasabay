@@ -238,4 +238,3 @@ The requester activity and messages pages are now **fully functional** with:
 
 **The requester flow is complete from request submission to completion!** 🚀
 
-

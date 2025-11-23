@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../models/trip.dart';
-<<<<<<< HEAD
 import '../models/request.dart';
 import '../services/trip_service.dart';
 import '../services/request_service.dart';
@@ -11,12 +10,6 @@ import 'messages_page.dart';
 import 'profile_page.dart';
 import 'traveler/edit_trip_page.dart';
 import 'traveler/request_detail_page.dart';
-=======
-import '../services/trip_service.dart';
-import 'messages_page.dart';
-import 'profile_page.dart';
-import 'traveler/edit_trip_page.dart';
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 
 class ActivityPage extends StatefulWidget {
   const ActivityPage({super.key});
@@ -28,7 +21,6 @@ class ActivityPage extends StatefulWidget {
 class _ActivityPageState extends State<ActivityPage> {
   bool _showRequests = true; // true for "Requests", false for "Ongoing"
   final TripService _tripService = TripService();
-<<<<<<< HEAD
   final RequestService _requestService = RequestService();
   List<Trip> _myTrips = [];
   Trip? _selectedTrip;
@@ -36,11 +28,6 @@ class _ActivityPageState extends State<ActivityPage> {
   List<ServiceRequest> _pendingRequests = [];
   List<ServiceRequest> _ongoingRequests = [];
   Map<String, Map<String, dynamic>> _requesterInfoCache = {};
-=======
-  List<Trip> _myTrips = [];
-  Trip? _selectedTrip;
-  bool _isLoading = true;
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 
   @override
   void initState() {
@@ -64,14 +51,11 @@ class _ActivityPageState extends State<ActivityPage> {
           }
           _isLoading = false;
         });
-<<<<<<< HEAD
         
         // Load requests for the selected trip
         if (_selectedTrip != null) {
           await _loadRequests();
         }
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
       }
     } catch (e) {
       print('Error loading trips: $e');
@@ -83,7 +67,6 @@ class _ActivityPageState extends State<ActivityPage> {
     }
   }
 
-<<<<<<< HEAD
   Future<void> _loadRequests() async {
     if (_selectedTrip == null) return;
 
@@ -126,13 +109,10 @@ class _ActivityPageState extends State<ActivityPage> {
     }
   }
 
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   void _showTripSelectionModal(double scaleFactor) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-<<<<<<< HEAD
       isScrollControlled: true,
       builder: (context) {
         return DraggableScrollableSheet(
@@ -383,137 +363,11 @@ class _ActivityPageState extends State<ActivityPage> {
               ),
             );
           },
-=======
-      builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24 * scaleFactor),
-              topRight: Radius.circular(24 * scaleFactor),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Padding(
-                padding: EdgeInsets.all(20 * scaleFactor),
-                child: Row(
-                  children: [
-                    Text(
-                      'Select Trip',
-                      style: TextStyle(
-                        fontSize: 20 * scaleFactor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Spacer(),
-                    IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              // Trip List
-              if (_myTrips.isEmpty)
-                Padding(
-                  padding: EdgeInsets.all(40 * scaleFactor),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.route_outlined,
-                        size: 60 * scaleFactor,
-                        color: Colors.grey[400],
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-                      Text(
-                        'No Active Trips',
-                        style: TextStyle(
-                          fontSize: 16 * scaleFactor,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      SizedBox(height: 8 * scaleFactor),
-                      Text(
-                        'Log a trip from the home page',
-                        style: TextStyle(
-                          fontSize: 14 * scaleFactor,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _myTrips.length,
-                  itemBuilder: (context, index) {
-                    final trip = _myTrips[index];
-                    final isSelected = _selectedTrip?.id == trip.id;
-                    return ListTile(
-                      selected: isSelected,
-                      selectedTileColor: AppConstants.primaryColor.withOpacity(0.1),
-                      leading: Icon(
-                        Icons.route,
-                        color: isSelected ? AppConstants.primaryColor : Colors.grey,
-                      ),
-                      title: Text(
-                        '${trip.departureLocation} → ${trip.destinationLocation}',
-                        style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${trip.formattedDepartureDate} • ${trip.formattedDepartureTime}',
-                        style: TextStyle(fontSize: 12 * scaleFactor),
-                      ),
-                      trailing: isSelected
-                          ? Icon(Icons.check_circle, color: AppConstants.primaryColor)
-                          : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedTrip = trip;
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              // Add New Trip Button
-              Padding(
-                padding: EdgeInsets.all(20 * scaleFactor),
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.primaryColor,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size(double.infinity, 50 * scaleFactor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12 * scaleFactor),
-                    ),
-                  ),
-                  icon: Icon(Icons.add),
-                  label: Text('Add New Trip'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.pop(context); // Go back to home page
-                  },
-                ),
-              ),
-            ],
-          ),
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
         );
       },
     );
   }
 
-<<<<<<< HEAD
   Future<void> _confirmDeleteTrip(Trip trip, double scaleFactor) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -708,14 +562,11 @@ class _ActivityPageState extends State<ActivityPage> {
     }
   }
 
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   String _getTruncatedLocation(String location, int maxLength) {
     if (location.length <= maxLength) return location;
     return '${location.substring(0, maxLength)}...';
   }
 
-<<<<<<< HEAD
   List<Widget> _buildPendingRequestsList(double scaleFactor) {
     if (_pendingRequests.isEmpty) {
       return [
@@ -818,8 +669,6 @@ class _ActivityPageState extends State<ActivityPage> {
     }).toList();
   }
 
-=======
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -1189,20 +1038,9 @@ class _ActivityPageState extends State<ActivityPage> {
                             ),
                           )
                         else if (_showRequests)
-<<<<<<< HEAD
                           ..._buildPendingRequestsList(scaleFactor)
                         else
                           ..._buildOngoingRequestsList(scaleFactor),
-=======
-                          _buildRequestCard(
-                            name: 'Maria Santos',
-                            route: '${_selectedTrip!.departureLocation} → ${_selectedTrip!.destinationLocation}',
-                            items: 'Polo Shirts, Blazer, and Pants',
-                            rating: 4.5,
-                            imageUrl: 'https://i.pravatar.cc/150?img=5',
-                            scaleFactor: scaleFactor,
-                          ),
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
 
                         SizedBox(height: 80 * scaleFactor),
                       ],
@@ -1262,7 +1100,6 @@ class _ActivityPageState extends State<ActivityPage> {
 
 
   Widget _buildRequestCard({
-<<<<<<< HEAD
     required ServiceRequest request,
     Map<String, dynamic>? requesterInfo,
     required double scaleFactor,
@@ -1459,131 +1296,6 @@ class _ActivityPageState extends State<ActivityPage> {
             ),
           ],
         ),
-=======
-    required String name,
-    required String route,
-    required String items,
-    required double rating,
-    required String imageUrl,
-    required double scaleFactor,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(16 * scaleFactor),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16 * scaleFactor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Profile Image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12 * scaleFactor),
-            child: Image.network(
-              imageUrl,
-              width: 70 * scaleFactor,
-              height: 70 * scaleFactor,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 70 * scaleFactor,
-                  height: 70 * scaleFactor,
-                  color: Colors.grey[300],
-                  child: Icon(
-                    Icons.person,
-                    size: 35 * scaleFactor,
-                    color: Colors.grey[600],
-                  ),
-                );
-              },
-            ),
-          ),
-          SizedBox(width: 14 * scaleFactor),
-
-          // Info Section
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 17 * scaleFactor,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                SizedBox(height: 4 * scaleFactor),
-                Text(
-                  route,
-                  style: TextStyle(
-                    fontSize: 13 * scaleFactor,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                SizedBox(height: 4 * scaleFactor),
-                Text(
-                  items,
-                  style: TextStyle(
-                    fontSize: 13 * scaleFactor,
-                    color: Color(0xFF00B4D8),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 8 * scaleFactor),
-
-          // Right Section: Rating & Arrow
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 8 * scaleFactor,
-                  vertical: 4 * scaleFactor,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8 * scaleFactor),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.star,
-                      color: Colors.amber,
-                      size: 14 * scaleFactor,
-                    ),
-                    SizedBox(width: 4 * scaleFactor),
-                    Text(
-                      rating.toString(),
-                      style: TextStyle(
-                        fontSize: 13 * scaleFactor,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 8 * scaleFactor),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: 18 * scaleFactor,
-              ),
-            ],
-          ),
-        ],
->>>>>>> 0f05632dac88866b90bd3d130afbd6c0a364c1f5
       ),
     );
   }

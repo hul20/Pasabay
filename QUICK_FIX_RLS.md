@@ -38,4 +38,3 @@ See `FIX_TRAVELER_NAME_RLS_ISSUE.md` for details.
 
 **That's it! No code changes needed!** 🚀
 
-
