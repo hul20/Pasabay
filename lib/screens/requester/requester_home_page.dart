@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
-import '../../services/request_service.dart';
-import '../../models/trip.dart';
 import 'requester_activity_page.dart';
 import 'requester_messages_page.dart';
 import 'requester_profile_page.dart';
-import 'traveler_search_results_page.dart';
 
 class RequesterHomePage extends StatefulWidget {
   const RequesterHomePage({super.key});
@@ -19,11 +16,6 @@ class RequesterHomePage extends StatefulWidget {
 class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   String userName = "Maria";
-  
-  // Location controllers
-  final TextEditingController _departureController = TextEditingController();
-  final TextEditingController _destinationController = TextEditingController();
-  final RequestService _requestService = RequestService();
 
   @override
   void initState() {
@@ -34,81 +26,8 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
 
   @override
   void dispose() {
-    _departureController.dispose();
-    _destinationController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  Future<void> _searchTravelers() async {
-    if (_departureController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter departure location'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_destinationController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter destination location'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final trips = await _requestService.searchAvailableTrips(
-        departureLocation: _departureController.text.trim(),
-        destinationLocation: _destinationController.text.trim(),
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context); // Close loading
-
-      if (trips.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No travelers found for this route'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-
-      // Navigate to search results
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TravelerSearchResultsPage(
-            trips: trips,
-            departureLocation: _departureController.text.trim(),
-            destinationLocation: _destinationController.text.trim(),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context); // Close loading
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error searching travelers: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   Future<void> _fetchUserProfile() async {
@@ -421,12 +340,10 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           ),
                         ),
                         SizedBox(height: 16 * scaleFactor),
-                        
-                        // Departure Location Input
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 16 * scaleFactor,
-                            vertical: 4 * scaleFactor,
+                            vertical: 14 * scaleFactor,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -435,70 +352,24 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           child: Row(
                             children: [
                               Icon(
-                                Icons.trip_origin,
-                                color: Color(0xFF00B4D8),
-                                size: 22 * scaleFactor,
+                                Icons.location_on_outlined,
+                                color: Colors.black,
+                                size: 24 * scaleFactor,
                               ),
                               SizedBox(width: 12 * scaleFactor),
-                              Expanded(
-                                child: TextField(
-                                  controller: _departureController,
-                                  decoration: InputDecoration(
-                                    hintText: 'From (e.g., Iloilo)',
-                                    border: InputBorder.none,
-                                    hintStyle: TextStyle(
-                                      fontSize: 15 * scaleFactor,
-                                      color: Colors.grey[400],
-                                    ),
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 15 * scaleFactor,
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                              Text(
+                                'Add Location',
+                                style: TextStyle(
+                                  fontSize: 16 * scaleFactor,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        
-                        SizedBox(height: 12 * scaleFactor),
-                        
-                        // Destination Location Input
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16 * scaleFactor,
-                            vertical: 4 * scaleFactor,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
-                          ),
-                          child: Row(
-                            children: [
+                              Spacer(),
                               Icon(
-                                Icons.location_on,
-                                color: Color(0xFF00B4D8),
-                                size: 22 * scaleFactor,
-                              ),
-                              SizedBox(width: 12 * scaleFactor),
-                              Expanded(
-                                child: TextField(
-                                  controller: _destinationController,
-                                  decoration: InputDecoration(
-                                    hintText: 'To (e.g., Roxas)',
-                                    border: InputBorder.none,
-                                    hintStyle: TextStyle(
-                                      fontSize: 15 * scaleFactor,
-                                      color: Colors.grey[400],
-                                    ),
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 15 * scaleFactor,
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                                Icons.add,
+                                color: Colors.black,
+                                size: 24 * scaleFactor,
                               ),
                             ],
                           ),
@@ -509,41 +380,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                   
                   SizedBox(height: 16 * scaleFactor),
                   
-                  // Search Travelers Button
-                  ElevatedButton(
-                    onPressed: _searchTravelers,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF00B4D8),
-                      padding: EdgeInsets.symmetric(vertical: 16 * scaleFactor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12 * scaleFactor),
-                      ),
-                      elevation: 2,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search,
-                          color: Colors.white,
-                          size: 24 * scaleFactor,
-                        ),
-                        SizedBox(width: 12 * scaleFactor),
-                        Text(
-                          'Search Available Travelers',
-                          style: TextStyle(
-                            fontSize: 16 * scaleFactor,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  SizedBox(height: 16 * scaleFactor),
-                  
-                  // Ideal Schedule Card (Gray-Blue) - Optional filter
+                  // Ideal Schedule Card (Gray-Blue)
                   Container(
                     padding: EdgeInsets.all(20 * scaleFactor),
                     decoration: BoxDecoration(
@@ -554,18 +391,18 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Filter by Schedule',
+                          'Ideal Schedule',
                           style: TextStyle(
-                            fontSize: 24 * scaleFactor,
+                            fontSize: 32 * scaleFactor,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
                         SizedBox(height: 8 * scaleFactor),
                         Text(
-                          'Optional: Filter by preferred travel date',
+                          'Tap to add travel date and time range',
                           style: TextStyle(
-                            fontSize: 13 * scaleFactor,
+                            fontSize: 14 * scaleFactor,
                             color: Colors.white.withOpacity(0.9),
                           ),
                         ),
@@ -592,7 +429,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                     ),
                                     SizedBox(width: 8 * scaleFactor),
                                     Text(
-                                      'Any Date',
+                                      'Select Date',
                                       style: TextStyle(
                                         fontSize: 14 * scaleFactor,
                                         fontWeight: FontWeight.w500,
@@ -624,7 +461,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                     ),
                                     SizedBox(width: 8 * scaleFactor),
                                     Text(
-                                      'Any Time',
+                                      'Select Time',
                                       style: TextStyle(
                                         fontSize: 14 * scaleFactor,
                                         fontWeight: FontWeight.w500,

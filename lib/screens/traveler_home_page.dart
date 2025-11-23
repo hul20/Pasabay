@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import '../utils/constants.dart';
@@ -40,12 +39,9 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
   double? _departureLng;
   double? _destinationLat;
   double? _destinationLng;
-  double? _currentLat;
-  double? _currentLng;
   
   // Map controller
   GoogleMapController? _mapController;
-  GoogleMapController? _expandedMapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   
@@ -91,7 +87,6 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
     _departureController.dispose();
     _destinationController.dispose();
     _mapController?.dispose();
-    _expandedMapController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -426,259 +421,6 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
     );
   }
 
-  Future<void> _getCurrentLocation() async {
-    try {
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showSnackBar('Please enable location services', Colors.orange);
-        return;
-      }
-
-      // Check location permissions
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          _showSnackBar('Location permissions are denied', Colors.orange);
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _showSnackBar('Location permissions are permanently denied', Colors.red);
-        return;
-      }
-
-      // Get current position
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      setState(() {
-        _currentLat = position.latitude;
-        _currentLng = position.longitude;
-      });
-
-      print('✅ Current location: $_currentLat, $_currentLng');
-    } catch (e) {
-      print('❌ Error getting location: $e');
-      _showSnackBar('Could not get current location', Colors.orange);
-    }
-  }
-
-  Widget _buildExpandedMapWidget(double scaleFactor, [VoidCallback? onMarkerUpdate]) {
-    // Determine initial camera position
-    LatLng initialPosition;
-    double initialZoom = 11.0;
-
-    if (_currentLat != null && _currentLng != null) {
-      // Use current location if available
-      initialPosition = LatLng(_currentLat!, _currentLng!);
-      initialZoom = 13.0;
-    } else if (_departureLat != null && _departureLng != null) {
-      // Use departure location
-      initialPosition = LatLng(_departureLat!, _departureLng!);
-    } else if (_destinationLat != null && _destinationLng != null) {
-      // Use destination location
-      initialPosition = LatLng(_destinationLat!, _destinationLng!);
-    } else {
-      // Default to Manila
-      initialPosition = LatLng(14.5995, 120.9842);
-    }
-
-    return GoogleMap(
-      key: ValueKey('expanded_map_${_markers.length}'), // Force rebuild when markers change
-      initialCameraPosition: CameraPosition(
-        target: initialPosition,
-        zoom: initialZoom,
-      ),
-      markers: _markers,
-      polylines: _polylines,
-      onMapCreated: (GoogleMapController controller) async {
-        if (!mounted) return;
-        
-        try {
-          _expandedMapController = controller;
-          print('✅ Expanded map initialized successfully!');
-          
-          // Center on current location if available
-          if (_currentLat != null && _currentLng != null) {
-            await Future.delayed(Duration(milliseconds: 500));
-            controller.animateCamera(
-              CameraUpdate.newLatLngZoom(
-                LatLng(_currentLat!, _currentLng!),
-                13.0,
-              ),
-            );
-          }
-          
-          // Update markers after a short delay
-          await Future.delayed(Duration(milliseconds: 300));
-          await _updateMapMarkers();
-          if (onMarkerUpdate != null) {
-            onMarkerUpdate();
-          }
-        } catch (e) {
-          print('⚠️ Expanded map initialization warning: $e');
-        }
-      },
-      onTap: (LatLng position) async {
-        await _onMapTap(position);
-        if (onMarkerUpdate != null) {
-          onMarkerUpdate();
-        }
-      },
-      myLocationEnabled: true, // Show user location
-      myLocationButtonEnabled: true, // Show location button
-      zoomControlsEnabled: true,
-      mapType: MapType.normal,
-      compassEnabled: true,
-      rotateGesturesEnabled: true,
-      scrollGesturesEnabled: true, // Enable dragging
-      tiltGesturesEnabled: true,
-      zoomGesturesEnabled: true, // Enable zooming
-    );
-  }
-
-  Future<void> _showExpandedMap(double scaleFactor) async {
-    // Get current location before showing map
-    await _getCurrentLocation();
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.9,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24 * scaleFactor),
-                  topRight: Radius.circular(24 * scaleFactor),
-                ),
-              ),
-              child: Column(
-                children: [
-                  // Header
-                  Container(
-                    padding: EdgeInsets.all(16 * scaleFactor),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey[200]!,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.close),
-                          onPressed: () {
-                            _expandedMapController?.dispose();
-                            _expandedMapController = null;
-                            Navigator.pop(context);
-                          },
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Pin Locations on Map',
-                            style: TextStyle(
-                              fontSize: 18 * scaleFactor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        if (_departureController.text.isNotEmpty || _destinationController.text.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: () {
-                              _expandedMapController?.dispose();
-                              _expandedMapController = null;
-                              Navigator.pop(context);
-                              _updateMapMarkers();
-                            },
-                            icon: Icon(Icons.check, size: 20 * scaleFactor),
-                            label: Text('Done'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppConstants.primaryColor,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  // Expanded Map
-                  Expanded(
-                    child: Container(
-                      child: Builder(
-                        builder: (context) {
-                          // Create a callback that updates both parent and modal state
-                          return _buildExpandedMapWidget(scaleFactor, () {
-                            setModalState(() {});
-                            setState(() {});
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-              // Instructions
-              Container(
-                padding: EdgeInsets.all(16 * scaleFactor),
-                decoration: BoxDecoration(
-                  color: AppConstants.primaryColor.withOpacity(0.1),
-                  border: Border(
-                    top: BorderSide(
-                      color: Colors.grey[200]!,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppConstants.primaryColor,
-                      size: 20 * scaleFactor,
-                    ),
-                    SizedBox(width: 12 * scaleFactor),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tap on the map to drop pins',
-                            style: TextStyle(
-                              fontSize: 14 * scaleFactor,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          SizedBox(height: 4 * scaleFactor),
-                          Text(
-                            'First tap = Departure (🟢), Second tap = Destination (🔴)',
-                            style: TextStyle(
-                              fontSize: 12 * scaleFactor,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Future<void> _onMapTap(LatLng position) async {
     // Determine which location to set based on what's empty
     if (_departureController.text.isEmpty || (_departureLat == null && _destinationLat != null)) {
@@ -730,64 +472,41 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
   }
 
   Widget _buildMapWidget(double scaleFactor) {
-    // Return a simpler map widget with better error handling
-    return Container(
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16 * scaleFactor),
-      ),
-      child: GoogleMap(
+    // Google Maps is now enabled with API key!
+    try {
+      return GoogleMap(
         initialCameraPosition: CameraPosition(
           target: LatLng(14.5995, 120.9842), // Manila, Philippines
           zoom: 11,
         ),
         markers: _markers,
         polylines: _polylines,
-        onMapCreated: (GoogleMapController controller) async {
-          if (!mounted) return;
-          
-          try {
-            _mapController = controller;
-            print('✅ Google Maps initialized successfully!');
-            
-            // Wait a bit before updating markers
-            await Future.delayed(Duration(milliseconds: 300));
-            
-            // Auto-update markers if locations are already set
-            if (_departureController.text.isNotEmpty || _destinationController.text.isNotEmpty) {
+        onMapCreated: (GoogleMapController controller) {
+          _mapController = controller;
+          print('✅ Google Maps initialized successfully!');
+          // Auto-update markers if locations are already set
+          if (_departureController.text.isNotEmpty || _destinationController.text.isNotEmpty) {
+            Future.delayed(Duration(milliseconds: 500), () {
               _updateMapMarkers();
-            }
-          } catch (e) {
-            print('⚠️ Map initialization warning: $e');
+            });
           }
         },
         onTap: _onMapTap, // Allow tapping to drop pins
         myLocationEnabled: false,
         myLocationButtonEnabled: false,
-        zoomControlsEnabled: true,
+        zoomControlsEnabled: false,
         mapType: MapType.normal,
         compassEnabled: true,
         rotateGesturesEnabled: true,
         scrollGesturesEnabled: true,
         tiltGesturesEnabled: true,
         zoomGesturesEnabled: true,
-        // Add padding to avoid UI overlap
-        padding: EdgeInsets.only(top: 40 * scaleFactor),
-      ),
-    );
-  }
-
-  Widget _buildMapWidgetWithErrorHandling(double scaleFactor) {
-    try {
-      return _buildMapWidget(scaleFactor);
+      );
     } catch (e) {
       print('❌ Google Maps error: $e');
       // Fallback if there's any issue with Maps
       return Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[300],
-          borderRadius: BorderRadius.circular(16 * scaleFactor),
-        ),
+        color: Colors.grey[300],
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -835,13 +554,13 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _checkVerificationStatus,
-        child: SingleChildScrollView(
+          child: SingleChildScrollView(
             physics: AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 SizedBox(height: 12 * scaleFactor),
                 // Top bar: logo and role icon
                 Row(
@@ -1171,16 +890,16 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                       SizedBox(height: 12 * scaleFactor),
                       TextField(
                         controller: _departureController,
-                              decoration: InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Departure Location (e.g., Manila, Philippines)',
-                                border: OutlineInputBorder(
+                          border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8 * scaleFactor),
-                                  borderSide: BorderSide.none,
-                                ),
-                                filled: true,
-                                fillColor: Colors.white,
-                                prefixIcon: Icon(
-                                  Icons.location_on_outlined,
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          prefixIcon: Icon(
+                            Icons.location_on_outlined,
                             color: Colors.green,
                           ),
                           suffixIcon: _departureController.text.isNotEmpty
@@ -1193,7 +912,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                                         _updateMapMarkers();
                                       },
                                       tooltip: 'Find on map',
-                            ),
+                                    ),
                                     IconButton(
                                       icon: Icon(Icons.clear, size: 20),
                                       onPressed: () {
@@ -1226,7 +945,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8 * scaleFactor),
                             borderSide: BorderSide.none,
-                              ),
+                          ),
                           filled: true,
                           fillColor: Colors.white,
                           prefixIcon: Icon(
@@ -1254,8 +973,8 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                                         });
                                         _updateMapMarkers();
                                       },
-                          ),
-                        ],
+                                    ),
+                                  ],
                                 )
                               : null,
                         ),
@@ -1267,50 +986,6 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                             _updateMapMarkers();
                           }
                         },
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-                      // Pin on Maps Button
-                      GestureDetector(
-                        onTap: () => _showExpandedMap(scaleFactor),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 12 * scaleFactor,
-                            horizontal: 16 * scaleFactor,
-                          ),
-                            decoration: BoxDecoration(
-                            color: AppConstants.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10 * scaleFactor),
-                            border: Border.all(
-                              color: AppConstants.primaryColor.withOpacity(0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.map_outlined,
-                                color: AppConstants.primaryColor,
-                                size: 20 * scaleFactor,
-                              ),
-                              SizedBox(width: 8 * scaleFactor),
-                              Text(
-                                'Pin on Maps',
-                                style: TextStyle(
-                                  fontSize: 15 * scaleFactor,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppConstants.primaryColor,
-                                ),
-                              ),
-                              SizedBox(width: 4 * scaleFactor),
-                              Icon(
-                                Icons.open_in_full,
-                                color: AppConstants.primaryColor,
-                                size: 18 * scaleFactor,
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -1411,10 +1086,10 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16 * scaleFactor),
-                  child: Stack(
-                    children: [
+                    child: Stack(
+                      children: [
                         // Map Widget with error handling
-                        _buildMapWidgetWithErrorHandling(scaleFactor),
+                        _buildMapWidget(scaleFactor),
                         // Instructions banner
                         if (_markers.isEmpty)
                           Positioned(
@@ -1443,15 +1118,15 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                                   ),
                                   SizedBox(width: 8 * scaleFactor),
                                   Expanded(
-                        child: Text(
+                                    child: Text(
                                       'Tap map to drop pins or type locations above',
-                          style: TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12 * scaleFactor,
                                         color: Colors.white,
                                         fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1459,47 +1134,47 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                         
                         // Route preview badge (when markers exist)
                         if (_markers.isNotEmpty)
-                      Positioned(
-                        top: 12 * scaleFactor,
-                        left: 12 * scaleFactor,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12 * scaleFactor,
-                            vertical: 6 * scaleFactor,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                          Positioned(
+                            top: 12 * scaleFactor,
+                            left: 12 * scaleFactor,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12 * scaleFactor,
+                                vertical: 6 * scaleFactor,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(12 * scaleFactor),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.1),
                                     blurRadius: 4,
                                     offset: Offset(0, 2),
-                            ),
+                                  ),
                                 ],
-                          ),
-                          child: Row(
+                              ),
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
+                                children: [
+                                  Icon(
                                     Icons.route,
                                     color: AppConstants.primaryColor,
                                     size: 14 * scaleFactor,
-                              ),
-                              SizedBox(width: 6 * scaleFactor),
-                              Text(
+                                  ),
+                                  SizedBox(width: 6 * scaleFactor),
+                                  Text(
                                     '${_markers.length} location${_markers.length > 1 ? 's' : ''}',
-                                style: TextStyle(
-                                  fontSize: 13 * scaleFactor,
-                                  color: Colors.black,
+                                    style: TextStyle(
+                                      fontSize: 13 * scaleFactor,
+                                      color: Colors.black,
                                       fontWeight: FontWeight.w600,
-                                ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                      ],
                     ),
                   ),
                 ),
@@ -1524,11 +1199,11 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                         Icon(Icons.add_circle_outline, size: 22 * scaleFactor),
                         SizedBox(width: 8 * scaleFactor),
                         Text(
-                      'Register Travel',
-                      style: TextStyle(
-                        fontSize: 18 * scaleFactor,
-                        fontWeight: FontWeight.bold,
-                      ),
+                          'Register Travel',
+                          style: TextStyle(
+                            fontSize: 18 * scaleFactor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -1537,9 +1212,9 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                 SizedBox(height: 24 * scaleFactor),
               ],
             ),
-            ),
           ),
         ),
+      ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -1587,9 +1262,9 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
               });
             });
           } else {
-          setState(() {
-            _selectedIndex = index;
-          });
+            setState(() {
+              _selectedIndex = index;
+            });
           }
         },
         items: const [

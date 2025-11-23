@@ -1,6 +1,3 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -13,7 +10,7 @@ dependencies {
 }
 
 // Load local.properties file to read API keys
-val localProperties = Properties()
+val localProperties = java.util.Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
