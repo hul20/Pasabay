@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import '../models/conversation.dart';
+import '../services/messaging_service.dart';
 import 'chat_detail_page.dart';
 import 'profile_page.dart';
 import 'activity_page.dart';
@@ -13,6 +16,67 @@ class MessagesPage extends StatefulWidget {
 }
 
 class _MessagesPageState extends State<MessagesPage> {
+  final MessagingService _messagingService = MessagingService();
+  List<Conversation> _conversations = [];
+  bool _isLoading = true;
+  int _totalUnread = 0;
+  RealtimeChannel? _conversationsChannel;
+  final _supabase = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConversations();
+    _subscribeToConversations();
+  }
+
+  @override
+  void dispose() {
+    if (_conversationsChannel != null) {
+      _messagingService.unsubscribe(_conversationsChannel!);
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadConversations() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final conversations = await _messagingService.getConversations();
+      
+      if (mounted) {
+        setState(() {
+          _conversations = conversations;
+          _calculateUnreadCount();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading conversations: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _calculateUnreadCount() {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) {
+      _totalUnread = 0;
+      return;
+    }
+
+    _totalUnread = _conversations.fold<int>(
+      0, 
+      (sum, conv) => sum + conv.getUnreadCount(currentUserId),
+    );
+  }
+
+  void _subscribeToConversations() {
+    _conversationsChannel = _messagingService.subscribeToConversations(() {
+      _loadConversations();
+    });
+  }
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -149,54 +213,52 @@ class _MessagesPageState extends State<MessagesPage> {
 
             // Scrollable Content
             Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Messages Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Messages',
-                            style: TextStyle(
-                              fontSize: 28 * scaleFactor,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          Text(
-                            '3 Unread',
-                            style: TextStyle(
-                              fontSize: 15 * scaleFactor,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 18 * scaleFactor),
+              child: _isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : _conversations.isEmpty
+                      ? _buildEmptyState(scaleFactor)
+                      : RefreshIndicator(
+                          onRefresh: _loadConversations,
+                          child: ListView.builder(
+                            padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
+                            itemCount: _conversations.length + 1, // +1 for header
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                // Header
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Messages',
+                                          style: TextStyle(
+                                            fontSize: 28 * scaleFactor,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                        if (_totalUnread > 0)
+                                          Text(
+                                            '$_totalUnread Unread',
+                                            style: TextStyle(
+                                              fontSize: 15 * scaleFactor,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 18 * scaleFactor),
+                                  ],
+                                );
+                              }
 
-                      // Message Card
-                      _buildMessageCard(
-                        name: 'Maria Santos',
-                        message: 'Hello Sir! Thank you gid sa pag accept.',
-                        time: '16m',
-                        unreadCount: 2,
-                        isOnline: true,
-                        imageUrl: 'https://i.pravatar.cc/150?img=5',
-                        itemId: 'ID#12313',
-                        route: 'Iloilo City → Roxas City',
-                        items: 'Polo Shirts, Blazer, and Pants',
-                        scaleFactor: scaleFactor,
-                      ),
-
-                      SizedBox(height: 80 * scaleFactor),
-                    ],
-                  ),
-                ),
-              ),
+                              final conversation = _conversations[index - 1];
+                              return _buildConversationCard(conversation, scaleFactor);
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -247,7 +309,200 @@ class _MessagesPageState extends State<MessagesPage> {
     );
   }
 
-  Widget _buildMessageCard({
+  Widget _buildEmptyState(double scaleFactor) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(40 * scaleFactor),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 80 * scaleFactor,
+              color: Colors.grey[300],
+            ),
+            SizedBox(height: 24 * scaleFactor),
+            Text(
+              'No Messages Yet',
+              style: TextStyle(
+                fontSize: 24 * scaleFactor,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+            ),
+            SizedBox(height: 12 * scaleFactor),
+            Text(
+              'Accept requests to start chatting\nwith requesters',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15 * scaleFactor,
+                color: Colors.grey[500],
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConversationCard(Conversation conversation, double scaleFactor) {
+    final currentUserId = _supabase.auth.currentUser?.id ?? '';
+    final unreadCount = conversation.getUnreadCount(currentUserId);
+    
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatDetailPage(
+              conversation: conversation,
+            ),
+          ),
+        );
+        
+        // Refresh if needed
+        if (result == true) {
+          await _loadConversations();
+        }
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12 * scaleFactor),
+        padding: EdgeInsets.all(16 * scaleFactor),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16 * scaleFactor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Profile Image
+            CircleAvatar(
+              radius: 30 * scaleFactor,
+              backgroundColor: Color(0xFF00B4D8),
+              backgroundImage: conversation.otherUserImage != null
+                  ? NetworkImage(conversation.otherUserImage!)
+                  : null,
+              child: conversation.otherUserImage == null
+                  ? Icon(
+                      Icons.person,
+                      size: 30 * scaleFactor,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+            SizedBox(width: 14 * scaleFactor),
+
+            // Message Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          conversation.otherUserName ?? 'Unknown',
+                          style: TextStyle(
+                            fontSize: 16 * scaleFactor,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (conversation.serviceType != null)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8 * scaleFactor,
+                            vertical: 4 * scaleFactor,
+                          ),
+                          decoration: BoxDecoration(
+                            color: conversation.serviceType == 'Pabakal'
+                                ? Colors.blue.withOpacity(0.1)
+                                : Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                          ),
+                          child: Text(
+                            conversation.serviceType!,
+                            style: TextStyle(
+                              fontSize: 10 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: conversation.serviceType == 'Pabakal'
+                                  ? Colors.blue[700]
+                                  : Colors.green[700],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 6 * scaleFactor),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          conversation.lastMessageText ?? 'No messages yet',
+                          style: TextStyle(
+                            fontSize: 14 * scaleFactor,
+                            color: unreadCount > 0 
+                                ? Colors.black87 
+                                : Colors.grey[600],
+                            fontWeight: unreadCount > 0 
+                                ? FontWeight.w600 
+                                : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: 8 * scaleFactor),
+                      Text(
+                        conversation.formattedLastMessageTime,
+                        style: TextStyle(
+                          fontSize: 12 * scaleFactor,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Unread Badge
+            if (unreadCount > 0) ...[
+              SizedBox(width: 12 * scaleFactor),
+              Container(
+                padding: EdgeInsets.all(6 * scaleFactor),
+                decoration: BoxDecoration(
+                  color: Color(0xFF00B4D8),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  unreadCount > 9 ? '9+' : unreadCount.toString(),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11 * scaleFactor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Old method - no longer used, kept for reference
+  Widget _buildMessageCard_OLD({
     required String name,
     required String message,
     required String time,
@@ -261,20 +516,7 @@ class _MessagesPageState extends State<MessagesPage> {
   }) {
     return GestureDetector(
       onTap: () {
-        // Navigate to chat detail page
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatDetailPage(
-              name: name,
-              imageUrl: imageUrl,
-              isOnline: isOnline,
-              itemId: itemId,
-              route: route,
-              items: items,
-            ),
-          ),
-        );
+        // Old navigation - replaced by _buildConversationCard
       },
       child: Container(
         padding: EdgeInsets.all(14 * scaleFactor),
