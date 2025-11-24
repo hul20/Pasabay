@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/request.dart';
 import '../../services/request_service.dart';
+import '../../services/messaging_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../utils/supabase_service.dart';
 import '../messages_page.dart';
 
 class RequestDetailPage extends StatefulWidget {
@@ -22,7 +28,18 @@ class RequestDetailPage extends StatefulWidget {
 
 class _RequestDetailPageState extends State<RequestDetailPage> {
   final RequestService _requestService = RequestService();
+  final SupabaseService _supabaseService = SupabaseService();
+  final MessagingService _messagingService = MessagingService();
+  final _supabase = Supabase.instance.client;
+  final ImagePicker _imagePicker = ImagePicker();
   bool _isProcessing = false;
+  late ServiceRequest _request;
+
+  @override
+  void initState() {
+    super.initState();
+    _request = widget.request;
+  }
   
   String get _requesterName {
     if (widget.requesterInfo != null) {
@@ -37,6 +54,220 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
   
   String? get _requesterPhone {
     return widget.requesterInfo?['phone_number'];
+  }
+
+  void _handleOrderSent() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        XFile? proofImage;
+        bool isSubmitting = false;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Confirm Order Sent',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Please upload a photo proof that you have sent the item/s.',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                  ),
+                  SizedBox(height: 20),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final XFile? image = await _imagePicker.pickImage(
+                          source: ImageSource.camera,
+                          imageQuality: 80,
+                        );
+                        if (image != null) {
+                          setModalState(() {
+                            proofImage = image;
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: proofImage != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: kIsWeb
+                                    ? Image.network(
+                                        proofImage!.path,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.file(
+                                        File(proofImage!.path),
+                                        fit: BoxFit.cover,
+                                      ),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 48,
+                                    color: Colors.grey[400],
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Tap to take photo',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: (proofImage == null || isSubmitting)
+                          ? null
+                          : () async {
+                              setModalState(() => isSubmitting = true);
+                              try {
+                                // 1. Prepare file for upload
+                                dynamic fileToUpload;
+                                if (kIsWeb) {
+                                  fileToUpload = await proofImage!
+                                      .readAsBytes();
+                                } else {
+                                  fileToUpload = File(proofImage!.path);
+                                }
+
+                                // 2. Upload image
+                                final imageUrl = await _supabaseService.uploadFile(
+                                  'proof-images',
+                                  'proof_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                  fileToUpload,
+                                );
+
+                                // 3. Update request status
+                                await _supabase
+                                    .from('service_requests')
+                                    .update({
+                                      'status': 'Order Sent',
+                                      'proof_image_url': imageUrl,
+                                      'updated_at': DateTime.now()
+                                          .toIso8601String(),
+                                    })
+                                    .eq('id', _request.id);
+
+                                // 4. Send automated message
+                                // Get conversation ID
+                                final conversationResponse = await _supabase
+                                    .from('conversations')
+                                    .select('id')
+                                    .eq('request_id', _request.id)
+                                    .maybeSingle();
+                                
+                                if (conversationResponse != null) {
+                                  await _messagingService.sendMessage(
+                                    conversationId: conversationResponse['id'],
+                                    messageText:
+                                        'Order has been sent! 📦\nSee proof of delivery: $imageUrl',
+                                  );
+                                }
+
+                                if (mounted) {
+                                  Navigator.pop(context);
+                                  setState(() {
+                                    _request = _request.copyWith(
+                                      status: 'Order Sent',
+                                      proofImageUrl: imageUrl,
+                                    );
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Order marked as sent!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setModalState(() => isSubmitting = false);
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: isSubmitting
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              'Confirm & Send',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _acceptRequest() async {
@@ -403,6 +634,30 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
               // Action Buttons (only show if pending)
               if (widget.request.status == 'Pending')
                 _buildActionButtons(scaleFactor),
+
+              // Item Delivered Button (only show if accepted)
+              if (widget.request.status == 'Accepted')
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _handleOrderSent,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppConstants.primaryColor,
+                      padding: EdgeInsets.symmetric(vertical: 16 * scaleFactor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                      ),
+                    ),
+                    child: Text(
+                      'Item Delivered',
+                      style: TextStyle(
+                        fontSize: 16 * scaleFactor,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

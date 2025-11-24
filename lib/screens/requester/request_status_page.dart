@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/request.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../services/messaging_service.dart';
 
-class RequestStatusPage extends StatelessWidget {
+class RequestStatusPage extends StatefulWidget {
   final ServiceRequest request;
   final Map<String, dynamic>? travelerInfo;
 
@@ -13,6 +15,137 @@ class RequestStatusPage extends StatelessWidget {
     required this.request,
     this.travelerInfo,
   });
+
+  @override
+  State<RequestStatusPage> createState() => _RequestStatusPageState();
+}
+
+class _RequestStatusPageState extends State<RequestStatusPage> {
+  late ServiceRequest _request;
+  final _supabase = Supabase.instance.client;
+  final MessagingService _messagingService = MessagingService();
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _request = widget.request;
+  }
+
+  Future<void> _handleItemReceived() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Confirm Item Received',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Have you received the item/s from the traveler? This will mark the transaction as completed.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+            SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text('Cancel'),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context); // Close modal
+                      await _confirmItemReceived();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppConstants.primaryColor,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Confirm',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmItemReceived() async {
+    setState(() => _isUpdating = true);
+
+    try {
+      // Update request status
+      await _supabase
+          .from('service_requests')
+          .update({
+            'status': 'Completed',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', _request.id);
+
+      // Get conversation ID to send message
+      final conversationResponse = await _supabase
+          .from('conversations')
+          .select('id')
+          .eq('request_id', _request.id)
+          .maybeSingle();
+      
+      if (conversationResponse != null) {
+         await _messagingService.sendMessage(
+          conversationId: conversationResponse['id'],
+          messageText: 'Transaction completed! Item received. ✅',
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _request = _request.copyWith(status: 'Completed');
+          _isUpdating = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Transaction completed successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUpdating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +170,9 @@ class RequestStatusPage extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
+      body: _isUpdating 
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: EdgeInsets.all(18 * scaleFactor),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,7 +188,7 @@ class RequestStatusPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20 * scaleFactor),
               ),
               child: Text(
-                request.status,
+                _request.status,
                 style: TextStyle(
                   fontSize: 14 * scaleFactor,
                   fontWeight: FontWeight.w600,
@@ -66,7 +201,7 @@ class RequestStatusPage extends StatelessWidget {
             
             // Service Type
             Text(
-              '${request.serviceType} Request',
+              '${_request.serviceType} Request',
               style: TextStyle(
                 fontSize: 24 * scaleFactor,
                 fontWeight: FontWeight.bold,
@@ -77,7 +212,7 @@ class RequestStatusPage extends StatelessWidget {
             SizedBox(height: 8 * scaleFactor),
             
             Text(
-              'Created ${request.formattedCreatedAt}',
+              'Created ${_request.formattedCreatedAt}',
               style: TextStyle(
                 fontSize: 13 * scaleFactor,
                 color: Colors.grey[600],
@@ -87,10 +222,10 @@ class RequestStatusPage extends StatelessWidget {
             SizedBox(height: 24 * scaleFactor),
             
             // Traveler Info if available
-            if (travelerInfo != null) ...[
+            if (widget.travelerInfo != null) ...[
               _buildInfoCard(
                 'Traveler',
-                '${travelerInfo!['first_name']} ${travelerInfo!['last_name']}',
+                '${widget.travelerInfo!['first_name']} ${widget.travelerInfo!['last_name']}',
                 Icons.person,
                 scaleFactor,
               ),
@@ -98,38 +233,38 @@ class RequestStatusPage extends StatelessWidget {
             ],
             
             // Service Details
-            if (request.serviceType == 'Pabakal') ...[
+            if (_request.serviceType == 'Pabakal') ...[
               _buildInfoCard(
                 'Product',
-                request.productName ?? 'N/A',
+                _request.productName ?? 'N/A',
                 Icons.shopping_bag,
                 scaleFactor,
               ),
               SizedBox(height: 12 * scaleFactor),
               _buildInfoCard(
                 'Store',
-                '${request.storeName ?? 'N/A'}\n${request.storeLocation ?? ''}',
+                '${_request.storeName ?? 'N/A'}\n${_request.storeLocation ?? ''}',
                 Icons.store,
                 scaleFactor,
               ),
               SizedBox(height: 12 * scaleFactor),
               _buildInfoCard(
                 'Cost',
-                '₱${request.productCost?.toStringAsFixed(2) ?? '0.00'}',
+                '₱${_request.productCost?.toStringAsFixed(2) ?? '0.00'}',
                 Icons.attach_money,
                 scaleFactor,
               ),
             ] else ...[
               _buildInfoCard(
                 'Recipient',
-                request.recipientName ?? 'N/A',
+                _request.recipientName ?? 'N/A',
                 Icons.person_outline,
                 scaleFactor,
               ),
               SizedBox(height: 12 * scaleFactor),
               _buildInfoCard(
                 'Delivery Address',
-                request.dropoffLocation ?? 'N/A',
+                _request.dropoffLocation ?? 'N/A',
                 Icons.location_on,
                 scaleFactor,
               ),
@@ -140,7 +275,7 @@ class RequestStatusPage extends StatelessWidget {
             // Payment Info
             _buildInfoCard(
               'Service Fee',
-              '₱${request.serviceFee.toStringAsFixed(2)}',
+              '₱${_request.serviceFee.toStringAsFixed(2)}',
               Icons.payment,
               scaleFactor,
             ),
@@ -149,13 +284,13 @@ class RequestStatusPage extends StatelessWidget {
             
             _buildInfoCard(
               'Total Amount',
-              '₱${request.totalAmount.toStringAsFixed(2)}',
+              '₱${_request.totalAmount.toStringAsFixed(2)}',
               Icons.account_balance_wallet,
               scaleFactor,
             ),
             
             // Rejection reason if rejected
-            if (request.status == 'Rejected' && request.rejectionReason != null) ...[
+            if (_request.status == 'Rejected' && _request.rejectionReason != null) ...[
               SizedBox(height: 24 * scaleFactor),
               Container(
                 padding: EdgeInsets.all(16 * scaleFactor),
@@ -183,13 +318,39 @@ class RequestStatusPage extends StatelessWidget {
                     ),
                     SizedBox(height: 8 * scaleFactor),
                     Text(
-                      request.rejectionReason!,
+                      _request.rejectionReason!,
                       style: TextStyle(
                         fontSize: 14 * scaleFactor,
                         color: Colors.black87,
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+
+            // Item Received Button
+            if (_request.status == 'Accepted' || _request.status == 'Order Sent') ...[
+              SizedBox(height: 32 * scaleFactor),
+              SizedBox(
+                width: double.infinity,
+                height: 50 * scaleFactor,
+                child: ElevatedButton(
+                  onPressed: _handleItemReceived,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppConstants.primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12 * scaleFactor),
+                    ),
+                  ),
+                  child: Text(
+                    'Item Received',
+                    style: TextStyle(
+                      fontSize: 16 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -200,7 +361,7 @@ class RequestStatusPage extends StatelessWidget {
   }
 
   Color _getStatusColor() {
-    switch (request.status) {
+    switch (_request.status) {
       case 'Pending':
         return Colors.orange;
       case 'Accepted':

@@ -48,7 +48,8 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
       for (var request in requests) {
         if (request.status == 'Pending') {
           pending.add(request);
-        } else if (request.status == 'Accepted' || request.status == 'Order Sent') {
+        } else if (request.status == 'Accepted' ||
+            request.status == 'Order Sent') {
           accepted.add(request);
         }
 

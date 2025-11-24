@@ -73,6 +73,7 @@ class RequestService {
     required double productCost,
     required double serviceFee,
     String? notes,
+    List<String>? photoUrls,
   }) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
@@ -101,6 +102,7 @@ class RequestService {
             'service_fee': serviceFee,
             'notes': notes,
             'status': 'Pending',
+            'photo_urls': photoUrls,
           })
           .select()
           .single();
@@ -123,6 +125,7 @@ class RequestService {
     required String dropoffLocation,
     required double serviceFee,
     String? notes,
+    List<String>? photoUrls,
   }) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
@@ -152,6 +155,7 @@ class RequestService {
             'service_fee': serviceFee,
             'notes': notes,
             'status': 'Pending',
+            'photo_urls': photoUrls,
           })
           .select()
           .single();
@@ -280,6 +284,7 @@ class RequestService {
           productCost: productCost ?? 0.0,
           serviceFee: serviceFee,
           notes: productDescription ?? notes,
+          photoUrls: photoUrls,
         );
       } else {
         requestId = await submitPasabayRequest(
@@ -291,6 +296,7 @@ class RequestService {
           dropoffLocation: dropoffLocation ?? '',
           serviceFee: serviceFee,
           notes: notes,
+          photoUrls: photoUrls,
         );
       }
 
