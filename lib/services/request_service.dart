@@ -13,9 +13,7 @@ class RequestService {
   }) async {
     try {
       // Get all trips and filter in Dart
-      final response = await _supabase
-          .from('trips')
-          .select();
+      final response = await _supabase.from('trips').select();
 
       final allTrips = (response as List)
           .map((trip) => Trip.fromJson(trip))
@@ -26,12 +24,13 @@ class RequestService {
       // Filter in Dart for active trips and matching criteria
       final filteredTrips = allTrips.where((trip) {
         // Check if trip is active (Upcoming or In Progress)
-        bool isActive = trip.tripStatus == 'Upcoming' || trip.tripStatus == 'In Progress';
-        
+        bool isActive =
+            trip.tripStatus == 'Upcoming' || trip.tripStatus == 'In Progress';
+
         // Check location match
-        bool matchesDeparture = trip.departureLocation
-            .toLowerCase()
-            .contains(departureLocation.toLowerCase());
+        bool matchesDeparture = trip.departureLocation.toLowerCase().contains(
+          departureLocation.toLowerCase(),
+        );
         bool matchesDestination = trip.destinationLocation
             .toLowerCase()
             .contains(destinationLocation.toLowerCase());
@@ -40,7 +39,8 @@ class RequestService {
         bool matchesDate = true;
         if (travelDate != null) {
           final tripDate = trip.departureDate;
-          matchesDate = tripDate.year == travelDate.year &&
+          matchesDate =
+              tripDate.year == travelDate.year &&
               tripDate.month == travelDate.month &&
               tripDate.day == travelDate.day;
         }
@@ -48,7 +48,11 @@ class RequestService {
         // Check if trip has available capacity
         bool hasCapacity = trip.currentRequests < trip.availableCapacity;
 
-        return isActive && matchesDeparture && matchesDestination && matchesDate && hasCapacity;
+        return isActive &&
+            matchesDeparture &&
+            matchesDestination &&
+            matchesDate &&
+            hasCapacity;
       }).toList();
 
       print('✅ Filtered to ${filteredTrips.length} matching trips');
@@ -83,19 +87,23 @@ class RequestService {
       print('   Trip: $tripId');
       print('   Product: $productName');
 
-      final response = await _supabase.from('service_requests').insert({
-        'requester_id': userId,
-        'traveler_id': travelerId,
-        'trip_id': tripId,
-        'service_type': 'Pabakal',
-        'product_name': productName,
-        'store_name': storeName,
-        'store_location': storeLocation,
-        'product_cost': productCost,
-        'service_fee': serviceFee,
-        'notes': notes,
-        'status': 'Pending',
-      }).select().single();
+      final response = await _supabase
+          .from('service_requests')
+          .insert({
+            'requester_id': userId,
+            'traveler_id': travelerId,
+            'trip_id': tripId,
+            'service_type': 'Pabakal',
+            'product_name': productName,
+            'store_name': storeName,
+            'store_location': storeLocation,
+            'product_cost': productCost,
+            'service_fee': serviceFee,
+            'notes': notes,
+            'status': 'Pending',
+          })
+          .select()
+          .single();
 
       print('✅ Pabakal request submitted: ${response['id']}');
       return response['id'];
@@ -130,19 +138,23 @@ class RequestService {
       print('   Recipient: $recipientName');
       print('   Phone: $recipientPhone');
 
-      final response = await _supabase.from('service_requests').insert({
-        'requester_id': userId,
-        'traveler_id': travelerId,
-        'trip_id': tripId,
-        'service_type': 'Pasabay',
-        'package_description': packageDescription,
-        'recipient_name': recipientName,
-        'recipient_phone': recipientPhone,
-        'dropoff_location': dropoffLocation,
-        'service_fee': serviceFee,
-        'notes': notes,
-        'status': 'Pending',
-      }).select().single();
+      final response = await _supabase
+          .from('service_requests')
+          .insert({
+            'requester_id': userId,
+            'traveler_id': travelerId,
+            'trip_id': tripId,
+            'service_type': 'Pasabay',
+            'package_description': packageDescription,
+            'recipient_name': recipientName,
+            'recipient_phone': recipientPhone,
+            'dropoff_location': dropoffLocation,
+            'service_fee': serviceFee,
+            'notes': notes,
+            'status': 'Pending',
+          })
+          .select()
+          .single();
 
       print('✅ Pasabay request submitted: ${response['id']}');
       return response['id'];
@@ -153,25 +165,28 @@ class RequestService {
   }
 
   // Upload attachments to Supabase Storage
-  Future<List<String>> uploadAttachments(String requestId, List<String> filePaths) async {
+  Future<List<String>> uploadAttachments(
+    String requestId,
+    List<String> filePaths,
+  ) async {
     List<String> uploadedUrls = [];
-    
+
     try {
       for (int i = 0; i < filePaths.length; i++) {
         final fileName = 'request_$requestId\_attachment_$i';
         final filePath = filePaths[i];
-        
+
         // Note: For actual file upload, you'll need to use the proper file handling
         // This is a placeholder - you'll need to convert file path to bytes
         // await _supabase.storage.from('attachments').upload(fileName, File(filePath));
-        
+
         final url = _supabase.storage
             .from('attachments')
             .getPublicUrl(fileName);
-        
+
         uploadedUrls.add(url);
       }
-      
+
       return uploadedUrls;
     } catch (e) {
       print('Error uploading attachments: $e');
@@ -182,9 +197,10 @@ class RequestService {
   // Accept a request (traveler side)
   Future<bool> acceptRequest(String requestId) async {
     try {
-      await _supabase.rpc('accept_service_request', params: {
-        'request_id': requestId,
-      });
+      await _supabase.rpc(
+        'accept_service_request',
+        params: {'request_id': requestId},
+      );
       return true;
     } catch (e) {
       print('Error accepting request: $e');
@@ -195,17 +211,20 @@ class RequestService {
   // Reject a request (traveler side)
   Future<bool> rejectRequest(String requestId, [String? reason]) async {
     try {
-      await _supabase.rpc('reject_service_request', params: {
-        'request_id': requestId,
-        'rejection_reason': reason ?? 'Request declined',
-      });
+      await _supabase.rpc(
+        'reject_service_request',
+        params: {
+          'request_id': requestId,
+          'rejection_reason': reason ?? 'Request declined',
+        },
+      );
       return true;
     } catch (e) {
       print('Error rejecting request: $e');
       return false;
     }
   }
-  
+
   // Get traveler's requests (for activity page)
   Future<List<ServiceRequest>> getTravelerRequests() async {
     try {
@@ -226,7 +245,7 @@ class RequestService {
       return [];
     }
   }
-  
+
   // Create a generic request (used by traveler_detail_page.dart)
   Future<bool> createRequest({
     required String travelerId,
@@ -250,7 +269,7 @@ class RequestService {
   }) async {
     try {
       String? requestId;
-      
+
       if (serviceType == 'Pabakal') {
         requestId = await submitPabakalRequest(
           travelerId: travelerId,
@@ -274,21 +293,22 @@ class RequestService {
           notes: notes,
         );
       }
-      
+
       return requestId != null;
     } catch (e) {
       print('Error creating request: $e');
       return false;
     }
   }
-  
+
   // Get or create conversation (for request acceptance)
   Future<String?> getOrCreateConversation(String requestId) async {
     try {
-      final response = await _supabase.rpc('get_or_create_conversation', params: {
-        'request_id': requestId,
-      });
-      
+      final response = await _supabase.rpc(
+        'get_or_create_conversation',
+        params: {'request_id': requestId},
+      );
+
       return response as String?;
     } catch (e) {
       print('Error getting/creating conversation: $e');
@@ -299,9 +319,10 @@ class RequestService {
   // Cancel a request (requester side)
   Future<bool> cancelRequest(String requestId) async {
     try {
-      await _supabase.rpc('cancel_service_request', params: {
-        'request_id': requestId,
-      });
+      await _supabase.rpc(
+        'cancel_service_request',
+        params: {'request_id': requestId},
+      );
       return true;
     } catch (e) {
       print('Error cancelling request: $e');
@@ -317,7 +338,7 @@ class RequestService {
           .select('first_name, last_name, profile_image_url')
           .eq('id', requesterId)
           .single();
-      
+
       return response;
     } catch (e) {
       print('Error fetching requester info: $e');
@@ -333,7 +354,7 @@ class RequestService {
           .select('first_name, last_name, profile_image_url')
           .eq('id', travelerId)
           .single();
-      
+
       return response;
     } catch (e) {
       print('Error fetching traveler info: $e');
@@ -397,6 +418,22 @@ class RequestService {
     } catch (e) {
       print('Error fetching requester requests: $e');
       return [];
+    }
+  }
+
+  // Get request by ID
+  Future<ServiceRequest?> getRequestById(String requestId) async {
+    try {
+      final response = await _supabase
+          .from('service_requests')
+          .select()
+          .eq('id', requestId)
+          .single();
+
+      return ServiceRequest.fromJson(response);
+    } catch (e) {
+      print('Error fetching request by ID: $e');
+      return null;
     }
   }
 }

@@ -468,9 +468,24 @@ class SupabaseService {
 
       // Upload file to storage
       final filePath = '$fileName';
-      await _supabase.storage
-          .from(bucket)
-          .upload(filePath, file, fileOptions: const FileOptions(upsert: true));
+
+      if (file is Uint8List) {
+        await _supabase.storage
+            .from(bucket)
+            .uploadBinary(
+              filePath,
+              file,
+              fileOptions: const FileOptions(upsert: true),
+            );
+      } else {
+        await _supabase.storage
+            .from(bucket)
+            .upload(
+              filePath,
+              file,
+              fileOptions: const FileOptions(upsert: true),
+            );
+      }
 
       // Get public URL
       final publicUrl = _supabase.storage.from(bucket).getPublicUrl(filePath);

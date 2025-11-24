@@ -6,38 +6,40 @@ class ServiceRequest {
   final String travelerId;
   final String tripId;
   final String serviceType; // 'Pabakal' or 'Pasabay'
-  final String status; // 'Pending', 'Accepted', 'Rejected', 'Completed', 'Cancelled'
-  
+  final String
+  status; // 'Pending', 'Accepted', 'Rejected', 'Completed', 'Cancelled'
+
   // Common fields
   final String? pickupLocation;
   final String? dropoffLocation;
   final DateTime? pickupTime;
-  
+
   // Pabakal specific
   final String? productName;
   final String? storeName;
   final String? storeLocation;
   final double? productCost;
   final String? productDescription;
-  
+
   // Pasabay specific
   final String? recipientName;
   final String? recipientPhone;
   final String? packageDescription;
-  
+
   // Attachments
   final List<String>? photoUrls;
   final List<String>? documentUrls;
-  
+
   // Payment
   final double serviceFee;
   final double totalAmount;
-  
+
   // Metadata
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? notes;
   final String? rejectionReason;
+  final String? proofImageUrl;
 
   ServiceRequest({
     required this.id,
@@ -65,6 +67,7 @@ class ServiceRequest {
     this.updatedAt,
     this.notes,
     this.rejectionReason,
+    this.proofImageUrl,
   });
 
   factory ServiceRequest.fromJson(Map<String, dynamic> json) {
@@ -77,33 +80,34 @@ class ServiceRequest {
       status: json['status'] as String,
       pickupLocation: json['pickup_location'] as String?,
       dropoffLocation: json['dropoff_location'] as String?,
-      pickupTime: json['pickup_time'] != null 
-          ? DateTime.parse(json['pickup_time'] as String) 
+      pickupTime: json['pickup_time'] != null
+          ? DateTime.parse(json['pickup_time'] as String)
           : null,
       productName: json['product_name'] as String?,
       storeName: json['store_name'] as String?,
       storeLocation: json['store_location'] as String?,
-      productCost: json['product_cost'] != null 
-          ? (json['product_cost'] as num).toDouble() 
+      productCost: json['product_cost'] != null
+          ? (json['product_cost'] as num).toDouble()
           : null,
       productDescription: json['product_description'] as String?,
       recipientName: json['recipient_name'] as String?,
       recipientPhone: json['recipient_phone'] as String?,
       packageDescription: json['package_description'] as String?,
-      photoUrls: json['photo_urls'] != null 
-          ? List<String>.from(json['photo_urls'] as List) 
+      photoUrls: json['photo_urls'] != null
+          ? List<String>.from(json['photo_urls'] as List)
           : null,
-      documentUrls: json['document_urls'] != null 
-          ? List<String>.from(json['document_urls'] as List) 
+      documentUrls: json['document_urls'] != null
+          ? List<String>.from(json['document_urls'] as List)
           : null,
       serviceFee: (json['service_fee'] as num).toDouble(),
       totalAmount: (json['total_amount'] as num).toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at'] as String) 
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
           : null,
       notes: json['notes'] as String?,
       rejectionReason: json['rejection_reason'] as String?,
+      proofImageUrl: json['proof_image_url'] as String?,
     );
   }
 
@@ -134,6 +138,7 @@ class ServiceRequest {
       'updated_at': updatedAt?.toIso8601String(),
       'notes': notes,
       'rejection_reason': rejectionReason,
+      'proof_image_url': proofImageUrl,
     };
   }
 
@@ -145,5 +150,62 @@ class ServiceRequest {
     if (pickupTime == null) return 'Not specified';
     return DateFormat('hh:mm a').format(pickupTime!);
   }
-}
 
+  ServiceRequest copyWith({
+    String? id,
+    String? requesterId,
+    String? travelerId,
+    String? tripId,
+    String? serviceType,
+    String? status,
+    String? pickupLocation,
+    String? dropoffLocation,
+    DateTime? pickupTime,
+    String? productName,
+    String? storeName,
+    String? storeLocation,
+    double? productCost,
+    String? productDescription,
+    String? recipientName,
+    String? recipientPhone,
+    String? packageDescription,
+    List<String>? photoUrls,
+    List<String>? documentUrls,
+    double? serviceFee,
+    double? totalAmount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? notes,
+    String? rejectionReason,
+    String? proofImageUrl,
+  }) {
+    return ServiceRequest(
+      id: id ?? this.id,
+      requesterId: requesterId ?? this.requesterId,
+      travelerId: travelerId ?? this.travelerId,
+      tripId: tripId ?? this.tripId,
+      serviceType: serviceType ?? this.serviceType,
+      status: status ?? this.status,
+      pickupLocation: pickupLocation ?? this.pickupLocation,
+      dropoffLocation: dropoffLocation ?? this.dropoffLocation,
+      pickupTime: pickupTime ?? this.pickupTime,
+      productName: productName ?? this.productName,
+      storeName: storeName ?? this.storeName,
+      storeLocation: storeLocation ?? this.storeLocation,
+      productCost: productCost ?? this.productCost,
+      productDescription: productDescription ?? this.productDescription,
+      recipientName: recipientName ?? this.recipientName,
+      recipientPhone: recipientPhone ?? this.recipientPhone,
+      packageDescription: packageDescription ?? this.packageDescription,
+      photoUrls: photoUrls ?? this.photoUrls,
+      documentUrls: documentUrls ?? this.documentUrls,
+      serviceFee: serviceFee ?? this.serviceFee,
+      totalAmount: totalAmount ?? this.totalAmount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      notes: notes ?? this.notes,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      proofImageUrl: proofImageUrl ?? this.proofImageUrl,
+    );
+  }
+}
