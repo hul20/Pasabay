@@ -23,12 +23,12 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
   final RequestService _requestService = RequestService();
   final MessagingService _messagingService = MessagingService();
   final _supabase = Supabase.instance.client;
-  
+
   List<ServiceRequest> _pendingRequests = [];
   List<ServiceRequest> _acceptedRequests = [];
-  List<ServiceRequest> _completedRequests = [];
   Map<String, Map<String, dynamic>> _travelerInfoCache = {};
   bool _isLoading = true;
+  int _selectedTab = 0; // 0: Pending, 1: Ongoing
 
   @override
   void initState() {
@@ -41,22 +41,21 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
 
     try {
       final requests = await _requestService.getRequesterRequests();
-      
+
       final pending = <ServiceRequest>[];
       final accepted = <ServiceRequest>[];
-      final completed = <ServiceRequest>[];
 
       for (var request in requests) {
         if (request.status == 'Pending') {
           pending.add(request);
-        } else if (request.status == 'Accepted') {
+        } else if (request.status == 'Accepted' || request.status == 'Order Sent') {
           accepted.add(request);
-        } else {
-          completed.add(request);
         }
 
         if (!_travelerInfoCache.containsKey(request.travelerId)) {
-          final info = await _requestService.getTravelerInfo(request.travelerId);
+          final info = await _requestService.getTravelerInfo(
+            request.travelerId,
+          );
           if (info != null) {
             _travelerInfoCache[request.travelerId] = info;
           }
@@ -67,7 +66,6 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
         setState(() {
           _pendingRequests = pending;
           _acceptedRequests = accepted;
-          _completedRequests = completed;
           _isLoading = false;
         });
       }
@@ -84,7 +82,9 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Cancel Request?'),
-        content: Text('Are you sure you want to cancel this ${request.serviceType} request?'),
+        content: Text(
+          'Are you sure you want to cancel this ${request.serviceType} request?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -103,16 +103,22 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
 
     try {
       final success = await _requestService.cancelRequest(request.id);
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Request cancelled'), backgroundColor: Colors.orange),
+          SnackBar(
+            content: Text('Request cancelled'),
+            backgroundColor: Colors.orange,
+          ),
         );
         await _loadRequests();
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -127,37 +133,249 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(scaleFactor),
-            SizedBox(height: 20 * scaleFactor),
+            // Fixed Header Section
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
+              child: Column(
+                children: [
+                  SizedBox(height: 12 * scaleFactor),
+                  // Top bar: logo and role icon
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 36 * scaleFactor,
+                            height: 36 * scaleFactor,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                8 * scaleFactor,
+                              ),
+                              image: const DecorationImage(
+                                image: NetworkImage(AppConstants.logoUrl),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8 * scaleFactor),
+                          Text(
+                            'Pasabay',
+                            style: TextStyle(
+                              fontSize: 18 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: AppConstants.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Color(0xFF00B4D8),
+                          borderRadius: BorderRadius.circular(10 * scaleFactor),
+                        ),
+                        padding: EdgeInsets.all(8 * scaleFactor),
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 28 * scaleFactor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16 * scaleFactor),
+                  // Search bar with notifications
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search for an activity',
+                              hintStyle: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 15 * scaleFactor,
+                              ),
+                              border: InputBorder.none,
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 16 * scaleFactor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12 * scaleFactor),
+                      Stack(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.notifications_none,
+                              size: 28 * scaleFactor,
+                              color: Colors.black,
+                            ),
+                            onPressed: () {},
+                          ),
+                          Positioned(
+                            right: 8 * scaleFactor,
+                            top: 8 * scaleFactor,
+                            child: Container(
+                              width: 16 * scaleFactor,
+                              height: 16 * scaleFactor,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '2',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10 * scaleFactor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 18 * scaleFactor),
+                ],
+              ),
+            ),
+
+            // Scrollable Content
             Expanded(
               child: _isLoading
                   ? Center(child: CircularProgressIndicator())
                   : RefreshIndicator(
                       onRefresh: _loadRequests,
-                      child: DefaultTabController(
-                        length: 3,
-                        child: Column(
-                          children: [
-                            TabBar(
-                              labelColor: Color(0xFF00B4D8),
-                              unselectedLabelColor: Colors.grey,
-                              indicatorColor: Color(0xFF00B4D8),
-                              tabs: [
-                                Tab(text: 'Pending (${_pendingRequests.length})'),
-                                Tab(text: 'Ongoing (${_acceptedRequests.length})'),
-                                Tab(text: 'History (${_completedRequests.length})'),
-                              ],
-                            ),
-                            Expanded(
-                              child: TabBarView(
+                      child: SingleChildScrollView(
+                        physics: AlwaysScrollableScrollPhysics(),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 18 * scaleFactor,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // My Requests Card
+                              Container(
+                                padding: EdgeInsets.all(20 * scaleFactor),
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF00B4D8),
+                                  borderRadius: BorderRadius.circular(
+                                    20 * scaleFactor,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'My Requests',
+                                            style: TextStyle(
+                                              fontSize: 26 * scaleFactor,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.list_alt,
+                                          color: Colors.white,
+                                          size: 24 * scaleFactor,
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 6 * scaleFactor),
+                                    Text(
+                                      'Track and manage your service requests',
+                                      style: TextStyle(
+                                        fontSize: 13 * scaleFactor,
+                                        color: Colors.white.withOpacity(0.95),
+                                      ),
+                                    ),
+                                    SizedBox(height: 16 * scaleFactor),
+                                    // Stats container
+                                    Container(
+                                      padding: EdgeInsets.all(14 * scaleFactor),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(
+                                          12 * scaleFactor,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceAround,
+                                        children: [
+                                          _buildStatItem(
+                                            'Pending',
+                                            _pendingRequests.length.toString(),
+                                            scaleFactor,
+                                          ),
+                                          _buildVerticalDivider(scaleFactor),
+                                          _buildStatItem(
+                                            'Ongoing',
+                                            _acceptedRequests.length.toString(),
+                                            scaleFactor,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 20 * scaleFactor),
+
+                              // Toggle Buttons
+                              Row(
                                 children: [
-                                  _buildRequestsList(_pendingRequests, true, scaleFactor),
-                                  _buildRequestsList(_acceptedRequests, false, scaleFactor),
-                                  _buildRequestsList(_completedRequests, false, scaleFactor),
+                                  _buildTabButton('Pending', 0, scaleFactor),
+                                  SizedBox(width: 8 * scaleFactor),
+                                  _buildTabButton('Ongoing', 1, scaleFactor),
                                 ],
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 20 * scaleFactor),
+
+                              // Content based on selected tab
+                              if (_selectedTab == 0)
+                                ..._buildRequestsList(
+                                  _pendingRequests,
+                                  true,
+                                  scaleFactor,
+                                )
+                              else
+                                ..._buildRequestsList(
+                                  _acceptedRequests,
+                                  false,
+                                  scaleFactor,
+                                ),
+
+                              SizedBox(height: 80 * scaleFactor),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -169,99 +387,101 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
     );
   }
 
-  Widget _buildHeader(double scaleFactor) {
-    return Padding(
-      padding: EdgeInsets.all(18 * scaleFactor),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 36 * scaleFactor,
-                    height: 36 * scaleFactor,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8 * scaleFactor),
-                      image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8 * scaleFactor),
-                  Text(
-                    'Pasabay',
-                    style: TextStyle(
-                      fontSize: 18 * scaleFactor,
-                      fontWeight: FontWeight.w600,
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: Color(0xFF00B4D8),
-                  borderRadius: BorderRadius.circular(10 * scaleFactor),
-                ),
-                padding: EdgeInsets.all(8 * scaleFactor),
-                child: Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: 28 * scaleFactor,
-                ),
-              ),
-            ],
+  Widget _buildTabButton(String title, int index, double scaleFactor) {
+    final isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTab = index;
+          });
+        },
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 12 * scaleFactor),
+          decoration: BoxDecoration(
+            color: isSelected ? Color(0xFF00B4D8) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12 * scaleFactor),
           ),
-          SizedBox(height: 16 * scaleFactor),
-          Text(
-            'My Requests',
-            style: TextStyle(
-              fontSize: 24 * scaleFactor,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+          child: Center(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 14 * scaleFactor,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : Colors.grey[600],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildRequestsList(List<ServiceRequest> requests, bool showCancel, double scaleFactor) {
-    if (requests.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(40 * scaleFactor),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.inbox_outlined, size: 60 * scaleFactor, color: Colors.grey[300]),
-              SizedBox(height: 16 * scaleFactor),
-              Text(
-                'No requests here',
-                style: TextStyle(
-                  fontSize: 18 * scaleFactor,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+  Widget _buildStatItem(String label, String value, double scaleFactor) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18 * scaleFactor,
+            fontWeight: FontWeight.bold,
+            color: AppConstants.primaryColor,
           ),
         ),
-      );
+        Text(
+          label,
+          style: TextStyle(fontSize: 12 * scaleFactor, color: Colors.grey[600]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerticalDivider(double scaleFactor) {
+    return Container(
+      height: 24 * scaleFactor,
+      width: 1,
+      color: Colors.grey[300],
+    );
+  }
+
+  List<Widget> _buildRequestsList(
+    List<ServiceRequest> requests,
+    bool showCancel,
+    double scaleFactor,
+  ) {
+    if (requests.isEmpty) {
+      return [
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(40 * scaleFactor),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 60 * scaleFactor,
+                  color: Colors.grey[300],
+                ),
+                SizedBox(height: 16 * scaleFactor),
+                Text(
+                  'No requests here',
+                  style: TextStyle(
+                    fontSize: 18 * scaleFactor,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(18 * scaleFactor),
-      itemCount: requests.length,
-      itemBuilder: (context, index) {
-        final request = requests[index];
-        final travelerInfo = _travelerInfoCache[request.travelerId];
-        return _buildRequestCard(request, travelerInfo, showCancel, scaleFactor);
-      },
-    );
+    return requests.map((request) {
+      final travelerInfo = _travelerInfoCache[request.travelerId];
+      return _buildRequestCard(request, travelerInfo, showCancel, scaleFactor);
+    }).toList();
   }
 
   Widget _buildRequestCard(
@@ -339,7 +559,11 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
           SizedBox(height: 12 * scaleFactor),
           Row(
             children: [
-              Icon(Icons.person, size: 16 * scaleFactor, color: Colors.grey[600]),
+              Icon(
+                Icons.person,
+                size: 16 * scaleFactor,
+                color: Colors.grey[600],
+              ),
               SizedBox(width: 6 * scaleFactor),
               Text(
                 travelerName,
@@ -401,16 +625,18 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                     ElevatedButton.icon(
                       onPressed: () async {
                         // Get conversation for this request
-                        final conversations = await _messagingService.getConversations();
+                        final conversations = await _messagingService
+                            .getConversations();
                         final conversation = conversations.firstWhere(
                           (c) => c.requestId == request.id,
                           orElse: () => throw 'Conversation not found',
                         );
-                        
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ChatDetailPage(conversation: conversation),
+                            builder: (context) =>
+                                ChatDetailPage(conversation: conversation),
                           ),
                         );
                       },
@@ -502,23 +728,32 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
           if (index == 0) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterHomePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterHomePage(),
+              ),
             );
           } else if (index == 2) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterMessagesPage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterMessagesPage(),
+              ),
             );
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterProfilePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterProfilePage(),
+              ),
             );
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Activity'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Activity',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
@@ -526,4 +761,3 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
     );
   }
 }
-
