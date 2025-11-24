@@ -40,18 +40,18 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     super.initState();
     _request = widget.request;
   }
-  
+
   String get _requesterName {
     if (widget.requesterInfo != null) {
       return '${widget.requesterInfo!['first_name']} ${widget.requesterInfo!['last_name']}';
     }
     return 'Unknown User';
   }
-  
+
   String? get _requesterImage {
     return widget.requesterInfo?['profile_image_url'];
   }
-  
+
   String? get _requesterPhone {
     return widget.requesterInfo?['phone_number'];
   }
@@ -197,7 +197,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                                     .select('id')
                                     .eq('request_id', _request.id)
                                     .maybeSingle();
-                                
+
                                 if (conversationResponse != null) {
                                   await _messagingService.sendMessage(
                                     conversationId: conversationResponse['id'],
@@ -276,7 +276,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
-        
+
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16 * scaleFactor),
@@ -377,14 +377,18 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
       if (success) {
         // Create conversation
-        final conversationId = await _requestService.getOrCreateConversation(widget.request.id);
-        
+        final conversationId = await _requestService.getOrCreateConversation(
+          widget.request.id,
+        );
+
         if (!mounted) return;
 
         // Show success and navigate to messages
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Request accepted! You can now message the requester.'),
+            content: Text(
+              'Request accepted! You can now message the requester.',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -396,9 +400,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
         // Navigate to messages page
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const MessagesPage(),
-          ),
+          MaterialPageRoute(builder: (context) => const MessagesPage()),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -425,13 +427,13 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
   Future<void> _rejectRequest() async {
     final TextEditingController reasonController = TextEditingController();
-    
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
-        
+
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16 * scaleFactor),
@@ -509,7 +511,9 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     try {
       final success = await _requestService.rejectRequest(
         widget.request.id,
-        reasonController.text.trim().isNotEmpty ? reasonController.text.trim() : null,
+        reasonController.text.trim().isNotEmpty
+            ? reasonController.text.trim()
+            : null,
       );
 
       if (!mounted) return;
@@ -597,9 +601,9 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
             children: [
               // Requester Info Card
               _buildRequesterCard(scaleFactor),
-              
+
               SizedBox(height: 24 * scaleFactor),
-              
+
               // Service Details
               Text(
                 'Service Details',
@@ -609,28 +613,29 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                   color: Colors.black,
                 ),
               ),
-              
+
               SizedBox(height: 16 * scaleFactor),
-              
+
               // Show details based on service type
               if (widget.request.serviceType == 'Pabakal')
                 _buildPabakalDetails(scaleFactor)
               else
                 _buildPasabayDetails(scaleFactor),
-              
+
               SizedBox(height: 24 * scaleFactor),
-              
+
               // Payment Info
               _buildPaymentCard(scaleFactor),
-              
+
               // Attachments
-              if (widget.request.photoUrls != null && widget.request.photoUrls!.isNotEmpty) ...[
+              if (widget.request.photoUrls != null &&
+                  widget.request.photoUrls!.isNotEmpty) ...[
                 SizedBox(height: 24 * scaleFactor),
                 _buildAttachments(scaleFactor),
               ],
-              
+
               SizedBox(height: 32 * scaleFactor),
-              
+
               // Action Buttons (only show if pending)
               if (widget.request.status == 'Pending')
                 _buildActionButtons(scaleFactor),
@@ -761,9 +766,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const MessagesPage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const MessagesPage()),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -824,7 +827,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
             '₱${widget.request.productCost?.toStringAsFixed(2) ?? '0.00'}',
             scaleFactor,
           ),
-          if (widget.request.productDescription != null && 
+          if (widget.request.productDescription != null &&
               widget.request.productDescription!.isNotEmpty) ...[
             Divider(height: 24 * scaleFactor),
             _buildDetailRow(
@@ -914,13 +917,11 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     bool isMultiline = false,
   }) {
     return Row(
-      crossAxisAlignment: isMultiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: isMultiline
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
-        Icon(
-          icon,
-          size: 20 * scaleFactor,
-          color: Color(0xFF00B4D8),
-        ),
+        Icon(icon, size: 20 * scaleFactor, color: Color(0xFF00B4D8)),
         SizedBox(width: 12 * scaleFactor),
         Expanded(
           child: Column(
@@ -969,7 +970,8 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
             ),
           ),
           SizedBox(height: 12 * scaleFactor),
-          if (widget.request.serviceType == 'Pabakal' && widget.request.productCost != null) ...[
+          if (widget.request.serviceType == 'Pabakal' &&
+              widget.request.productCost != null) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1141,4 +1143,3 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     );
   }
 }
-

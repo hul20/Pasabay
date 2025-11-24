@@ -117,9 +117,9 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
           .select('id')
           .eq('request_id', _request.id)
           .maybeSingle();
-      
+
       if (conversationResponse != null) {
-         await _messagingService.sendMessage(
+        await _messagingService.sendMessage(
           conversationId: conversationResponse['id'],
           messageText: 'Transaction completed! Item received. ✅',
         );
@@ -170,193 +170,201 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
           ),
         ),
       ),
-      body: _isUpdating 
+      body: _isUpdating
           ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: EdgeInsets.all(18 * scaleFactor),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status Badge
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: 16 * scaleFactor,
-                vertical: 8 * scaleFactor,
-              ),
-              decoration: BoxDecoration(
-                color: _getStatusColor().withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20 * scaleFactor),
-              ),
-              child: Text(
-                _request.status,
-                style: TextStyle(
-                  fontSize: 14 * scaleFactor,
-                  fontWeight: FontWeight.w600,
-                  color: _getStatusColor(),
-                ),
-              ),
-            ),
-            
-            SizedBox(height: 24 * scaleFactor),
-            
-            // Service Type
-            Text(
-              '${_request.serviceType} Request',
-              style: TextStyle(
-                fontSize: 24 * scaleFactor,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            
-            SizedBox(height: 8 * scaleFactor),
-            
-            Text(
-              'Created ${_request.formattedCreatedAt}',
-              style: TextStyle(
-                fontSize: 13 * scaleFactor,
-                color: Colors.grey[600],
-              ),
-            ),
-            
-            SizedBox(height: 24 * scaleFactor),
-            
-            // Traveler Info if available
-            if (widget.travelerInfo != null) ...[
-              _buildInfoCard(
-                'Traveler',
-                '${widget.travelerInfo!['first_name']} ${widget.travelerInfo!['last_name']}',
-                Icons.person,
-                scaleFactor,
-              ),
-              SizedBox(height: 12 * scaleFactor),
-            ],
-            
-            // Service Details
-            if (_request.serviceType == 'Pabakal') ...[
-              _buildInfoCard(
-                'Product',
-                _request.productName ?? 'N/A',
-                Icons.shopping_bag,
-                scaleFactor,
-              ),
-              SizedBox(height: 12 * scaleFactor),
-              _buildInfoCard(
-                'Store',
-                '${_request.storeName ?? 'N/A'}\n${_request.storeLocation ?? ''}',
-                Icons.store,
-                scaleFactor,
-              ),
-              SizedBox(height: 12 * scaleFactor),
-              _buildInfoCard(
-                'Cost',
-                '₱${_request.productCost?.toStringAsFixed(2) ?? '0.00'}',
-                Icons.attach_money,
-                scaleFactor,
-              ),
-            ] else ...[
-              _buildInfoCard(
-                'Recipient',
-                _request.recipientName ?? 'N/A',
-                Icons.person_outline,
-                scaleFactor,
-              ),
-              SizedBox(height: 12 * scaleFactor),
-              _buildInfoCard(
-                'Delivery Address',
-                _request.dropoffLocation ?? 'N/A',
-                Icons.location_on,
-                scaleFactor,
-              ),
-            ],
-            
-            SizedBox(height: 12 * scaleFactor),
-            
-            // Payment Info
-            _buildInfoCard(
-              'Service Fee',
-              '₱${_request.serviceFee.toStringAsFixed(2)}',
-              Icons.payment,
-              scaleFactor,
-            ),
-            
-            SizedBox(height: 12 * scaleFactor),
-            
-            _buildInfoCard(
-              'Total Amount',
-              '₱${_request.totalAmount.toStringAsFixed(2)}',
-              Icons.account_balance_wallet,
-              scaleFactor,
-            ),
-            
-            // Rejection reason if rejected
-            if (_request.status == 'Rejected' && _request.rejectionReason != null) ...[
-              SizedBox(height: 24 * scaleFactor),
-              Container(
-                padding: EdgeInsets.all(16 * scaleFactor),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12 * scaleFactor),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.red, size: 20 * scaleFactor),
-                        SizedBox(width: 8 * scaleFactor),
-                        Text(
-                          'Rejection Reason',
-                          style: TextStyle(
-                            fontSize: 15 * scaleFactor,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red[700],
-                          ),
-                        ),
-                      ],
+              padding: EdgeInsets.all(18 * scaleFactor),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Status Badge
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16 * scaleFactor,
+                      vertical: 8 * scaleFactor,
                     ),
-                    SizedBox(height: 8 * scaleFactor),
-                    Text(
-                      _request.rejectionReason!,
+                    decoration: BoxDecoration(
+                      color: _getStatusColor().withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                    ),
+                    child: Text(
+                      _request.status,
                       style: TextStyle(
                         fontSize: 14 * scaleFactor,
-                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                        color: _getStatusColor(),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 24 * scaleFactor),
+
+                  // Service Type
+                  Text(
+                    '${_request.serviceType} Request',
+                    style: TextStyle(
+                      fontSize: 24 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+
+                  SizedBox(height: 8 * scaleFactor),
+
+                  Text(
+                    'Created ${_request.formattedCreatedAt}',
+                    style: TextStyle(
+                      fontSize: 13 * scaleFactor,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+
+                  SizedBox(height: 24 * scaleFactor),
+
+                  // Traveler Info if available
+                  if (widget.travelerInfo != null) ...[
+                    _buildInfoCard(
+                      'Traveler',
+                      '${widget.travelerInfo!['first_name']} ${widget.travelerInfo!['last_name']}',
+                      Icons.person,
+                      scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+                  ],
+
+                  // Service Details
+                  if (_request.serviceType == 'Pabakal') ...[
+                    _buildInfoCard(
+                      'Product',
+                      _request.productName ?? 'N/A',
+                      Icons.shopping_bag,
+                      scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+                    _buildInfoCard(
+                      'Store',
+                      '${_request.storeName ?? 'N/A'}\n${_request.storeLocation ?? ''}',
+                      Icons.store,
+                      scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+                    _buildInfoCard(
+                      'Cost',
+                      '₱${_request.productCost?.toStringAsFixed(2) ?? '0.00'}',
+                      Icons.attach_money,
+                      scaleFactor,
+                    ),
+                  ] else ...[
+                    _buildInfoCard(
+                      'Recipient',
+                      _request.recipientName ?? 'N/A',
+                      Icons.person_outline,
+                      scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+                    _buildInfoCard(
+                      'Delivery Address',
+                      _request.dropoffLocation ?? 'N/A',
+                      Icons.location_on,
+                      scaleFactor,
+                    ),
+                  ],
+
+                  SizedBox(height: 12 * scaleFactor),
+
+                  // Payment Info
+                  _buildInfoCard(
+                    'Service Fee',
+                    '₱${_request.serviceFee.toStringAsFixed(2)}',
+                    Icons.payment,
+                    scaleFactor,
+                  ),
+
+                  SizedBox(height: 12 * scaleFactor),
+
+                  _buildInfoCard(
+                    'Total Amount',
+                    '₱${_request.totalAmount.toStringAsFixed(2)}',
+                    Icons.account_balance_wallet,
+                    scaleFactor,
+                  ),
+
+                  // Rejection reason if rejected
+                  if (_request.status == 'Rejected' &&
+                      _request.rejectionReason != null) ...[
+                    SizedBox(height: 24 * scaleFactor),
+                    Container(
+                      padding: EdgeInsets.all(16 * scaleFactor),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.red,
+                                size: 20 * scaleFactor,
+                              ),
+                              SizedBox(width: 8 * scaleFactor),
+                              Text(
+                                'Rejection Reason',
+                                style: TextStyle(
+                                  fontSize: 15 * scaleFactor,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.red[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8 * scaleFactor),
+                          Text(
+                            _request.rejectionReason!,
+                            style: TextStyle(
+                              fontSize: 14 * scaleFactor,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
 
-            // Item Received Button
-            if (_request.status == 'Accepted' || _request.status == 'Order Sent') ...[
-              SizedBox(height: 32 * scaleFactor),
-              SizedBox(
-                width: double.infinity,
-                height: 50 * scaleFactor,
-                child: ElevatedButton(
-                  onPressed: _handleItemReceived,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  // Item Received Button
+                  if (_request.status == 'Accepted' ||
+                      _request.status == 'Order Sent') ...[
+                    SizedBox(height: 32 * scaleFactor),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50 * scaleFactor,
+                      child: ElevatedButton(
+                        onPressed: _handleItemReceived,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppConstants.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          'Item Received',
+                          style: TextStyle(
+                            fontSize: 16 * scaleFactor,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    'Item Received',
-                    style: TextStyle(
-                      fontSize: 16 * scaleFactor,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+                  ],
+                ],
               ),
-            ],
-          ],
-        ),
-      ),
+            ),
     );
   }
 
@@ -377,7 +385,12 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
     }
   }
 
-  Widget _buildInfoCard(String label, String value, IconData icon, double scaleFactor) {
+  Widget _buildInfoCard(
+    String label,
+    String value,
+    IconData icon,
+    double scaleFactor,
+  ) {
     return Container(
       padding: EdgeInsets.all(16 * scaleFactor),
       decoration: BoxDecoration(
@@ -387,11 +400,7 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: Color(0xFF00B4D8),
-            size: 24 * scaleFactor,
-          ),
+          Icon(icon, color: Color(0xFF00B4D8), size: 24 * scaleFactor),
           SizedBox(width: 16 * scaleFactor),
           Expanded(
             child: Column(
@@ -421,4 +430,3 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
     );
   }
 }
-
