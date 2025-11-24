@@ -7,6 +7,8 @@ import 'requester_activity_page.dart';
 import 'requester_messages_page.dart';
 import '../traveler_home_page.dart';
 import '../landing_page.dart';
+import '../settings_page.dart';
+import '../edit_profile_page.dart';
 
 class RequesterProfilePage extends StatefulWidget {
   const RequesterProfilePage({super.key});
@@ -15,10 +17,11 @@ class RequesterProfilePage extends StatefulWidget {
   State<RequesterProfilePage> createState() => _RequesterProfilePageState();
 }
 
-class _RequesterProfilePageState extends State<RequesterProfilePage> with WidgetsBindingObserver {
+class _RequesterProfilePageState extends State<RequesterProfilePage>
+    with WidgetsBindingObserver {
   String userName = " ";
   String userEmail = " ";
-  String userRole = " "; 
+  String userRole = " ";
 
   @override
   void initState() {
@@ -43,10 +46,12 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
   Future<void> _fetchUserProfile() async {
     final supabaseService = SupabaseService();
     final userData = await supabaseService.getUserData();
-    
+
     if (userData != null && mounted) {
       setState(() {
-        userName = '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'.trim();
+        userName =
+            '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
+                .trim();
         if (userName.isEmpty) userName = "Requester";
         userEmail = userData['email'] ?? userEmail;
         userRole = userData['role'] ?? userRole;
@@ -71,9 +76,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text('Log Out'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
           ),
         ],
       ),
@@ -85,9 +88,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
 
     try {
@@ -216,9 +217,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
 
     try {
@@ -243,13 +242,17 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
               if (newRole == 'Traveler') {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => const TravelerHomePage()),
+                  MaterialPageRoute(
+                    builder: (context) => const TravelerHomePage(),
+                  ),
                   (route) => false,
                 );
               } else {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => const RequesterHomePage()),
+                  MaterialPageRoute(
+                    builder: (context) => const RequesterHomePage(),
+                  ),
                   (route) => false,
                 );
               }
@@ -278,6 +281,18 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
           ),
         );
       }
+    }
+  }
+
+  Future<void> _navigateToEditProfile() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EditProfilePage()),
+    );
+
+    // Refresh profile if changes were saved
+    if (result == true) {
+      _fetchUserProfile();
     }
   }
 
@@ -315,7 +330,9 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
                               width: 36 * scaleFactor,
                               height: 36 * scaleFactor,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                borderRadius: BorderRadius.circular(
+                                  8 * scaleFactor,
+                                ),
                                 image: const DecorationImage(
                                   image: NetworkImage(AppConstants.logoUrl),
                                   fit: BoxFit.cover,
@@ -336,7 +353,9 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(10 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              10 * scaleFactor,
+                            ),
                           ),
                           padding: EdgeInsets.all(8 * scaleFactor),
                           child: Icon(
@@ -356,10 +375,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
                         Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 4,
-                            ),
+                            border: Border.all(color: Colors.white, width: 4),
                           ),
                           child: ClipOval(
                             child: Image.network(
@@ -443,7 +459,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
                       icon: Icons.person_outline,
                       title: 'Edit Profile',
                       subtitle: 'Update personal information',
-                      onTap: () {},
+                      onTap: _navigateToEditProfile,
                       scaleFactor: scaleFactor,
                     ),
                     SizedBox(height: 12 * scaleFactor),
@@ -453,7 +469,14 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
                       icon: Icons.settings_outlined,
                       title: 'Preferences',
                       subtitle: 'Notifications and app settings',
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsPage(),
+                          ),
+                        );
+                      },
                       scaleFactor: scaleFactor,
                     ),
                     SizedBox(height: 24 * scaleFactor),
@@ -474,10 +497,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12 * scaleFactor),
-                        border: Border.all(
-                          color: Color(0xFF00B4D8),
-                          width: 2,
-                        ),
+                        border: Border.all(color: Color(0xFF00B4D8), width: 2),
                       ),
                       child: _buildMenuItem(
                         icon: Icons.sync,
@@ -554,10 +574,14 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
                             height: 48 * scaleFactor,
                             decoration: BoxDecoration(
                               color: Color(0xFF00B4D8).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12 * scaleFactor),
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12 * scaleFactor),
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
                               child: Image.network(
                                 AppConstants.logoUrl,
                                 fit: BoxFit.cover,
@@ -729,4 +753,3 @@ class _RequesterProfilePageState extends State<RequesterProfilePage> with Widget
     );
   }
 }
-

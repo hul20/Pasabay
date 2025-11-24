@@ -7,6 +7,7 @@ import 'messages_page.dart';
 import 'requester/requester_home_page.dart';
 import 'landing_page.dart';
 import 'edit_profile_page.dart';
+import 'settings_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,7 +20,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   // Default data
   String userName = "Juan Carlos Santos";
   String userEmail = "juan.santos@email.com";
-  String userRole = "Traveler"; 
+  String userRole = "Traveler";
   String? profileImageUrl;
   bool _isVerified = false;
 
@@ -47,10 +48,12 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     final supabaseService = SupabaseService();
     final userData = await supabaseService.getUserData();
     final isVerified = await supabaseService.isUserVerified();
-    
+
     if (userData != null && mounted) {
       setState(() {
-        userName = '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'.trim();
+        userName =
+            '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'
+                .trim();
         if (userName.isEmpty) userName = "Traveler";
         userEmail = userData['email'] ?? userEmail;
         userRole = userData['role'] ?? userRole;
@@ -65,7 +68,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
       context,
       MaterialPageRoute(builder: (context) => const EditProfilePage()),
     );
-    
+
     // Refresh profile if changes were saved
     if (result == true) {
       _fetchUserProfile();
@@ -89,9 +92,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text('Log Out'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
           ),
         ],
       ),
@@ -103,9 +104,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
 
     try {
@@ -234,9 +233,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
 
     try {
@@ -261,7 +258,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               if (newRole == 'Requester') {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => const RequesterHomePage()),
+                  MaterialPageRoute(
+                    builder: (context) => const RequesterHomePage(),
+                  ),
                   (route) => false,
                 );
               }
@@ -329,7 +328,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                               width: 36 * scaleFactor,
                               height: 36 * scaleFactor,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                borderRadius: BorderRadius.circular(
+                                  8 * scaleFactor,
+                                ),
                                 image: const DecorationImage(
                                   image: NetworkImage(AppConstants.logoUrl),
                                   fit: BoxFit.cover,
@@ -350,7 +351,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(10 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              10 * scaleFactor,
+                            ),
                           ),
                           padding: EdgeInsets.all(8 * scaleFactor),
                           child: Icon(
@@ -370,13 +373,12 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                         Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 4,
-                            ),
+                            border: Border.all(color: Colors.white, width: 4),
                           ),
                           child: ClipOval(
-                            child: profileImageUrl != null && profileImageUrl!.isNotEmpty
+                            child:
+                                profileImageUrl != null &&
+                                    profileImageUrl!.isNotEmpty
                                 ? Image.network(
                                     profileImageUrl!,
                                     width: 80 * scaleFactor,
@@ -432,14 +434,18 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                               SizedBox(height: 4 * scaleFactor),
                               if (_isVerified)
                                 Container(
-                                  margin: EdgeInsets.only(bottom: 4 * scaleFactor),
+                                  margin: EdgeInsets.only(
+                                    bottom: 4 * scaleFactor,
+                                  ),
                                   padding: EdgeInsets.symmetric(
                                     horizontal: 8 * scaleFactor,
                                     vertical: 2 * scaleFactor,
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(4 * scaleFactor),
+                                    borderRadius: BorderRadius.circular(
+                                      4 * scaleFactor,
+                                    ),
                                     border: Border.all(
                                       color: Colors.white.withOpacity(0.5),
                                       width: 1,
@@ -490,181 +496,189 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                   children: [
                     SizedBox(height: 24 * scaleFactor),
 
-                      // Account Section
-                      Text(
-                        'Account',
-                        style: TextStyle(
-                          fontSize: 18 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
+                    // Account Section
+                    Text(
+                      'Account',
+                      style: TextStyle(
+                        fontSize: 18 * scaleFactor,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
-                      SizedBox(height: 12 * scaleFactor),
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
 
-                      // Edit Profile
-                      _buildMenuItem(
-                        icon: Icons.person_outline,
-                        title: 'Edit Profile',
-                        subtitle: 'Update personal information',
-                        onTap: _navigateToEditProfile,
-                        scaleFactor: scaleFactor,
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
+                    // Edit Profile
+                    _buildMenuItem(
+                      icon: Icons.person_outline,
+                      title: 'Edit Profile',
+                      subtitle: 'Update personal information',
+                      onTap: _navigateToEditProfile,
+                      scaleFactor: scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
 
-                      // Preferences
-                      _buildMenuItem(
-                        icon: Icons.settings_outlined,
-                        title: 'Preferences',
-                        subtitle: 'Notifications and app settings',
-                        onTap: () {},
-                        scaleFactor: scaleFactor,
-                      ),
-                      SizedBox(height: 24 * scaleFactor),
-
-                      // Role Section
-                      Text(
-                        'Role',
-                        style: TextStyle(
-                          fontSize: 18 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-
-                      // Switch Role Card (Highlighted)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12 * scaleFactor),
-                          border: Border.all(
-                            color: Color(0xFF00B4D8),
-                            width: 2,
+                    // Preferences
+                    _buildMenuItem(
+                      icon: Icons.settings_outlined,
+                      title: 'Preferences',
+                      subtitle: 'Notifications and app settings',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsPage(),
                           ),
-                        ),
-                        child: _buildMenuItem(
-                          icon: Icons.sync,
-                          title: userRole == 'Traveler' 
-                              ? 'Switch To Requester' 
-                              : 'Switch To Traveler',
-                          subtitle: 'Change your role',
-                          onTap: _switchRole,
-                          scaleFactor: scaleFactor,
-                          iconColor: Color(0xFF00B4D8),
-                          isHighlighted: true,
-                        ),
-                      ),
-                      SizedBox(height: 24 * scaleFactor),
-
-                      // Support Section
-                      Text(
-                        'Support',
-                        style: TextStyle(
-                          fontSize: 18 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-
-                      // Help and Support
-                      _buildMenuItem(
-                        icon: Icons.help_outline,
-                        title: 'Help and Support',
-                        subtitle: 'Get help and contact support',
-                        onTap: () {},
-                        scaleFactor: scaleFactor,
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-
-                      // Invite Friends
-                      _buildMenuItem(
-                        icon: Icons.share_outlined,
-                        title: 'Invite Friends',
-                        subtitle: 'Share Pasabay with others',
-                        onTap: () {},
-                        scaleFactor: scaleFactor,
-                      ),
-                      SizedBox(height: 24 * scaleFactor),
-
-                      // App Section
-                      Text(
-                        'App',
-                        style: TextStyle(
-                          fontSize: 18 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-
-                      // App Version
-                      Container(
-                        padding: EdgeInsets.all(16 * scaleFactor),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12 * scaleFactor),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48 * scaleFactor,
-                              height: 48 * scaleFactor,
-                              decoration: BoxDecoration(
-                                color: Color(0xFF00B4D8).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12 * scaleFactor),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12 * scaleFactor),
-                                child: Image.network(
-                                  AppConstants.logoUrl,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 14 * scaleFactor),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Pasabay',
-                                  style: TextStyle(
-                                    fontSize: 16 * scaleFactor,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                SizedBox(height: 4 * scaleFactor),
-                                Text(
-                                  'Version 1.0.0',
-                                  style: TextStyle(
-                                    fontSize: 13 * scaleFactor,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                        );
+                      },
+                      scaleFactor: scaleFactor,
+                    ),
                     SizedBox(height: 24 * scaleFactor),
 
-                      // Logout Button
-                      _buildMenuItem(
-                        icon: Icons.logout,
-                        title: 'Log Out',
-                        subtitle: 'Sign out of your account',
-                        onTap: _handleLogout,
-                        scaleFactor: scaleFactor,
-                        iconColor: Colors.red,
+                    // Role Section
+                    Text(
+                      'Role',
+                      style: TextStyle(
+                        fontSize: 18 * scaleFactor,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+
+                    // Switch Role Card (Highlighted)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        border: Border.all(color: Color(0xFF00B4D8), width: 2),
+                      ),
+                      child: _buildMenuItem(
+                        icon: Icons.sync,
+                        title: userRole == 'Traveler'
+                            ? 'Switch To Requester'
+                            : 'Switch To Traveler',
+                        subtitle: 'Change your role',
+                        onTap: _switchRole,
+                        scaleFactor: scaleFactor,
+                        iconColor: Color(0xFF00B4D8),
+                        isHighlighted: true,
+                      ),
+                    ),
+                    SizedBox(height: 24 * scaleFactor),
+
+                    // Support Section
+                    Text(
+                      'Support',
+                      style: TextStyle(
+                        fontSize: 18 * scaleFactor,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+
+                    // Help and Support
+                    _buildMenuItem(
+                      icon: Icons.help_outline,
+                      title: 'Help and Support',
+                      subtitle: 'Get help and contact support',
+                      onTap: () {},
+                      scaleFactor: scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+
+                    // Invite Friends
+                    _buildMenuItem(
+                      icon: Icons.share_outlined,
+                      title: 'Invite Friends',
+                      subtitle: 'Share Pasabay with others',
+                      onTap: () {},
+                      scaleFactor: scaleFactor,
+                    ),
+                    SizedBox(height: 24 * scaleFactor),
+
+                    // App Section
+                    Text(
+                      'App',
+                      style: TextStyle(
+                        fontSize: 18 * scaleFactor,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+
+                    // App Version
+                    Container(
+                      padding: EdgeInsets.all(16 * scaleFactor),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48 * scaleFactor,
+                            height: 48 * scaleFactor,
+                            decoration: BoxDecoration(
+                              color: Color(0xFF00B4D8).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              child: Image.network(
+                                AppConstants.logoUrl,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 14 * scaleFactor),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pasabay',
+                                style: TextStyle(
+                                  fontSize: 16 * scaleFactor,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: 4 * scaleFactor),
+                              Text(
+                                'Version 1.0.0',
+                                style: TextStyle(
+                                  fontSize: 13 * scaleFactor,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 24 * scaleFactor),
+
+                    // Logout Button
+                    _buildMenuItem(
+                      icon: Icons.logout,
+                      title: 'Log Out',
+                      subtitle: 'Sign out of your account',
+                      onTap: _handleLogout,
+                      scaleFactor: scaleFactor,
+                      iconColor: Colors.red,
+                    ),
 
                     SizedBox(height: 80 * scaleFactor),
                   ],
@@ -687,17 +701,13 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             // Navigate to Activity page
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ActivityPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ActivityPage()),
             );
           } else if (index == 2) {
             // Navigate to Messages page
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const MessagesPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const MessagesPage()),
             );
           }
           // Profile tab is already selected (index 3)
@@ -798,4 +808,3 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     );
   }
 }
-
