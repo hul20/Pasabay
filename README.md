@@ -45,7 +45,6 @@ All roles must be in Title Case:
 - `Traveler` - Users who travel and can deliver items
 - `Requester` - Users who need items delivered
 - `Verifier` - Staff who verify user identities
-- `Admin` - System administrators
 
 ## 📚 Documentation
 
