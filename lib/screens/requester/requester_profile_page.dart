@@ -22,6 +22,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
   String userName = " ";
   String userEmail = " ";
   String userRole = " ";
+  String? profileImageUrl;
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
         if (userName.isEmpty) userName = "Requester";
         userEmail = userData['email'] ?? userEmail;
         userRole = userData['role'] ?? userRole;
+        profileImageUrl = userData['profile_image_url'];
       });
     }
   }
@@ -378,27 +380,43 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
                             border: Border.all(color: Colors.white, width: 4),
                           ),
                           child: ClipOval(
-                            child: Image.network(
-                              'https://i.pravatar.cc/150?img=12',
-                              width: 80 * scaleFactor,
-                              height: 80 * scaleFactor,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: 80 * scaleFactor,
-                                  height: 80 * scaleFactor,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
+                            child:
+                                profileImageUrl != null &&
+                                    profileImageUrl!.isNotEmpty
+                                ? Image.network(
+                                    profileImageUrl!,
+                                    width: 80 * scaleFactor,
+                                    height: 80 * scaleFactor,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        width: 80 * scaleFactor,
+                                        height: 80 * scaleFactor,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.person,
+                                          size: 40 * scaleFactor,
+                                          color: Colors.grey,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Container(
+                                    width: 80 * scaleFactor,
+                                    height: 80 * scaleFactor,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.person,
+                                      size: 40 * scaleFactor,
+                                      color: Colors.grey,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    Icons.person,
-                                    size: 40 * scaleFactor,
-                                    color: Colors.grey,
-                                  ),
-                                );
-                              },
-                            ),
                           ),
                         ),
                         SizedBox(width: 16 * scaleFactor),

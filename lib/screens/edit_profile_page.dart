@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
@@ -21,9 +22,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
   final _bioController = TextEditingController();
-  
+
   final ImagePicker _imagePicker = ImagePicker();
-  File? _selectedImage;
+  XFile? _selectedImage;
   String? _currentProfileImageUrl;
   bool _isLoading = true;
   bool _isSaving = false;
@@ -82,7 +83,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
-        
+
         return Container(
           padding: EdgeInsets.all(20 * scaleFactor),
           child: Column(
@@ -136,10 +137,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       if (photo != null) {
         setState(() {
-          _selectedImage = File(photo.path);
+          _selectedImage = photo;
         });
       }
     } catch (e) {
@@ -160,10 +161,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         setState(() {
-          _selectedImage = File(image.path);
+          _selectedImage = image;
         });
       }
     } catch (e) {
@@ -200,19 +201,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
           final userId = supabaseService.currentUser?.id;
           if (userId != null) {
             final fileName = 'profile_$userId.jpg';
-            profileImageUrl = await supabaseService.uploadFile(
+            final imageBytes = await _selectedImage!.readAsBytes();
+            final url = await supabaseService.uploadFile(
               'profile-images',
               fileName,
-              _selectedImage!,
+              imageBytes,
             );
+            // Append timestamp to force cache refresh
+            profileImageUrl = '$url?t=${DateTime.now().millisecondsSinceEpoch}';
           }
         } catch (uploadError) {
-          print('Photo upload failed, continuing with profile update: $uploadError');
+          print(
+            'Photo upload failed, continuing with profile update: $uploadError',
+          );
           // Continue with profile update even if photo upload fails
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Note: Profile photo could not be uploaded, but other info will be saved'),
+                content: Text(
+                  'Note: Profile photo could not be uploaded, but other info will be saved',
+                ),
                 backgroundColor: Colors.orange,
                 duration: Duration(seconds: 3),
               ),
@@ -229,7 +237,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'phone_number': _phoneController.text.trim(),
         'location': _locationController.text.trim(),
         'bio': _bioController.text.trim(),
-        if (profileImageUrl != null && profileImageUrl.isNotEmpty) 
+        if (profileImageUrl != null && profileImageUrl.isNotEmpty)
           'profile_image_url': profileImageUrl,
       };
 
@@ -326,7 +334,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             height: 20 * scaleFactor,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : Text(
@@ -371,27 +381,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               ),
                               child: ClipOval(
                                 child: _selectedImage != null
-                                    ? Image.file(
-                                        _selectedImage!,
-                                        fit: BoxFit.cover,
-                                      )
+                                    ? (kIsWeb
+                                          ? Image.network(
+                                              _selectedImage!.path,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.file(
+                                              File(_selectedImage!.path),
+                                              fit: BoxFit.cover,
+                                            ))
                                     : _currentProfileImageUrl != null
-                                        ? Image.network(
-                                            _currentProfileImageUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
+                                    ? Image.network(
+                                        _currentProfileImageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
                                               return Icon(
                                                 Icons.person,
                                                 size: 60 * scaleFactor,
                                                 color: Colors.grey,
                                               );
                                             },
-                                          )
-                                        : Icon(
-                                            Icons.person,
-                                            size: 60 * scaleFactor,
-                                            color: Colors.grey,
-                                          ),
+                                      )
+                                    : Icon(
+                                        Icons.person,
+                                        size: 60 * scaleFactor,
+                                        color: Colors.grey,
+                                      ),
                               ),
                             ),
                             Positioned(
@@ -402,7 +418,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 decoration: BoxDecoration(
                                   color: Color(0xFF00B4D8),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
                                 ),
                                 child: Icon(
                                   Icons.camera_alt,
@@ -502,7 +521,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 ),
                               ),
                             ),
-                            Icon(Icons.lock, size: 20 * scaleFactor, color: Colors.grey),
+                            Icon(
+                              Icons.lock,
+                              size: 20 * scaleFactor,
+                              color: Colors.grey,
+                            ),
                           ],
                         ),
                       ),
@@ -567,7 +590,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       SizedBox(height: 8 * scaleFactor),
                       _buildTextField(
                         controller: _bioController,
-                        label: '22-Year-Old Student Studying Bachelor of Science in Computer Science',
+                        label:
+                            '22-Year-Old Student Studying Bachelor of Science in Computer Science',
                         maxLines: 3,
                         scaleFactor: scaleFactor,
                       ),
@@ -633,4 +657,3 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 }
-
