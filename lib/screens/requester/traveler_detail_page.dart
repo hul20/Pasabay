@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
@@ -26,14 +25,14 @@ class TravelerDetailPage extends StatefulWidget {
 class _TravelerDetailPageState extends State<TravelerDetailPage> {
   String? _selectedServiceType; // 'Pabakal' or 'Pasabay'
   bool _isSubmitting = false;
-  
+
   // Pabakal fields
   final _productNameController = TextEditingController();
   final _storeNameController = TextEditingController();
   final _storeLocationController = TextEditingController();
   final _costController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   // Pasabay fields
   final _recipientNameController = TextEditingController();
   final _recipientPhoneController = TextEditingController();
@@ -41,16 +40,14 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
   final _dropoffLocationController = TextEditingController();
   final _claimTimeController = TextEditingController();
   final _packageDescriptionController = TextEditingController();
-  
+
   // File attachments
   final ImagePicker _imagePicker = ImagePicker();
   final RequestService _requestService = RequestService();
   final _supabase = Supabase.instance.client;
   List<File> _attachedImages = [];
-  List<File> _attachedFiles = [];
   List<String> _uploadedPhotoUrls = [];
-  List<String> _uploadedDocumentUrls = [];
-  
+
   double get _serviceFee {
     // Base service fee calculation
     // Could be based on distance, product cost, etc.
@@ -62,7 +59,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     }
     return 0.0;
   }
-  
+
   double get _totalAmount {
     final productCost = double.tryParse(_costController.text) ?? 0;
     return productCost + _serviceFee;
@@ -101,7 +98,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
         maxHeight: 1080,
         imageQuality: 85,
       );
-      
+
       if (photo != null) {
         setState(() {
           _attachedImages.add(File(photo.path));
@@ -131,7 +128,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
         maxHeight: 1080,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         setState(() {
           _attachedImages.add(File(image.path));
@@ -153,42 +150,13 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     }
   }
 
-  Future<void> _pickFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'txt'],
-      );
-
-      if (result != null && result.files.single.path != null) {
-        setState(() {
-          _attachedFiles.add(File(result.files.single.path!));
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('File added successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error picking file: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   void _showPhotoOptions() {
     showModalBottomSheet(
       context: context,
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
-        
+
         return Container(
           padding: EdgeInsets.all(20 * scaleFactor),
           child: Column(
@@ -350,40 +318,19 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     // Upload images
     for (var imageFile in _attachedImages) {
       try {
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
         final filePath = 'request_photos/$fileName';
-        
-        await _supabase.storage
-            .from('attachments')
-            .upload(filePath, imageFile);
-        
+
+        await _supabase.storage.from('attachments').upload(filePath, imageFile);
+
         final publicUrl = _supabase.storage
             .from('attachments')
             .getPublicUrl(filePath);
-        
+
         _uploadedPhotoUrls.add(publicUrl);
       } catch (e) {
         print('❌ Error uploading image: $e');
-      }
-    }
-    
-    // Upload documents
-    for (var docFile in _attachedFiles) {
-      try {
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${docFile.path.split('/').last}';
-        final filePath = 'request_documents/$fileName';
-        
-        await _supabase.storage
-            .from('attachments')
-            .upload(filePath, docFile);
-        
-        final publicUrl = _supabase.storage
-            .from('attachments')
-            .getPublicUrl(filePath);
-        
-        _uploadedDocumentUrls.add(publicUrl);
-      } catch (e) {
-        print('❌ Error uploading document: $e');
       }
     }
   }
@@ -413,7 +360,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
         );
         return;
       }
-      
+
       // Validate cost
       if (double.tryParse(_costController.text) == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -443,13 +390,13 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
 
     try {
       // Upload files first
-      if (_attachedImages.isNotEmpty || _attachedFiles.isNotEmpty) {
+      if (_attachedImages.isNotEmpty) {
         await _uploadFiles();
       }
 
       // Create request based on service type
       bool success = false;
-      
+
       if (_selectedServiceType == 'Pabakal') {
         success = await _requestService.createRequest(
           travelerId: widget.trip.travelerId,
@@ -459,12 +406,11 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
           storeName: _storeNameController.text.trim(),
           storeLocation: _storeLocationController.text.trim(),
           productCost: double.parse(_costController.text),
-          productDescription: _descriptionController.text.trim().isNotEmpty 
-              ? _descriptionController.text.trim() 
+          productDescription: _descriptionController.text.trim().isNotEmpty
+              ? _descriptionController.text.trim()
               : null,
           serviceFee: _serviceFee,
           photoUrls: _uploadedPhotoUrls.isNotEmpty ? _uploadedPhotoUrls : null,
-          documentUrls: _uploadedDocumentUrls.isNotEmpty ? _uploadedDocumentUrls : null,
         );
       } else if (_selectedServiceType == 'Pasabay') {
         print('📮 Creating Pasabay request...');
@@ -474,19 +420,19 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
           serviceType: 'Pasabay',
           recipientName: _recipientNameController.text.trim(),
           recipientPhone: _recipientPhoneController.text.trim(),
-          pickupLocation: _pickupLocationController.text.trim().isNotEmpty 
-              ? _pickupLocationController.text.trim() 
+          pickupLocation: _pickupLocationController.text.trim().isNotEmpty
+              ? _pickupLocationController.text.trim()
               : null,
           dropoffLocation: _dropoffLocationController.text.trim(),
-          pickupTime: _claimTimeController.text.isNotEmpty 
-              ? _parseTime(_claimTimeController.text) 
+          pickupTime: _claimTimeController.text.isNotEmpty
+              ? _parseTime(_claimTimeController.text)
               : null,
-          packageDescription: _packageDescriptionController.text.trim().isNotEmpty 
-              ? _packageDescriptionController.text.trim() 
+          packageDescription:
+              _packageDescriptionController.text.trim().isNotEmpty
+              ? _packageDescriptionController.text.trim()
               : null,
           serviceFee: _serviceFee,
           photoUrls: _uploadedPhotoUrls.isNotEmpty ? _uploadedPhotoUrls : null,
-          documentUrls: _uploadedDocumentUrls.isNotEmpty ? _uploadedDocumentUrls : null,
         );
       }
 
@@ -498,9 +444,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
         // Show success screen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const RequestSentScreen(),
-          ),
+          MaterialPageRoute(builder: (context) => const RequestSentScreen()),
         );
       } else {
         print('❌ Request submission failed');
@@ -516,7 +460,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       print('❌ Exception during submission: $e');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -526,7 +470,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       );
     }
   }
-  
+
   DateTime? _parseTime(String timeString) {
     try {
       // Parse time string like "2:30 PM"
@@ -535,13 +479,17 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       final hourMinute = timeParts[0].split(':');
       int hour = int.parse(hourMinute[0]);
       final minute = int.parse(hourMinute[1]);
-      
-      if (timeParts.length > 1 && timeParts[1].toUpperCase() == 'PM' && hour != 12) {
+
+      if (timeParts.length > 1 &&
+          timeParts[1].toUpperCase() == 'PM' &&
+          hour != 12) {
         hour += 12;
-      } else if (timeParts.length > 1 && timeParts[1].toUpperCase() == 'AM' && hour == 12) {
+      } else if (timeParts.length > 1 &&
+          timeParts[1].toUpperCase() == 'AM' &&
+          hour == 12) {
         hour = 0;
       }
-      
+
       return DateTime(now.year, now.month, now.day, hour, minute);
     } catch (e) {
       print('❌ Error parsing time: $e');
@@ -606,8 +554,8 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                             _selectedServiceType == 'Pabakal'
                                 ? Icons.shopping_bag
                                 : _selectedServiceType == 'Pasabay'
-                                    ? Icons.local_shipping_outlined
-                                    : Icons.shopping_bag,
+                                ? Icons.local_shipping_outlined
+                                : Icons.shopping_bag,
                             color: Colors.white,
                             size: 20 * scaleFactor,
                           ),
@@ -654,24 +602,28 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                           Row(
                             children: [
                               ClipOval(
-                                child: widget.travelerInfo['profile_image_url'] != null
+                                child:
+                                    widget.travelerInfo['profile_image_url'] !=
+                                        null
                                     ? Image.network(
-                                        widget.travelerInfo['profile_image_url'],
+                                        widget
+                                            .travelerInfo['profile_image_url'],
                                         width: 80 * scaleFactor,
                                         height: 80 * scaleFactor,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            width: 80 * scaleFactor,
-                                            height: 80 * scaleFactor,
-                                            color: Color(0xFF00B4D8),
-                                            child: Icon(
-                                              Icons.person,
-                                              size: 40 * scaleFactor,
-                                              color: Colors.white,
-                                            ),
-                                          );
-                                        },
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return Container(
+                                                width: 80 * scaleFactor,
+                                                height: 80 * scaleFactor,
+                                                color: Color(0xFF00B4D8),
+                                                child: Icon(
+                                                  Icons.person,
+                                                  size: 40 * scaleFactor,
+                                                  color: Colors.white,
+                                                ),
+                                              );
+                                            },
                                       )
                                     : Container(
                                         width: 80 * scaleFactor,
@@ -708,7 +660,11 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                                     SizedBox(height: 4 * scaleFactor),
                                     Row(
                                       children: [
-                                        Icon(Icons.star, color: Colors.amber, size: 16 * scaleFactor),
+                                        Icon(
+                                          Icons.star,
+                                          color: Colors.amber,
+                                          size: 16 * scaleFactor,
+                                        ),
                                         SizedBox(width: 4 * scaleFactor),
                                         Text(
                                           '4.8',
@@ -724,11 +680,11 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                               ),
                             ],
                           ),
-                          
+
                           SizedBox(height: 16 * scaleFactor),
                           Divider(height: 1, color: Colors.grey[200]),
                           SizedBox(height: 16 * scaleFactor),
-                          
+
                           // Trip details
                           Row(
                             children: [
@@ -757,9 +713,9 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                               ),
                             ],
                           ),
-                          
+
                           SizedBox(height: 12 * scaleFactor),
-                          
+
                           Row(
                             children: [
                               Expanded(
@@ -775,7 +731,9 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                                     ),
                                     SizedBox(height: 4 * scaleFactor),
                                     Text(
-                                      DateFormat('MMM dd, yyyy').format(widget.trip.departureDate),
+                                      DateFormat(
+                                        'MMM dd, yyyy',
+                                      ).format(widget.trip.departureDate),
                                       style: TextStyle(
                                         fontSize: 14 * scaleFactor,
                                         fontWeight: FontWeight.w600,
@@ -908,7 +866,9 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                           );
                           if (pickedTime != null) {
                             setState(() {
-                              _claimTimeController.text = pickedTime.format(context);
+                              _claimTimeController.text = pickedTime.format(
+                                context,
+                              );
                             });
                           }
                         },
@@ -965,35 +925,22 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                     SizedBox(height: 16 * scaleFactor),
 
                     // Attachment Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildAttachmentButton(
-                            icon: Icons.camera_alt_outlined,
-                            label: 'Take A Photo',
-                            onTap: _showPhotoOptions,
-                            scaleFactor: scaleFactor,
-                            count: _attachedImages.length,
-                          ),
-                        ),
-                        SizedBox(width: 16 * scaleFactor),
-                        Expanded(
-                          child: _buildAttachmentButton(
-                            icon: Icons.upload_file_outlined,
-                            label: 'Upload File',
-                            onTap: _pickFile,
-                            scaleFactor: scaleFactor,
-                            count: _attachedFiles.length,
-                          ),
-                        ),
-                      ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildAttachmentButton(
+                        icon: Icons.camera_alt_outlined,
+                        label: 'Take A Photo',
+                        onTap: _showPhotoOptions,
+                        scaleFactor: scaleFactor,
+                        count: _attachedImages.length,
+                      ),
                     ),
 
                     // Show attached files
-                    if (_attachedImages.isNotEmpty || _attachedFiles.isNotEmpty) ...[
+                    if (_attachedImages.isNotEmpty) ...[
                       SizedBox(height: 16 * scaleFactor),
                       Text(
-                        'Attached Files (${_attachedImages.length + _attachedFiles.length})',
+                        'Attached Files (${_attachedImages.length})',
                         style: TextStyle(
                           fontSize: 14 * scaleFactor,
                           fontWeight: FontWeight.w600,
@@ -1005,18 +952,15 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                         spacing: 8 * scaleFactor,
                         runSpacing: 8 * scaleFactor,
                         children: [
-                          ..._attachedImages.map((file) => _buildFileChip(
-                            file.path.split('/').last,
-                            true,
-                            () => setState(() => _attachedImages.remove(file)),
-                            scaleFactor,
-                          )),
-                          ..._attachedFiles.map((file) => _buildFileChip(
-                            file.path.split('/').last,
-                            false,
-                            () => setState(() => _attachedFiles.remove(file)),
-                            scaleFactor,
-                          )),
+                          ..._attachedImages.map(
+                            (file) => _buildFileChip(
+                              file.path.split('/').last,
+                              true,
+                              () =>
+                                  setState(() => _attachedImages.remove(file)),
+                              scaleFactor,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -1036,7 +980,8 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                           children: [
                             if (_selectedServiceType == 'Pabakal') ...[
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Product Cost',
@@ -1078,9 +1023,13 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                               ],
                             ),
                             if (_selectedServiceType == 'Pabakal') ...[
-                              Divider(height: 24 * scaleFactor, color: Colors.grey[300]),
+                              Divider(
+                                height: 24 * scaleFactor,
+                                color: Colors.grey[300],
+                              ),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Total Amount',
@@ -1104,16 +1053,18 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                           ],
                         ),
                       ),
-                      
+
                       SizedBox(height: 16 * scaleFactor),
-                      
+
                       ElevatedButton(
                         onPressed: _isSubmitting ? null : _submitRequest,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color(0xFF00B4D8),
                           disabledBackgroundColor: Colors.grey[400],
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
                           padding: EdgeInsets.symmetric(
                             vertical: 16 * scaleFactor,
@@ -1125,7 +1076,9 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                                 width: 20 * scaleFactor,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               )
                             : Row(
@@ -1204,7 +1157,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                 fontSize: 14 * scaleFactor,
               ),
               border: InputBorder.none,
-              suffixIcon: suffixIcon != null 
+              suffixIcon: suffixIcon != null
                   ? Icon(suffixIcon, color: Colors.grey[600])
                   : null,
             ),
@@ -1234,11 +1187,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
           children: [
             Stack(
               children: [
-                Icon(
-                  icon,
-                  color: Color(0xFF00B4D8),
-                  size: 48 * scaleFactor,
-                ),
+                Icon(icon, color: Color(0xFF00B4D8), size: 48 * scaleFactor),
                 if (count > 0)
                   Positioned(
                     right: -4,
@@ -1277,7 +1226,12 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     );
   }
 
-  Widget _buildFileChip(String fileName, bool isImage, VoidCallback onRemove, double scaleFactor) {
+  Widget _buildFileChip(
+    String fileName,
+    bool isImage,
+    VoidCallback onRemove,
+    double scaleFactor,
+  ) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 12 * scaleFactor,
@@ -1311,11 +1265,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
           SizedBox(width: 6 * scaleFactor),
           GestureDetector(
             onTap: onRemove,
-            child: Icon(
-              Icons.close,
-              size: 16 * scaleFactor,
-              color: Colors.red,
-            ),
+            child: Icon(Icons.close, size: 16 * scaleFactor, color: Colors.red),
           ),
         ],
       ),
@@ -1421,4 +1371,3 @@ class RequestSentScreen extends StatelessWidget {
     );
   }
 }
-

@@ -269,7 +269,6 @@ class RequestService {
     required double serviceFee,
     String? notes,
     List<String>? photoUrls,
-    List<String>? documentUrls,
   }) async {
     try {
       String? requestId;
