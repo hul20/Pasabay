@@ -8,6 +8,7 @@ import 'requester_messages_page.dart';
 import '../traveler_home_page.dart';
 import '../landing_page.dart';
 import '../settings_page.dart';
+import '../edit_profile_page.dart';
 
 class RequesterProfilePage extends StatefulWidget {
   const RequesterProfilePage({super.key});
@@ -283,6 +284,18 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
     }
   }
 
+  Future<void> _navigateToEditProfile() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EditProfilePage()),
+    );
+
+    // Refresh profile if changes were saved
+    if (result == true) {
+      _fetchUserProfile();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -446,7 +459,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
                       icon: Icons.person_outline,
                       title: 'Edit Profile',
                       subtitle: 'Update personal information',
-                      onTap: () {},
+                      onTap: _navigateToEditProfile,
                       scaleFactor: scaleFactor,
                     ),
                     SizedBox(height: 12 * scaleFactor),

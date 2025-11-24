@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:typed_data';
+import 'dart:io';
 
 /// Supabase service class for authentication and database operations
 class SupabaseService {
@@ -478,6 +479,34 @@ class SupabaseService {
       return publicUrl;
     } catch (e) {
       print('Error uploading file: $e');
+      throw 'Error uploading file: $e';
+    }
+  }
+
+  /// Upload a generic file to Supabase Storage
+  Future<String> uploadGenericFile(
+    String bucketName,
+    String fileName,
+    File file,
+  ) async {
+    try {
+      if (currentUser == null) throw 'User not authenticated';
+
+      final fileBytes = await file.readAsBytes();
+      // Ensure unique filename to avoid cache issues
+      final storagePath =
+          '${currentUser!.id}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+
+      await _supabase.storage
+          .from(bucketName)
+          .uploadBinary(storagePath, fileBytes);
+
+      final publicUrl = _supabase.storage
+          .from(bucketName)
+          .getPublicUrl(storagePath);
+
+      return publicUrl;
+    } catch (e) {
       throw 'Error uploading file: $e';
     }
   }
