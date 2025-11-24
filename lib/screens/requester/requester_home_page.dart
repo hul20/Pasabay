@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
 import '../../services/request_service.dart';
+import '../../services/notification_service.dart';
 import '../../models/trip.dart';
+import '../notifications_page.dart';
 import 'requester_activity_page.dart';
 import 'requester_messages_page.dart';
 import 'requester_profile_page.dart';
@@ -16,24 +19,80 @@ class RequesterHomePage extends StatefulWidget {
   State<RequesterHomePage> createState() => _RequesterHomePageState();
 }
 
-class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindingObserver {
+class _RequesterHomePageState extends State<RequesterHomePage>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
   String userName = "Maria";
-  
+
   // Location controllers
   final TextEditingController _departureController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
   final RequestService _requestService = RequestService();
+  final NotificationService _notificationService = NotificationService();
+  int _unreadNotifications = 0;
+  RealtimeChannel? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchUserProfile();
+    _loadUnreadNotifications();
+    _setupNotificationSubscription();
+  }
+
+  void _setupNotificationSubscription() {
+    try {
+      _notificationSubscription = _notificationService.subscribeToNotifications(
+        (notification) {
+          if (mounted) {
+            _loadUnreadNotifications();
+
+            // Show a snackbar for new notification
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(notification.title),
+                action: SnackBarAction(
+                  label: 'View',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationsPage(),
+                      ),
+                    );
+                  },
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      print('Error subscribing to notifications: $e');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadUnreadNotifications();
+    }
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    final count = await _notificationService.getUnreadCount();
+    if (mounted) {
+      setState(() {
+        _unreadNotifications = count;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _notificationSubscription?.unsubscribe();
     _departureController.dispose();
     _destinationController.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -101,7 +160,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // Close loading
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error searching travelers: $e'),
@@ -114,7 +173,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
   Future<void> _fetchUserProfile() async {
     final supabaseService = SupabaseService();
     final userData = await supabaseService.getUserData();
-    
+
     if (userData != null && mounted) {
       setState(() {
         userName = userData['first_name'] ?? "Maria";
@@ -140,7 +199,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(height: 12 * scaleFactor),
-                  
+
                   // Top bar: logo and role icon (matching traveler)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -151,7 +210,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                             width: 36 * scaleFactor,
                             height: 36 * scaleFactor,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8 * scaleFactor),
+                              borderRadius: BorderRadius.circular(
+                                8 * scaleFactor,
+                              ),
                               image: const DecorationImage(
                                 image: NetworkImage(AppConstants.logoUrl),
                                 fit: BoxFit.cover,
@@ -169,23 +230,29 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           ),
                         ],
                       ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Color(0xFF00B4D8),
-                          borderRadius: BorderRadius.circular(10 * scaleFactor),
-                        ),
-                        padding: EdgeInsets.all(8 * scaleFactor),
-                        child: Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 28 * scaleFactor,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Color(0xFF00B4D8),
+                              borderRadius: BorderRadius.circular(
+                                10 * scaleFactor,
+                              ),
+                            ),
+                            padding: EdgeInsets.all(8 * scaleFactor),
+                            child: Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 28 * scaleFactor,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  
+
                   SizedBox(height: 16 * scaleFactor),
-                  
+
                   // Search bar with notifications (matching traveler)
                   Row(
                     children: [
@@ -193,7 +260,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
@@ -210,7 +279,10 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                 fontSize: 15 * scaleFactor,
                               ),
                               border: InputBorder.none,
-                              prefixIcon: Icon(Icons.search, color: Colors.grey),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey,
+                              ),
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 16 * scaleFactor,
                               ),
@@ -219,45 +291,60 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                         ),
                       ),
                       SizedBox(width: 12 * scaleFactor),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.notifications_none,
-                              size: 28 * scaleFactor,
-                              color: Colors.black,
+                      GestureDetector(
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsPage(),
                             ),
-                            onPressed: () {},
+                          );
+                          _loadUnreadNotifications();
+                        },
+                        child: Container(
+                          width: 44 * scaleFactor,
+                          height: 44 * scaleFactor,
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
-                          Positioned(
-                            right: 8 * scaleFactor,
-                            top: 8 * scaleFactor,
-                            child: Container(
-                              width: 16 * scaleFactor,
-                              height: 16 * scaleFactor,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '2',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10 * scaleFactor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Icon(
+                                  Icons.notifications_outlined,
+                                  color: AppConstants.primaryColor,
+                                  size: 26 * scaleFactor,
                                 ),
                               ),
-                            ),
+                              if (_unreadNotifications > 0)
+                                Positioned(
+                                  right: 10 * scaleFactor,
+                                  top: 10 * scaleFactor,
+                                  child: Container(
+                                    width: 10 * scaleFactor,
+                                    height: 10 * scaleFactor,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
-                  
+
                   SizedBox(height: 24 * scaleFactor),
-                  
+
                   // Greeting
                   Text(
                     'Hello, $userName!',
@@ -276,9 +363,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       color: Colors.grey[600],
                     ),
                   ),
-                  
+
                   SizedBox(height: 24 * scaleFactor),
-                  
+
                   // Stats Cards Row (Active Travelers & Hot Route)
                   Row(
                     children: [
@@ -287,7 +374,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           padding: EdgeInsets.all(16 * scaleFactor),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(16 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              16 * scaleFactor,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.06),
@@ -300,7 +389,8 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Active Travelers',
@@ -335,7 +425,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           padding: EdgeInsets.all(16 * scaleFactor),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(16 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              16 * scaleFactor,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.06),
@@ -348,7 +440,8 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Hot Route',
@@ -380,9 +473,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       ),
                     ],
                   ),
-                  
+
                   SizedBox(height: 28 * scaleFactor),
-                  
+
                   // Find Travelers Section
                   Text(
                     'Find Travelers',
@@ -393,7 +486,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                     ),
                   ),
                   SizedBox(height: 16 * scaleFactor),
-                  
+
                   // Destination Card (Cyan)
                   Container(
                     padding: EdgeInsets.all(20 * scaleFactor),
@@ -421,7 +514,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           ),
                         ),
                         SizedBox(height: 16 * scaleFactor),
-                        
+
                         // Departure Location Input
                         Container(
                           padding: EdgeInsets.symmetric(
@@ -430,7 +523,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -461,9 +556,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                             ],
                           ),
                         ),
-                        
+
                         SizedBox(height: 12 * scaleFactor),
-                        
+
                         // Destination Location Input
                         Container(
                           padding: EdgeInsets.symmetric(
@@ -472,7 +567,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -506,9 +603,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       ],
                     ),
                   ),
-                  
+
                   SizedBox(height: 16 * scaleFactor),
-                  
+
                   // Search Travelers Button
                   ElevatedButton(
                     onPressed: _searchTravelers,
@@ -540,9 +637,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       ],
                     ),
                   ),
-                  
+
                   SizedBox(height: 16 * scaleFactor),
-                  
+
                   // Ideal Schedule Card (Gray-Blue) - Optional filter
                   Container(
                     padding: EdgeInsets.all(20 * scaleFactor),
@@ -580,7 +677,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12 * scaleFactor),
+                                  borderRadius: BorderRadius.circular(
+                                    12 * scaleFactor,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -612,7 +711,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12 * scaleFactor),
+                                  borderRadius: BorderRadius.circular(
+                                    12 * scaleFactor,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -640,9 +741,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       ],
                     ),
                   ),
-                  
+
                   SizedBox(height: 16 * scaleFactor),
-                  
+
                   // Find Travelers Button
                   Container(
                     width: double.infinity,
@@ -662,7 +763,7 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(height: 80 * scaleFactor),
                 ],
               ),
@@ -686,7 +787,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
           } else if (index == 1) {
             await Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterActivityPage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterActivityPage(),
+              ),
             ).then((_) {
               setState(() => _selectedIndex = 0);
               _fetchUserProfile();
@@ -694,7 +797,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
           } else if (index == 2) {
             await Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterMessagesPage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterMessagesPage(),
+              ),
             ).then((_) {
               setState(() => _selectedIndex = 0);
               _fetchUserProfile();
@@ -702,7 +807,9 @@ class _RequesterHomePageState extends State<RequesterHomePage> with WidgetsBindi
           } else if (index == 3) {
             await Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterProfilePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterProfilePage(),
+              ),
             ).then((_) {
               setState(() => _selectedIndex = 0);
               _fetchUserProfile();

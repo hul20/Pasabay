@@ -11,6 +11,8 @@ import 'requester_profile_page.dart';
 import 'request_status_page.dart';
 import '../chat_detail_page.dart';
 import '../../services/messaging_service.dart';
+import '../../services/notification_service.dart';
+import '../notifications_page.dart';
 
 class RequesterActivityPage extends StatefulWidget {
   const RequesterActivityPage({super.key});
@@ -22,6 +24,7 @@ class RequesterActivityPage extends StatefulWidget {
 class _RequesterActivityPageState extends State<RequesterActivityPage> {
   final RequestService _requestService = RequestService();
   final MessagingService _messagingService = MessagingService();
+  final NotificationService _notificationService = NotificationService();
   final _supabase = Supabase.instance.client;
 
   List<ServiceRequest> _pendingRequests = [];
@@ -29,11 +32,44 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
   Map<String, Map<String, dynamic>> _travelerInfoCache = {};
   bool _isLoading = true;
   int _selectedTab = 0; // 0: Pending, 1: Ongoing
+  int _unreadNotifications = 0;
+  RealtimeChannel? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadRequests();
+    _loadUnreadNotifications();
+    _setupNotificationSubscription();
+  }
+
+  void _setupNotificationSubscription() {
+    try {
+      _notificationSubscription = _notificationService.subscribeToNotifications(
+        (notification) {
+          if (mounted) {
+            _loadUnreadNotifications();
+          }
+        },
+      );
+    } catch (e) {
+      print('Error subscribing to notifications: $e');
+    }
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    final count = await _notificationService.getUnreadCount();
+    if (mounted) {
+      setState(() {
+        _unreadNotifications = count;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _loadRequests() async {
@@ -223,38 +259,54 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                         ),
                       ),
                       SizedBox(width: 12 * scaleFactor),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.notifications_none,
-                              size: 28 * scaleFactor,
-                              color: Colors.black,
+                      GestureDetector(
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsPage(),
                             ),
-                            onPressed: () {},
+                          );
+                          _loadUnreadNotifications();
+                        },
+                        child: Container(
+                          width: 44 * scaleFactor,
+                          height: 44 * scaleFactor,
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
-                          Positioned(
-                            right: 8 * scaleFactor,
-                            top: 8 * scaleFactor,
-                            child: Container(
-                              width: 16 * scaleFactor,
-                              height: 16 * scaleFactor,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '2',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10 * scaleFactor,
-                                  ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Icon(
+                                  Icons.notifications_outlined,
+                                  color: AppConstants.primaryColor,
+                                  size: 26 * scaleFactor,
                                 ),
                               ),
-                            ),
+                              if (_unreadNotifications > 0)
+                                Positioned(
+                                  right: 10 * scaleFactor,
+                                  top: 10 * scaleFactor,
+                                  child: Container(
+                                    width: 10 * scaleFactor,
+                                    height: 10 * scaleFactor,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),

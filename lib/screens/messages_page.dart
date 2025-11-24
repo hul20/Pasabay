@@ -4,9 +4,11 @@ import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../models/conversation.dart';
 import '../services/messaging_service.dart';
+import '../../services/notification_service.dart';
 import 'chat_detail_page.dart';
 import 'profile_page.dart';
 import 'activity_page.dart';
+import 'notifications_page.dart';
 
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
@@ -17,10 +19,13 @@ class MessagesPage extends StatefulWidget {
 
 class _MessagesPageState extends State<MessagesPage> {
   final MessagingService _messagingService = MessagingService();
+  final NotificationService _notificationService = NotificationService();
   List<Conversation> _conversations = [];
   bool _isLoading = true;
   int _totalUnread = 0;
+  int _unreadNotifications = 0;
   RealtimeChannel? _conversationsChannel;
+  RealtimeChannel? _notificationSubscription;
   final _supabase = Supabase.instance.client;
 
   @override
@@ -28,6 +33,8 @@ class _MessagesPageState extends State<MessagesPage> {
     super.initState();
     _loadConversations();
     _subscribeToConversations();
+    _loadUnreadNotifications();
+    _setupNotificationSubscription();
   }
 
   @override
@@ -35,7 +42,31 @@ class _MessagesPageState extends State<MessagesPage> {
     if (_conversationsChannel != null) {
       _messagingService.unsubscribe(_conversationsChannel!);
     }
+    _notificationSubscription?.unsubscribe();
     super.dispose();
+  }
+
+  void _setupNotificationSubscription() {
+    try {
+      _notificationSubscription = _notificationService.subscribeToNotifications(
+        (notification) {
+          if (mounted) {
+            _loadUnreadNotifications();
+          }
+        },
+      );
+    } catch (e) {
+      print('Error subscribing to notifications: $e');
+    }
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    final count = await _notificationService.getUnreadCount();
+    if (mounted) {
+      setState(() {
+        _unreadNotifications = count;
+      });
+    }
   }
 
   Future<void> _loadConversations() async {
@@ -43,7 +74,7 @@ class _MessagesPageState extends State<MessagesPage> {
 
     try {
       final conversations = await _messagingService.getConversations();
-      
+
       if (mounted) {
         setState(() {
           _conversations = conversations;
@@ -67,7 +98,7 @@ class _MessagesPageState extends State<MessagesPage> {
     }
 
     _totalUnread = _conversations.fold<int>(
-      0, 
+      0,
       (sum, conv) => sum + conv.getUnreadCount(currentUserId),
     );
   }
@@ -77,6 +108,7 @@ class _MessagesPageState extends State<MessagesPage> {
       _loadConversations();
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -145,7 +177,9 @@ class _MessagesPageState extends State<MessagesPage> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
@@ -162,7 +196,10 @@ class _MessagesPageState extends State<MessagesPage> {
                                 fontSize: 15 * scaleFactor,
                               ),
                               border: InputBorder.none,
-                              prefixIcon: Icon(Icons.search, color: Colors.grey),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey,
+                              ),
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 16 * scaleFactor,
                               ),
@@ -171,38 +208,54 @@ class _MessagesPageState extends State<MessagesPage> {
                         ),
                       ),
                       SizedBox(width: 12 * scaleFactor),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.notifications_none,
-                              size: 28 * scaleFactor,
-                              color: Colors.black,
+                      GestureDetector(
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsPage(),
                             ),
-                            onPressed: () {},
+                          );
+                          _loadUnreadNotifications();
+                        },
+                        child: Container(
+                          width: 44 * scaleFactor,
+                          height: 44 * scaleFactor,
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
-                          Positioned(
-                            right: 8 * scaleFactor,
-                            top: 8 * scaleFactor,
-                            child: Container(
-                              width: 16 * scaleFactor,
-                              height: 16 * scaleFactor,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '2',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10 * scaleFactor,
-                                  ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Icon(
+                                  Icons.notifications_outlined,
+                                  color: AppConstants.primaryColor,
+                                  size: 26 * scaleFactor,
                                 ),
                               ),
-                            ),
+                              if (_unreadNotifications > 0)
+                                Positioned(
+                                  right: 10 * scaleFactor,
+                                  top: 10 * scaleFactor,
+                                  child: Container(
+                                    width: 10 * scaleFactor,
+                                    height: 10 * scaleFactor,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -216,49 +269,55 @@ class _MessagesPageState extends State<MessagesPage> {
               child: _isLoading
                   ? Center(child: CircularProgressIndicator())
                   : _conversations.isEmpty
-                      ? _buildEmptyState(scaleFactor)
-                      : RefreshIndicator(
-                          onRefresh: _loadConversations,
-                          child: ListView.builder(
-                            padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
-                            itemCount: _conversations.length + 1, // +1 for header
-                            itemBuilder: (context, index) {
-                              if (index == 0) {
-                                // Header
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Messages',
-                                          style: TextStyle(
-                                            fontSize: 28 * scaleFactor,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        if (_totalUnread > 0)
-                                          Text(
-                                            '$_totalUnread Unread',
-                                            style: TextStyle(
-                                              fontSize: 15 * scaleFactor,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 18 * scaleFactor),
-                                  ],
-                                );
-                              }
-
-                              final conversation = _conversations[index - 1];
-                              return _buildConversationCard(conversation, scaleFactor);
-                            },
-                          ),
+                  ? _buildEmptyState(scaleFactor)
+                  : RefreshIndicator(
+                      onRefresh: _loadConversations,
+                      child: ListView.builder(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 18 * scaleFactor,
                         ),
+                        itemCount: _conversations.length + 1, // +1 for header
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            // Header
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Messages',
+                                      style: TextStyle(
+                                        fontSize: 28 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    if (_totalUnread > 0)
+                                      Text(
+                                        '$_totalUnread Unread',
+                                        style: TextStyle(
+                                          fontSize: 15 * scaleFactor,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                SizedBox(height: 18 * scaleFactor),
+                              ],
+                            );
+                          }
+
+                          final conversation = _conversations[index - 1];
+                          return _buildConversationCard(
+                            conversation,
+                            scaleFactor,
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -275,17 +334,13 @@ class _MessagesPageState extends State<MessagesPage> {
             // Navigate to Activity page
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ActivityPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ActivityPage()),
             );
           } else if (index == 3) {
             // Navigate to Profile page
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ProfilePage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             );
           }
           // Handle other navigation items
@@ -349,18 +404,16 @@ class _MessagesPageState extends State<MessagesPage> {
   Widget _buildConversationCard(Conversation conversation, double scaleFactor) {
     final currentUserId = _supabase.auth.currentUser?.id ?? '';
     final unreadCount = conversation.getUnreadCount(currentUserId);
-    
+
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatDetailPage(
-              conversation: conversation,
-            ),
+            builder: (context) => ChatDetailPage(conversation: conversation),
           ),
         );
-        
+
         // Refresh if needed
         if (result == true) {
           await _loadConversations();
@@ -428,7 +481,9 @@ class _MessagesPageState extends State<MessagesPage> {
                             color: conversation.serviceType == 'Pabakal'
                                 ? Colors.blue.withOpacity(0.1)
                                 : Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
                           child: Text(
                             conversation.serviceType!,
@@ -451,11 +506,11 @@ class _MessagesPageState extends State<MessagesPage> {
                           conversation.lastMessageText ?? 'No messages yet',
                           style: TextStyle(
                             fontSize: 14 * scaleFactor,
-                            color: unreadCount > 0 
-                                ? Colors.black87 
+                            color: unreadCount > 0
+                                ? Colors.black87
                                 : Colors.grey[600],
-                            fontWeight: unreadCount > 0 
-                                ? FontWeight.w600 
+                            fontWeight: unreadCount > 0
+                                ? FontWeight.w600
                                 : FontWeight.normal,
                           ),
                           maxLines: 1,
@@ -569,10 +624,7 @@ class _MessagesPageState extends State<MessagesPage> {
                       decoration: BoxDecoration(
                         color: Colors.green,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 2,
-                        ),
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                     ),
                   ),
@@ -658,4 +710,3 @@ class _MessagesPageState extends State<MessagesPage> {
     );
   }
 }
-
