@@ -110,7 +110,8 @@ class _IdentityVerificationScreenState
             );
           }
 
-          if (_verificationStatus == 'Pending' || _verificationStatus == 'Under Review') {
+          if (_verificationStatus == 'Pending' ||
+              _verificationStatus == 'Under Review') {
             // Show Pending/In Progress screen
             return ResponsiveWrapper(
               child: SafeArea(
@@ -279,7 +280,7 @@ class _IdentityVerificationScreenState
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8 * scaleFactor),
               image: const DecorationImage(
-                image: NetworkImage(AppConstants.logoUrl),
+                image: AssetImage(AppConstants.logoPath),
                 fit: BoxFit.cover,
               ),
             ),

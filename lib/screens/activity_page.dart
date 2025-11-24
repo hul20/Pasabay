@@ -753,7 +753,7 @@ class _ActivityPageState extends State<ActivityPage> {
                                 8 * scaleFactor,
                               ),
                               image: const DecorationImage(
-                                image: NetworkImage(AppConstants.logoUrl),
+                                image: AssetImage(AppConstants.logoPath),
                                 fit: BoxFit.cover,
                               ),
                             ),

@@ -332,7 +332,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                                   8 * scaleFactor,
                                 ),
                                 image: const DecorationImage(
-                                  image: NetworkImage(AppConstants.logoUrl),
+                                  image: AssetImage(AppConstants.logoPath),
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -637,8 +637,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                               borderRadius: BorderRadius.circular(
                                 12 * scaleFactor,
                               ),
-                              child: Image.network(
-                                AppConstants.logoUrl,
+                              child: Image.asset(
+                                AppConstants.logoPath,
                                 fit: BoxFit.cover,
                               ),
                             ),

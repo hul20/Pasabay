@@ -53,7 +53,7 @@ class GradientHeader extends StatelessWidget {
                     height: 46 * scaleFactor,
                     decoration: BoxDecoration(
                       image: DecorationImage(
-                        image: NetworkImage(AppConstants.smallLogoUrl),
+                        image: AssetImage(AppConstants.smallLogoPath),
                         fit: BoxFit.cover,
                       ),
                     ),

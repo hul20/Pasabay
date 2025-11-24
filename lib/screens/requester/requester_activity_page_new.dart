@@ -23,7 +23,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
   final RequestService _requestService = RequestService();
   final MessagingService _messagingService = MessagingService();
   final _supabase = Supabase.instance.client;
-  
+
   List<ServiceRequest> _pendingRequests = [];
   List<ServiceRequest> _acceptedRequests = [];
   List<ServiceRequest> _completedRequests = [];
@@ -41,7 +41,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
 
     try {
       final requests = await _requestService.getRequesterRequests();
-      
+
       final pending = <ServiceRequest>[];
       final accepted = <ServiceRequest>[];
       final completed = <ServiceRequest>[];
@@ -56,7 +56,9 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
         }
 
         if (!_travelerInfoCache.containsKey(request.travelerId)) {
-          final info = await _requestService.getTravelerInfo(request.travelerId);
+          final info = await _requestService.getTravelerInfo(
+            request.travelerId,
+          );
           if (info != null) {
             _travelerInfoCache[request.travelerId] = info;
           }
@@ -84,7 +86,9 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Cancel Request?'),
-        content: Text('Are you sure you want to cancel this ${request.serviceType} request?'),
+        content: Text(
+          'Are you sure you want to cancel this ${request.serviceType} request?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -103,16 +107,22 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
 
     try {
       final success = await _requestService.cancelRequest(request.id);
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Request cancelled'), backgroundColor: Colors.orange),
+          SnackBar(
+            content: Text('Request cancelled'),
+            backgroundColor: Colors.orange,
+          ),
         );
         await _loadRequests();
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -143,17 +153,36 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                               unselectedLabelColor: Colors.grey,
                               indicatorColor: Color(0xFF00B4D8),
                               tabs: [
-                                Tab(text: 'Pending (${_pendingRequests.length})'),
-                                Tab(text: 'Ongoing (${_acceptedRequests.length})'),
-                                Tab(text: 'History (${_completedRequests.length})'),
+                                Tab(
+                                  text: 'Pending (${_pendingRequests.length})',
+                                ),
+                                Tab(
+                                  text: 'Ongoing (${_acceptedRequests.length})',
+                                ),
+                                Tab(
+                                  text:
+                                      'History (${_completedRequests.length})',
+                                ),
                               ],
                             ),
                             Expanded(
                               child: TabBarView(
                                 children: [
-                                  _buildRequestsList(_pendingRequests, true, scaleFactor),
-                                  _buildRequestsList(_acceptedRequests, false, scaleFactor),
-                                  _buildRequestsList(_completedRequests, false, scaleFactor),
+                                  _buildRequestsList(
+                                    _pendingRequests,
+                                    true,
+                                    scaleFactor,
+                                  ),
+                                  _buildRequestsList(
+                                    _acceptedRequests,
+                                    false,
+                                    scaleFactor,
+                                  ),
+                                  _buildRequestsList(
+                                    _completedRequests,
+                                    false,
+                                    scaleFactor,
+                                  ),
                                 ],
                               ),
                             ),
@@ -185,7 +214,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
+                        image: AssetImage(AppConstants.logoPath),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -229,7 +258,11 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
     );
   }
 
-  Widget _buildRequestsList(List<ServiceRequest> requests, bool showCancel, double scaleFactor) {
+  Widget _buildRequestsList(
+    List<ServiceRequest> requests,
+    bool showCancel,
+    double scaleFactor,
+  ) {
     if (requests.isEmpty) {
       return Center(
         child: Padding(
@@ -237,7 +270,11 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.inbox_outlined, size: 60 * scaleFactor, color: Colors.grey[300]),
+              Icon(
+                Icons.inbox_outlined,
+                size: 60 * scaleFactor,
+                color: Colors.grey[300],
+              ),
               SizedBox(height: 16 * scaleFactor),
               Text(
                 'No requests here',
@@ -259,7 +296,12 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
       itemBuilder: (context, index) {
         final request = requests[index];
         final travelerInfo = _travelerInfoCache[request.travelerId];
-        return _buildRequestCard(request, travelerInfo, showCancel, scaleFactor);
+        return _buildRequestCard(
+          request,
+          travelerInfo,
+          showCancel,
+          scaleFactor,
+        );
       },
     );
   }
@@ -339,7 +381,11 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
           SizedBox(height: 12 * scaleFactor),
           Row(
             children: [
-              Icon(Icons.person, size: 16 * scaleFactor, color: Colors.grey[600]),
+              Icon(
+                Icons.person,
+                size: 16 * scaleFactor,
+                color: Colors.grey[600],
+              ),
               SizedBox(width: 6 * scaleFactor),
               Text(
                 travelerName,
@@ -401,16 +447,18 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                     ElevatedButton.icon(
                       onPressed: () async {
                         // Get conversation for this request
-                        final conversations = await _messagingService.getConversations();
+                        final conversations = await _messagingService
+                            .getConversations();
                         final conversation = conversations.firstWhere(
                           (c) => c.requestId == request.id,
                           orElse: () => throw 'Conversation not found',
                         );
-                        
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ChatDetailPage(conversation: conversation),
+                            builder: (context) =>
+                                ChatDetailPage(conversation: conversation),
                           ),
                         );
                       },
@@ -502,23 +550,32 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
           if (index == 0) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterHomePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterHomePage(),
+              ),
             );
           } else if (index == 2) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterMessagesPage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterMessagesPage(),
+              ),
             );
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterProfilePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterProfilePage(),
+              ),
             );
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Activity'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Activity',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
@@ -526,4 +583,3 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
     );
   }
 }
-

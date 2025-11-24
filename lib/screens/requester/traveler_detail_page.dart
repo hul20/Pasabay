@@ -522,7 +522,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
+                        image: AssetImage(AppConstants.logoPath),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -1305,7 +1305,7 @@ class RequestSentScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
+                        image: AssetImage(AppConstants.logoPath),
                         fit: BoxFit.cover,
                       ),
                     ),

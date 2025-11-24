@@ -166,7 +166,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
+                        image: AssetImage(AppConstants.logoPath),
                         fit: BoxFit.cover,
                       ),
                     ),

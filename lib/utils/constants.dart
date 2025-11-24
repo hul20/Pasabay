@@ -32,7 +32,11 @@ class AppConstants {
   // API URLs (to be added later)
   static const String baseApiUrl = 'https://api.pasabay.com';
 
-  // Asset URLs
+  // Asset Paths
+  static const String logoPath = 'assets/PasabayLogo.png';
+  static const String smallLogoPath = 'assets/SmallLogo.png';
+
+  // Asset URLs (Deprecated)
   static const String logoUrl =
       'https://czodfzjqkvpicbnhtqhv.supabase.co/storage/v1/object/sign/assets/PasabayLogo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNjliNjQzNy0yNzFmLTQzMTYtODczYS02NWYxN2Y1OWIzYTAiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvUGFzYWJheUxvZ28ucG5nIiwiaWF0IjoxNzYzNTY3MDQwLCJleHAiOjE3OTUxMDMwNDB9.gPvJ52aNEAbfRh9M7JX6sKRimacIw-4J6NsyON7UAtk';
   static const String smallLogoUrl =
