@@ -1167,22 +1167,28 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                     ),
 
                   // Greeting
-                  Text(
-                    'Hello, $userName!',
-                    style: TextStyle(
-                      fontSize: 28 * scaleFactor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hello, $userName!',
+                        style: TextStyle(
+                          fontSize: 28 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 6 * scaleFactor),
+                      Text(
+                        "Here's your overview for ${DateFormat('MMMM').format(DateTime.now())}",
+                        style: TextStyle(
+                          fontSize: 15 * scaleFactor,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 6 * scaleFactor),
-                  Text(
-                    "Here's an overview for this month of October",
-                    style: TextStyle(
-                      fontSize: 15 * scaleFactor,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  SizedBox(height: 18 * scaleFactor),
+                  SizedBox(height: 24 * scaleFactor),
                   // Cards: Active Trips & Total Earnings
                   Row(
                     children: [
@@ -1196,29 +1202,50 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.07),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
                             ],
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.1),
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Container(
+                                padding: EdgeInsets.all(8 * scaleFactor),
+                                decoration: BoxDecoration(
+                                  color: AppConstants.primaryColor.withOpacity(
+                                    0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    8 * scaleFactor,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.directions_car_filled,
+                                  color: AppConstants.primaryColor,
+                                  size: 20 * scaleFactor,
+                                ),
+                              ),
+                              SizedBox(height: 12 * scaleFactor),
                               Text(
                                 'Active Trips',
                                 style: TextStyle(
-                                  fontSize: 15 * scaleFactor,
-                                  color: Colors.grey[700],
+                                  fontSize: 13 * scaleFactor,
+                                  color: Colors.grey[600],
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              SizedBox(height: 8 * scaleFactor),
+                              SizedBox(height: 4 * scaleFactor),
                               Text(
                                 '$activeTrips',
                                 style: TextStyle(
-                                  fontSize: 28 * scaleFactor,
+                                  fontSize: 24 * scaleFactor,
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ],
@@ -1236,29 +1263,48 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.07),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
                             ],
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.1),
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Container(
+                                padding: EdgeInsets.all(8 * scaleFactor),
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF00B4D8).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(
+                                    8 * scaleFactor,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.account_balance_wallet,
+                                  color: Color(0xFF00B4D8),
+                                  size: 20 * scaleFactor,
+                                ),
+                              ),
+                              SizedBox(height: 12 * scaleFactor),
                               Text(
                                 'Total Earnings',
                                 style: TextStyle(
-                                  fontSize: 15 * scaleFactor,
-                                  color: Colors.grey[700],
+                                  fontSize: 13 * scaleFactor,
+                                  color: Colors.grey[600],
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              SizedBox(height: 8 * scaleFactor),
+                              SizedBox(height: 4 * scaleFactor),
                               Text(
                                 '₱$totalEarnings',
                                 style: TextStyle(
-                                  fontSize: 28 * scaleFactor,
+                                  fontSize: 24 * scaleFactor,
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ],
@@ -1268,142 +1314,108 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                     ],
                   ),
                   SizedBox(height: 24 * scaleFactor),
+                  SizedBox(height: 24 * scaleFactor),
                   // Plan Your Route
                   Text(
                     'Plan Your Route',
                     style: TextStyle(
-                      fontSize: 20 * scaleFactor,
+                      fontSize: 18 * scaleFactor,
                       fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
                   SizedBox(height: 12 * scaleFactor),
                   Container(
-                    padding: EdgeInsets.all(16 * scaleFactor),
+                    padding: EdgeInsets.all(20 * scaleFactor),
                     decoration: BoxDecoration(
-                      color: Color(0xFFDBF6FF),
-                      borderRadius: BorderRadius.circular(16 * scaleFactor),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Destination',
-                          style: TextStyle(
-                            fontSize: 22 * scaleFactor,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF00B4D8),
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.map,
+                              color: AppConstants.primaryColor,
+                              size: 20 * scaleFactor,
+                            ),
+                            SizedBox(width: 8 * scaleFactor),
+                            Text(
+                              'Trip Details',
+                              style: TextStyle(
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 4 * scaleFactor),
-                        Text(
-                          'Tap to pin departure and target location',
-                          style: TextStyle(
-                            fontSize: 14 * scaleFactor,
-                            color: Colors.black,
-                          ),
-                        ),
-                        SizedBox(height: 12 * scaleFactor),
+                        SizedBox(height: 16 * scaleFactor),
                         TextField(
                           controller: _departureController,
+                          style: TextStyle(fontSize: 14 * scaleFactor),
                           decoration: InputDecoration(
-                            hintText:
-                                'Departure Location (e.g., Manila, Philippines)',
+                            hintText: 'Departure Location',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14 * scaleFactor,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * scaleFactor,
+                              vertical: 14 * scaleFactor,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(
-                                8 * scaleFactor,
+                                12 * scaleFactor,
                               ),
-                              borderSide: BorderSide.none,
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(
+                                color: AppConstants.primaryColor,
+                              ),
                             ),
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: Colors.grey[50],
                             prefixIcon: Icon(
-                              Icons.location_on_outlined,
-                              color: Colors.green,
+                              Icons.my_location,
+                              color: AppConstants.primaryColor,
+                              size: 20 * scaleFactor,
                             ),
                             suffixIcon: _departureController.text.isNotEmpty
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.search,
-                                          size: 20,
-                                          color: Colors.green,
-                                        ),
-                                        onPressed: () {
-                                          _updateMapMarkers();
-                                        },
-                                        tooltip: 'Find on map',
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.clear, size: 20),
-                                        onPressed: () {
-                                          setState(() {
-                                            _departureController.clear();
-                                            _departureLat = null;
-                                            _departureLng = null;
-                                          });
-                                          _updateMapMarkers();
-                                        },
-                                      ),
-                                    ],
-                                  )
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                          onSubmitted: (value) {
-                            if (value.isNotEmpty) {
-                              _updateMapMarkers();
-                            }
-                          },
-                        ),
-                        SizedBox(height: 8 * scaleFactor),
-                        TextField(
-                          controller: _destinationController,
-                          decoration: InputDecoration(
-                            hintText:
-                                'Destination Location (e.g., Baguio, Philippines)',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                8 * scaleFactor,
-                              ),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            prefixIcon: Icon(
-                              Icons.place_outlined,
-                              color: Colors.red,
-                            ),
-                            suffixIcon: _destinationController.text.isNotEmpty
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.search,
-                                          size: 20,
-                                          color: Colors.red,
-                                        ),
-                                        onPressed: () {
-                                          _updateMapMarkers();
-                                        },
-                                        tooltip: 'Find on map',
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.clear, size: 20),
-                                        onPressed: () {
-                                          setState(() {
-                                            _destinationController.clear();
-                                            _destinationLat = null;
-                                            _destinationLng = null;
-                                          });
-                                          _updateMapMarkers();
-                                        },
-                                      ),
-                                    ],
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      size: 18 * scaleFactor,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _departureController.clear();
+                                        _departureLat = null;
+                                        _departureLng = null;
+                                      });
+                                      _updateMapMarkers();
+                                    },
                                   )
                                 : null,
                           ),
@@ -1417,24 +1429,91 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                           },
                         ),
                         SizedBox(height: 12 * scaleFactor),
+                        TextField(
+                          controller: _destinationController,
+                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          decoration: InputDecoration(
+                            hintText: 'Destination Location',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14 * scaleFactor,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * scaleFactor,
+                              vertical: 14 * scaleFactor,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(
+                                color: AppConstants.primaryColor,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(
+                              Icons.location_on,
+                              color: Colors.red,
+                              size: 20 * scaleFactor,
+                            ),
+                            suffixIcon: _destinationController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      size: 18 * scaleFactor,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _destinationController.clear();
+                                        _destinationLat = null;
+                                        _destinationLng = null;
+                                      });
+                                      _updateMapMarkers();
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            setState(() {});
+                          },
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              _updateMapMarkers();
+                            }
+                          },
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
                         // Pin on Maps Button
                         GestureDetector(
                           onTap: () => _showExpandedMap(scaleFactor),
                           child: Container(
+                            width: double.infinity,
                             padding: EdgeInsets.symmetric(
                               vertical: 12 * scaleFactor,
-                              horizontal: 16 * scaleFactor,
                             ),
                             decoration: BoxDecoration(
                               color: AppConstants.primaryColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(
-                                10 * scaleFactor,
+                                12 * scaleFactor,
                               ),
                               border: Border.all(
                                 color: AppConstants.primaryColor.withOpacity(
                                   0.3,
                                 ),
-                                width: 1.5,
                               ),
                             ),
                             child: Row(
@@ -1447,18 +1526,12 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                                 ),
                                 SizedBox(width: 8 * scaleFactor),
                                 Text(
-                                  'Pin on Maps',
+                                  'Open Map to Pin Locations',
                                   style: TextStyle(
-                                    fontSize: 15 * scaleFactor,
+                                    fontSize: 14 * scaleFactor,
                                     fontWeight: FontWeight.w600,
                                     color: AppConstants.primaryColor,
                                   ),
-                                ),
-                                SizedBox(width: 4 * scaleFactor),
-                                Icon(
-                                  Icons.open_in_full,
-                                  color: AppConstants.primaryColor,
-                                  size: 18 * scaleFactor,
                                 ),
                               ],
                             ),
@@ -1468,86 +1541,141 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                     ),
                   ),
                   SizedBox(height: 18 * scaleFactor),
+                  SizedBox(height: 18 * scaleFactor),
                   // Schedule
                   Container(
-                    padding: EdgeInsets.all(16 * scaleFactor),
+                    padding: EdgeInsets.all(20 * scaleFactor),
                     decoration: BoxDecoration(
-                      color: Color(0xFFDBF6FF),
-                      borderRadius: BorderRadius.circular(16 * scaleFactor),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Schedule',
-                          style: TextStyle(
-                            fontSize: 22 * scaleFactor,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF00B4D8),
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_month,
+                              color: AppConstants.primaryColor,
+                              size: 20 * scaleFactor,
+                            ),
+                            SizedBox(width: 8 * scaleFactor),
+                            Text(
+                              'Schedule',
+                              style: TextStyle(
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 4 * scaleFactor),
-                        Text(
-                          'Tap to add travel date and time',
-                          style: TextStyle(
-                            fontSize: 14 * scaleFactor,
-                            color: Colors.black,
-                          ),
-                        ),
-                        SizedBox(height: 12 * scaleFactor),
+                        SizedBox(height: 16 * scaleFactor),
                         Row(
                           children: [
                             Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      8 * scaleFactor,
-                                    ),
-                                  ),
+                              child: GestureDetector(
+                                onTap: _selectDate,
+                                child: Container(
                                   padding: EdgeInsets.symmetric(
                                     vertical: 14 * scaleFactor,
+                                    horizontal: 12 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 18 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                      SizedBox(width: 8 * scaleFactor),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedDate == null
+                                              ? 'Select Date'
+                                              : DateFormat(
+                                                  'MMM dd, yyyy',
+                                                ).format(_selectedDate!),
+                                          style: TextStyle(
+                                            fontSize: 14 * scaleFactor,
+                                            color: _selectedDate == null
+                                                ? Colors.grey[500]
+                                                : Colors.black87,
+                                            fontWeight: _selectedDate == null
+                                                ? FontWeight.normal
+                                                : FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                icon: Icon(Icons.calendar_today_outlined),
-                                label: Text(
-                                  _selectedDate == null
-                                      ? 'Select Date'
-                                      : DateFormat(
-                                          'MMM dd, yyyy',
-                                        ).format(_selectedDate!),
-                                  style: TextStyle(fontSize: 13 * scaleFactor),
-                                ),
-                                onPressed: _selectDate,
                               ),
                             ),
-                            SizedBox(width: 8 * scaleFactor),
+                            SizedBox(width: 12 * scaleFactor),
                             Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      8 * scaleFactor,
-                                    ),
-                                  ),
+                              child: GestureDetector(
+                                onTap: _selectTime,
+                                child: Container(
                                   padding: EdgeInsets.symmetric(
                                     vertical: 14 * scaleFactor,
+                                    horizontal: 12 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.access_time_outlined,
+                                        size: 18 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                      SizedBox(width: 8 * scaleFactor),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedTime == null
+                                              ? 'Select Time'
+                                              : _selectedTime!.format(context),
+                                          style: TextStyle(
+                                            fontSize: 14 * scaleFactor,
+                                            color: _selectedTime == null
+                                                ? Colors.grey[500]
+                                                : Colors.black87,
+                                            fontWeight: _selectedTime == null
+                                                ? FontWeight.normal
+                                                : FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                icon: Icon(Icons.access_time_outlined),
-                                label: Text(
-                                  _selectedTime == null
-                                      ? 'Select Time'
-                                      : _selectedTime!.format(context),
-                                  style: TextStyle(fontSize: 13 * scaleFactor),
-                                ),
-                                onPressed: _selectTime,
                               ),
                             ),
                           ],
@@ -1561,10 +1689,17 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                     height: 200 * scaleFactor,
                     decoration: BoxDecoration(
                       color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(16 * scaleFactor),
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16 * scaleFactor),
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
                       child: Stack(
                         children: [
                           // Map Widget with error handling
@@ -1578,13 +1713,13 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                               child: Container(
                                 padding: EdgeInsets.all(12 * scaleFactor),
                                 decoration: BoxDecoration(
-                                  color: AppConstants.primaryColor,
+                                  color: Colors.white.withOpacity(0.9),
                                   borderRadius: BorderRadius.circular(
                                     12 * scaleFactor,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
+                                      color: Colors.black.withOpacity(0.1),
                                       blurRadius: 8,
                                       offset: Offset(0, 2),
                                     ),
@@ -1594,7 +1729,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                                   children: [
                                     Icon(
                                       Icons.touch_app,
-                                      color: Colors.white,
+                                      color: AppConstants.primaryColor,
                                       size: 20 * scaleFactor,
                                     ),
                                     SizedBox(width: 8 * scaleFactor),
@@ -1603,7 +1738,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                                         'Tap map to drop pins or type locations above',
                                         style: TextStyle(
                                           fontSize: 12 * scaleFactor,
-                                          color: Colors.white,
+                                          color: Colors.black87,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -1665,14 +1800,15 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                   // Register Travel Button
                   SizedBox(
                     width: double.infinity,
-                    height: 54 * scaleFactor,
+                    height: 56 * scaleFactor,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _isVerified
                             ? AppConstants.primaryColor
                             : Colors.grey,
                         foregroundColor: Colors.white,
-                        elevation: 0,
+                        elevation: 2,
+                        shadowColor: AppConstants.primaryColor.withOpacity(0.4),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16 * scaleFactor),
                         ),
@@ -1683,14 +1819,15 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                         children: [
                           Icon(
                             Icons.add_circle_outline,
-                            size: 22 * scaleFactor,
+                            size: 24 * scaleFactor,
                           ),
-                          SizedBox(width: 8 * scaleFactor),
+                          SizedBox(width: 10 * scaleFactor),
                           Text(
                             'Register Travel',
                             style: TextStyle(
                               fontSize: 18 * scaleFactor,
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ],
