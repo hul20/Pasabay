@@ -217,6 +217,23 @@ class SupabaseService {
     }
   }
 
+  /// Update user preferences
+  Future<void> updateUserPreferences(Map<String, dynamic> preferences) async {
+    try {
+      if (currentUser == null) throw 'No user logged in';
+
+      await _supabase
+          .from('users')
+          .update({
+            'preferences': preferences,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', currentUser!.id);
+    } catch (e) {
+      throw 'Error updating user preferences: $e';
+    }
+  }
+
   /// Stream of user data
   Stream<Map<String, dynamic>?> userDataStream() {
     if (currentUser == null) {
@@ -287,7 +304,10 @@ class SupabaseService {
       final response = await _supabase
           .from('verification_requests')
           .select()
-          .eq('traveler_id', currentUser!.id) // FIXED: Changed from 'user_id' to 'traveler_id'
+          .eq(
+            'traveler_id',
+            currentUser!.id,
+          ) // FIXED: Changed from 'user_id' to 'traveler_id'
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
@@ -369,7 +389,7 @@ class SupabaseService {
 
       final userId = currentUser!.id;
       final userEmail = currentUser!.email ?? '';
-      
+
       // Get user's full name from users table
       String travelerName = userEmail;
       try {
@@ -378,9 +398,11 @@ class SupabaseService {
             .select('first_name, last_name, full_name')
             .eq('id', userId)
             .single();
-        
-        travelerName = userProfile['full_name'] ?? 
-                      '${userProfile['first_name'] ?? ''} ${userProfile['last_name'] ?? ''}'.trim();
+
+        travelerName =
+            userProfile['full_name'] ??
+            '${userProfile['first_name'] ?? ''} ${userProfile['last_name'] ?? ''}'
+                .trim();
         if (travelerName.isEmpty) travelerName = userEmail;
       } catch (e) {
         print('Could not fetch user name: $e');
@@ -388,14 +410,14 @@ class SupabaseService {
 
       // Insert verification request into database
       await _supabase.from('verification_requests').insert({
-        'traveler_id': userId,              // Changed from user_id
-        'traveler_name': travelerName,      // Added
-        'traveler_email': userEmail,        // Added
+        'traveler_id': userId, // Changed from user_id
+        'traveler_name': travelerName, // Added
+        'traveler_email': userEmail, // Added
         'gov_id_url': govIdUrl,
         'selfie_url': selfieUrl,
         'gov_id_filename': govIdFileName,
         'selfie_filename': selfieFileName,
-        'status': 'Pending',                // Changed to Title Case to match constraint
+        'status': 'Pending', // Changed to Title Case to match constraint
         'submitted_at': DateTime.now().toIso8601String(),
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
@@ -411,7 +433,7 @@ class SupabaseService {
   Future<bool> switchUserRole(String newRole) async {
     try {
       if (currentUser == null) throw 'No user logged in';
-      
+
       // Validate role
       if (newRole != 'Traveler' && newRole != 'Requester') {
         throw 'Invalid role. Only Traveler and Requester are allowed.';
@@ -435,21 +457,23 @@ class SupabaseService {
   }
 
   /// Upload file to Supabase Storage
-  Future<String> uploadFile(String bucket, String fileName, dynamic file) async {
+  Future<String> uploadFile(
+    String bucket,
+    String fileName,
+    dynamic file,
+  ) async {
     try {
       if (currentUser == null) throw 'User not authenticated';
 
       // Upload file to storage
       final filePath = '$fileName';
-      await _supabase.storage.from(bucket).upload(
-            filePath,
-            file,
-            fileOptions: const FileOptions(upsert: true),
-          );
+      await _supabase.storage
+          .from(bucket)
+          .upload(filePath, file, fileOptions: const FileOptions(upsert: true));
 
       // Get public URL
       final publicUrl = _supabase.storage.from(bucket).getPublicUrl(filePath);
-      
+
       print('✅ File uploaded successfully: $publicUrl');
       return publicUrl;
     } catch (e) {
