@@ -3,6 +3,7 @@ import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
 import '../widgets/gradient_header.dart';
+import '../services/fcm_service.dart';
 import 'signup_page.dart';
 import 'verify_page.dart';
 import 'role_selection_page.dart';
@@ -102,6 +103,9 @@ class _LoginPageState extends State<LoginPage> {
               ),
             );
           } else {
+            // Initialize FCM for push notifications
+            await FCMService.initialize();
+
             // Navigate to traveler home page
             Navigator.pushReplacement(
               context,
@@ -109,6 +113,9 @@ class _LoginPageState extends State<LoginPage> {
             );
           }
         } else {
+          // Initialize FCM for push notifications
+          await FCMService.initialize();
+
           // Navigate to requester home page (no verification needed)
           Navigator.pushReplacement(
             context,

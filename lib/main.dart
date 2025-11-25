@@ -9,8 +9,13 @@ import '../screens/traveler/identity_verification_screen.dart';
 import '../screens/traveler_home_page.dart';
 import '../screens/requester/requester_home_page.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:pasabay_app/services/fcm_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp();
 
   // Initialize Supabase
   await Supabase.initialize(

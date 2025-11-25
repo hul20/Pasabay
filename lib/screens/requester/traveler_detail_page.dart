@@ -49,13 +49,11 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
   List<String> _uploadedPhotoUrls = [];
 
   double get _serviceFee {
-    // Base service fee calculation
-    // Could be based on distance, product cost, etc.
+    // Use the trip's set pricing for each service type
     if (_selectedServiceType == 'Pabakal') {
-      final productCost = double.tryParse(_costController.text) ?? 0;
-      return productCost * 0.10; // 10% service fee
+      return widget.trip.pabakalPrice; // Use traveler's set Pabakal price
     } else if (_selectedServiceType == 'Pasabay') {
-      return 50.0; // Flat rate for pasabay
+      return widget.trip.pasabayPrice; // Use traveler's set Pasabay price
     }
     return 0.0;
   }
@@ -816,6 +814,9 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                         controller: _costController,
                         keyboardType: TextInputType.number,
                         scaleFactor: scaleFactor,
+                        onChanged: () {
+                          setState(() {}); // Update total amount display
+                        },
                       ),
                       SizedBox(height: 16 * scaleFactor),
                       _buildInputField(
@@ -991,7 +992,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                                     ),
                                   ),
                                   Text(
-                                    '₱${_costController.text.isEmpty ? "0" : _costController.text}',
+                                    '₱${(double.tryParse(_costController.text) ?? 0).toStringAsFixed(2)}',
                                     style: TextStyle(
                                       fontSize: 14 * scaleFactor,
                                       fontWeight: FontWeight.w600,
@@ -1122,6 +1123,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
     int maxLines = 1,
     IconData? suffixIcon,
     required double scaleFactor,
+    VoidCallback? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1150,6 +1152,7 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
             keyboardType: keyboardType,
             maxLines: maxLines,
             style: TextStyle(fontSize: 15 * scaleFactor),
+            onChanged: onChanged != null ? (_) => onChanged() : null,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(

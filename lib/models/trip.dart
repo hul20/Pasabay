@@ -2,7 +2,7 @@
 class Trip {
   final String id;
   final String travelerId;
-  
+
   // Location information
   final String departureLocation;
   final double? departureLat;
@@ -10,25 +10,27 @@ class Trip {
   final String destinationLocation;
   final double? destinationLat;
   final double? destinationLng;
-  
+
   // Schedule information
   final DateTime departureDate;
   final String departureTime; // Format: HH:mm:ss
   final String? estimatedArrivalTime;
-  
+
   // Trip details
   final String tripStatus; // Upcoming, In Progress, Completed, Cancelled
   final int availableCapacity;
   final int currentRequests;
-  
+
   // Financial
   final double baseFee;
   final double totalEarnings;
-  
+  final double pasabayPrice; // Price traveler charges for Pasabay service
+  final double pabakalPrice; // Price traveler charges for Pabakal service
+
   // Additional info
   final String? notes;
   final String? routePolyline;
-  
+
   // Metadata
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -50,6 +52,8 @@ class Trip {
     this.currentRequests = 0,
     this.baseFee = 0.0,
     this.totalEarnings = 0.0,
+    this.pasabayPrice = 50.0,
+    this.pabakalPrice = 100.0,
     this.notes,
     this.routePolyline,
     required this.createdAt,
@@ -62,18 +66,18 @@ class Trip {
       id: json['id'] as String,
       travelerId: json['traveler_id'] as String,
       departureLocation: json['departure_location'] as String,
-      departureLat: json['departure_lat'] != null 
-          ? (json['departure_lat'] as num).toDouble() 
+      departureLat: json['departure_lat'] != null
+          ? (json['departure_lat'] as num).toDouble()
           : null,
-      departureLng: json['departure_lng'] != null 
-          ? (json['departure_lng'] as num).toDouble() 
+      departureLng: json['departure_lng'] != null
+          ? (json['departure_lng'] as num).toDouble()
           : null,
       destinationLocation: json['destination_location'] as String,
-      destinationLat: json['destination_lat'] != null 
-          ? (json['destination_lat'] as num).toDouble() 
+      destinationLat: json['destination_lat'] != null
+          ? (json['destination_lat'] as num).toDouble()
           : null,
-      destinationLng: json['destination_lng'] != null 
-          ? (json['destination_lng'] as num).toDouble() 
+      destinationLng: json['destination_lng'] != null
+          ? (json['destination_lng'] as num).toDouble()
           : null,
       departureDate: DateTime.parse(json['departure_date'] as String),
       departureTime: json['departure_time'] as String,
@@ -81,12 +85,18 @@ class Trip {
       tripStatus: json['trip_status'] as String? ?? 'Upcoming',
       availableCapacity: json['available_capacity'] as int? ?? 5,
       currentRequests: json['current_requests'] as int? ?? 0,
-      baseFee: json['base_fee'] != null 
-          ? (json['base_fee'] as num).toDouble() 
+      baseFee: json['base_fee'] != null
+          ? (json['base_fee'] as num).toDouble()
           : 0.0,
-      totalEarnings: json['total_earnings'] != null 
-          ? (json['total_earnings'] as num).toDouble() 
+      totalEarnings: json['total_earnings'] != null
+          ? (json['total_earnings'] as num).toDouble()
           : 0.0,
+      pasabayPrice: json['pasabay_price'] != null
+          ? (json['pasabay_price'] as num).toDouble()
+          : 50.0,
+      pabakalPrice: json['pabakal_price'] != null
+          ? (json['pabakal_price'] as num).toDouble()
+          : 100.0,
       notes: json['notes'] as String?,
       routePolyline: json['route_polyline'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -105,7 +115,9 @@ class Trip {
       'destination_location': destinationLocation,
       'destination_lat': destinationLat,
       'destination_lng': destinationLng,
-      'departure_date': departureDate.toIso8601String().split('T')[0], // Date only
+      'departure_date': departureDate.toIso8601String().split(
+        'T',
+      )[0], // Date only
       'departure_time': departureTime,
       'estimated_arrival_time': estimatedArrivalTime,
       'trip_status': tripStatus,
@@ -113,6 +125,8 @@ class Trip {
       'current_requests': currentRequests,
       'base_fee': baseFee,
       'total_earnings': totalEarnings,
+      'pasabay_price': pasabayPrice,
+      'pabakal_price': pabakalPrice,
       'notes': notes,
       'route_polyline': routePolyline,
       'created_at': createdAt.toIso8601String(),
@@ -138,6 +152,8 @@ class Trip {
     int? currentRequests,
     double? baseFee,
     double? totalEarnings,
+    double? pasabayPrice,
+    double? pabakalPrice,
     String? notes,
     String? routePolyline,
     DateTime? createdAt,
@@ -160,6 +176,8 @@ class Trip {
       currentRequests: currentRequests ?? this.currentRequests,
       baseFee: baseFee ?? this.baseFee,
       totalEarnings: totalEarnings ?? this.totalEarnings,
+      pasabayPrice: pasabayPrice ?? this.pasabayPrice,
+      pabakalPrice: pabakalPrice ?? this.pabakalPrice,
       notes: notes ?? this.notes,
       routePolyline: routePolyline ?? this.routePolyline,
       createdAt: createdAt ?? this.createdAt,
@@ -170,8 +188,18 @@ class Trip {
   /// Get formatted departure date (e.g., "Nov 21, 2025")
   String get formattedDepartureDate {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[departureDate.month - 1]} ${departureDate.day}, ${departureDate.year}';
   }
@@ -180,14 +208,14 @@ class Trip {
   String get formattedDepartureTime {
     final parts = departureTime.split(':');
     if (parts.length < 2) return departureTime;
-    
+
     int hour = int.parse(parts[0]);
     int minute = int.parse(parts[1]);
     String period = hour >= 12 ? 'PM' : 'AM';
-    
+
     if (hour == 0) hour = 12;
     if (hour > 12) hour -= 12;
-    
+
     return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
   }
 
@@ -225,7 +253,8 @@ class TripStats {
       completedTrips: json['completed_trips'] as int? ?? 0,
       cancelledTrips: json['cancelled_trips'] as int? ?? 0,
       totalEarnings: (json['total_earnings'] as num?)?.toDouble() ?? 0.0,
-      currentMonthEarnings: (json['current_month_earnings'] as num?)?.toDouble() ?? 0.0,
+      currentMonthEarnings:
+          (json['current_month_earnings'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -239,4 +268,3 @@ class TripStats {
     );
   }
 }
-

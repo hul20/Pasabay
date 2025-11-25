@@ -6,6 +6,7 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 dependencies {
@@ -26,6 +27,16 @@ android {
     namespace = "com.pasabay.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.core:core-ktx:1.13.1")
+            force("androidx.core:core:1.13.1")
+            force("androidx.activity:activity-ktx:1.9.0")
+            force("androidx.activity:activity:1.9.0")
+            force("androidx.browser:browser:1.8.0")
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/supabase_service.dart';
+import '../services/fcm_service.dart';
 import 'landing_page.dart';
 import 'traveler_home_page.dart';
 import 'requester/requester_home_page.dart';
@@ -71,11 +72,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         if (!isVerified) {
           // Check verification status to prevent re-submission
-          final verificationStatus = await _supabaseService.getVerificationStatus();
+          final verificationStatus = await _supabaseService
+              .getVerificationStatus();
           final status = verificationStatus?['status'];
 
           if (status == 'Pending' || status == 'Under Review') {
             // Already submitted, go to home (will show in-progress message)
+            await FCMService.initialize();
             setState(() {
               _initialScreen = const TravelerHomePage();
               _isLoading = false;
@@ -89,6 +92,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
         } else {
           // Verified traveler, go to home
+          await FCMService.initialize();
           setState(() {
             _initialScreen = const TravelerHomePage();
             _isLoading = false;
@@ -96,6 +100,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
       } else if (userRole == 'Requester') {
         // Requester doesn't need verification
+        await FCMService.initialize();
         setState(() {
           _initialScreen = const RequesterHomePage();
           _isLoading = false;
@@ -120,14 +125,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return _initialScreen ?? const LandingPage();
   }
 }
-

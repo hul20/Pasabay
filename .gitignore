@@ -65,3 +65,5 @@ ios/Flutter/local.properties
 .env
 .env.local
 lib/config/api_keys.dart
+
+node_modules

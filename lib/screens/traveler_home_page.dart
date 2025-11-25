@@ -36,6 +36,15 @@ class _TravelerHomePageState extends State<TravelerHomePage>
   // Trip form controllers
   final TextEditingController _departureController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
+  final TextEditingController _slotsController = TextEditingController(
+    text: '5',
+  );
+  final TextEditingController _pasabayPriceController = TextEditingController(
+    text: '50',
+  );
+  final TextEditingController _pabakalPriceController = TextEditingController(
+    text: '100',
+  );
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
 
@@ -142,6 +151,9 @@ class _TravelerHomePageState extends State<TravelerHomePage>
     _notificationSubscription?.unsubscribe();
     _departureController.dispose();
     _destinationController.dispose();
+    _slotsController.dispose();
+    _pasabayPriceController.dispose();
+    _pabakalPriceController.dispose();
     _mapController?.dispose();
     _expandedMapController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -455,6 +467,13 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       final timeString =
           '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00';
 
+      // Parse slots and pricing
+      final slots = int.tryParse(_slotsController.text.trim()) ?? 5;
+      final pasabayPrice =
+          double.tryParse(_pasabayPriceController.text.trim()) ?? 50.0;
+      final pabakalPrice =
+          double.tryParse(_pabakalPriceController.text.trim()) ?? 100.0;
+
       await _tripService.createTrip(
         departureLocation: _departureController.text.trim(),
         departureLat: _departureLat,
@@ -464,8 +483,10 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         destinationLng: _destinationLng,
         departureDate: _selectedDate!,
         departureTime: timeString,
-        availableCapacity: 5,
+        availableCapacity: slots,
         baseFee: 0.0,
+        pasabayPrice: pasabayPrice,
+        pabakalPrice: pabakalPrice,
       );
 
       if (mounted) {
@@ -474,6 +495,9 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         // Clear form
         _departureController.clear();
         _destinationController.clear();
+        _slotsController.text = '5';
+        _pasabayPriceController.text = '50';
+        _pabakalPriceController.text = '100';
         setState(() {
           _selectedDate = null;
           _selectedTime = null;
@@ -1679,6 +1703,250 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                               ),
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 18 * scaleFactor),
+                  // Service Pricing & Capacity
+                  Container(
+                    padding: EdgeInsets.all(20 * scaleFactor),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.attach_money,
+                              color: AppConstants.primaryColor,
+                              size: 20 * scaleFactor,
+                            ),
+                            SizedBox(width: 8 * scaleFactor),
+                            Text(
+                              'Pricing & Capacity',
+                              style: TextStyle(
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
+                        // Available Slots
+                        Text(
+                          'Available Slots',
+                          style: TextStyle(
+                            fontSize: 13 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        SizedBox(height: 8 * scaleFactor),
+                        TextField(
+                          controller: _slotsController,
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          decoration: InputDecoration(
+                            hintText: 'Number of available slots',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14 * scaleFactor,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * scaleFactor,
+                              vertical: 14 * scaleFactor,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(
+                                color: AppConstants.primaryColor,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(
+                              Icons.people_outline,
+                              color: Colors.grey[600],
+                              size: 20 * scaleFactor,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
+                        // Pasabay Price
+                        Text(
+                          'Pasabay Price (Package Delivery)',
+                          style: TextStyle(
+                            fontSize: 13 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        SizedBox(height: 8 * scaleFactor),
+                        TextField(
+                          controller: _pasabayPriceController,
+                          keyboardType: TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          decoration: InputDecoration(
+                            hintText: 'Price per request',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14 * scaleFactor,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * scaleFactor,
+                              vertical: 14 * scaleFactor,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(
+                                color: AppConstants.primaryColor,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Padding(
+                              padding: EdgeInsets.only(
+                                left: 16 * scaleFactor,
+                                right: 8 * scaleFactor,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '₱',
+                                    style: TextStyle(
+                                      fontSize: 16 * scaleFactor,
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            suffixIcon: Icon(
+                              Icons.local_shipping_outlined,
+                              color: Colors.green[600],
+                              size: 20 * scaleFactor,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
+                        // Pabakal Price
+                        Text(
+                          'Pabakal Price (Shopping Service)',
+                          style: TextStyle(
+                            fontSize: 13 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        SizedBox(height: 8 * scaleFactor),
+                        TextField(
+                          controller: _pabakalPriceController,
+                          keyboardType: TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          decoration: InputDecoration(
+                            hintText: 'Price per request',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14 * scaleFactor,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * scaleFactor,
+                              vertical: 14 * scaleFactor,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(
+                                color: AppConstants.primaryColor,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Padding(
+                              padding: EdgeInsets.only(
+                                left: 16 * scaleFactor,
+                                right: 8 * scaleFactor,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '₱',
+                                    style: TextStyle(
+                                      fontSize: 16 * scaleFactor,
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            suffixIcon: Icon(
+                              Icons.shopping_bag_outlined,
+                              color: Colors.blue[600],
+                              size: 20 * scaleFactor,
+                            ),
+                          ),
                         ),
                       ],
                     ),

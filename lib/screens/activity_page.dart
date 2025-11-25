@@ -22,7 +22,7 @@ class ActivityPage extends StatefulWidget {
 }
 
 class _ActivityPageState extends State<ActivityPage> {
-  bool _showRequests = true; // true for "Requests", false for "Ongoing"
+  int _selectedTab = 0; // 0: Requests, 1: Ongoing, 2: Completed
   final TripService _tripService = TripService();
   final RequestService _requestService = RequestService();
   final NotificationService _notificationService = NotificationService();
@@ -31,6 +31,7 @@ class _ActivityPageState extends State<ActivityPage> {
   bool _isLoading = true;
   List<ServiceRequest> _pendingRequests = [];
   List<ServiceRequest> _ongoingRequests = [];
+  List<ServiceRequest> _completedRequests = [];
   Map<String, Map<String, dynamic>> _requesterInfoCache = {};
   int _unreadNotifications = 0;
   RealtimeChannel? _notificationSubscription;
@@ -116,13 +117,19 @@ class _ActivityPageState extends State<ActivityPage> {
           .where((req) => req.tripId == _selectedTrip!.id)
           .toList();
 
-      // Separate into pending and ongoing
+      // Separate into pending, ongoing, and completed
       final pending = tripRequests
           .where((req) => req.status == 'Pending')
           .toList();
 
       final ongoing = tripRequests
-          .where((req) => req.status == 'Accepted')
+          .where(
+            (req) => req.status == 'Accepted' || req.status == 'Order Sent',
+          )
+          .toList();
+
+      final completed = tripRequests
+          .where((req) => req.status == 'Completed')
           .toList();
 
       // Load requester info for each request
@@ -141,6 +148,7 @@ class _ActivityPageState extends State<ActivityPage> {
         setState(() {
           _pendingRequests = pending;
           _ongoingRequests = ongoing;
+          _completedRequests = completed;
         });
       }
     } catch (e) {
@@ -723,6 +731,57 @@ class _ActivityPageState extends State<ActivityPage> {
     }).toList();
   }
 
+  List<Widget> _buildCompletedRequestsList(double scaleFactor) {
+    if (_completedRequests.isEmpty) {
+      return [
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(40 * scaleFactor),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.check_circle_outline,
+                  size: 60 * scaleFactor,
+                  color: Colors.grey[400],
+                ),
+                SizedBox(height: 12 * scaleFactor),
+                Text(
+                  'No Completed Requests',
+                  style: TextStyle(
+                    fontSize: 18 * scaleFactor,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 8 * scaleFactor),
+                Text(
+                  'Completed requests for\nthis trip will appear here',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14 * scaleFactor,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return _completedRequests.map((request) {
+      final requesterInfo = _requesterInfoCache[request.requesterId];
+      return Padding(
+        padding: EdgeInsets.only(bottom: 12 * scaleFactor),
+        child: _buildRequestCard(
+          request: request,
+          requesterInfo: requesterInfo,
+          scaleFactor: scaleFactor,
+        ),
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -1019,22 +1078,22 @@ class _ActivityPageState extends State<ActivityPage> {
                         ),
                         SizedBox(height: 20 * scaleFactor),
 
-                        // Toggle Buttons (Requests / Ongoing)
+                        // Toggle Buttons (Requests / Ongoing / Completed)
                         Row(
                           children: [
                             Expanded(
                               child: GestureDetector(
                                 onTap: () {
                                   setState(() {
-                                    _showRequests = true;
+                                    _selectedTab = 0;
                                   });
                                 },
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
-                                    vertical: 14 * scaleFactor,
+                                    vertical: 12 * scaleFactor,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: _showRequests
+                                    color: _selectedTab == 0
                                         ? Color(0xFF00B4D8)
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(
@@ -1045,9 +1104,9 @@ class _ActivityPageState extends State<ActivityPage> {
                                     child: Text(
                                       'Requests',
                                       style: TextStyle(
-                                        fontSize: 16 * scaleFactor,
+                                        fontSize: 14 * scaleFactor,
                                         fontWeight: FontWeight.w600,
-                                        color: _showRequests
+                                        color: _selectedTab == 0
                                             ? Colors.white
                                             : Colors.grey[400],
                                       ),
@@ -1056,20 +1115,20 @@ class _ActivityPageState extends State<ActivityPage> {
                                 ),
                               ),
                             ),
-                            SizedBox(width: 12 * scaleFactor),
+                            SizedBox(width: 8 * scaleFactor),
                             Expanded(
                               child: GestureDetector(
                                 onTap: () {
                                   setState(() {
-                                    _showRequests = false;
+                                    _selectedTab = 1;
                                   });
                                 },
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
-                                    vertical: 14 * scaleFactor,
+                                    vertical: 12 * scaleFactor,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: !_showRequests
+                                    color: _selectedTab == 1
                                         ? Color(0xFF00B4D8)
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(
@@ -1080,9 +1139,44 @@ class _ActivityPageState extends State<ActivityPage> {
                                     child: Text(
                                       'Ongoing',
                                       style: TextStyle(
-                                        fontSize: 16 * scaleFactor,
+                                        fontSize: 14 * scaleFactor,
                                         fontWeight: FontWeight.w600,
-                                        color: !_showRequests
+                                        color: _selectedTab == 1
+                                            ? Colors.white
+                                            : Colors.grey[400],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8 * scaleFactor),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedTab = 2;
+                                  });
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 12 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _selectedTab == 2
+                                        ? Color(0xFF00B4D8)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Completed',
+                                      style: TextStyle(
+                                        fontSize: 14 * scaleFactor,
+                                        fontWeight: FontWeight.w600,
+                                        color: _selectedTab == 2
                                             ? Colors.white
                                             : Colors.grey[400],
                                       ),
@@ -1129,10 +1223,12 @@ class _ActivityPageState extends State<ActivityPage> {
                               ),
                             ),
                           )
-                        else if (_showRequests)
+                        else if (_selectedTab == 0)
                           ..._buildPendingRequestsList(scaleFactor)
+                        else if (_selectedTab == 1)
+                          ..._buildOngoingRequestsList(scaleFactor)
                         else
-                          ..._buildOngoingRequestsList(scaleFactor),
+                          ..._buildCompletedRequestsList(scaleFactor),
 
                         SizedBox(height: 80 * scaleFactor),
                       ],
@@ -1354,6 +1450,68 @@ class _ActivityPageState extends State<ActivityPage> {
                               SizedBox(width: 4 * scaleFactor),
                               Text(
                                 'Accepted',
+                                style: TextStyle(
+                                  fontSize: 11 * scaleFactor,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (request.status == 'Completed')
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8 * scaleFactor,
+                            vertical: 3 * scaleFactor,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(
+                              10 * scaleFactor,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                size: 12 * scaleFactor,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4 * scaleFactor),
+                              Text(
+                                'Completed',
+                                style: TextStyle(
+                                  fontSize: 11 * scaleFactor,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (request.status == 'Order Sent')
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8 * scaleFactor,
+                            vertical: 3 * scaleFactor,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            borderRadius: BorderRadius.circular(
+                              10 * scaleFactor,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.local_shipping,
+                                size: 12 * scaleFactor,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4 * scaleFactor),
+                              Text(
+                                'Order Sent',
                                 style: TextStyle(
                                   fontSize: 11 * scaleFactor,
                                   fontWeight: FontWeight.w600,

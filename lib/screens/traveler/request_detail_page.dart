@@ -5,13 +5,14 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/request.dart';
+import '../../models/conversation.dart';
 import '../../services/request_service.dart';
 import '../../services/messaging_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
 import '../messages_page.dart';
-import '../../widgets/chat_widget.dart';
+import '../chat_detail_page.dart';
 
 class RequestDetailPage extends StatefulWidget {
   final ServiceRequest request;
@@ -171,39 +172,76 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                   ),
                   SizedBox(height: 20),
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        final XFile? image = await _imagePicker.pickImage(
-                          source: ImageSource.camera,
-                          imageQuality: 80,
-                        );
-                        if (image != null) {
-                          setModalState(() {
-                            proofImage = image;
-                          });
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: proofImage != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: kIsWeb
-                                    ? Image.network(
-                                        proofImage!.path,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Image.file(
-                                        File(proofImage!.path),
-                                        fit: BoxFit.cover,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: proofImage != null
+                          ? GestureDetector(
+                              onTap:
+                                  () {}, // Absorb taps to prevent image disappearing
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: kIsWeb
+                                        ? Image.network(
+                                            proofImage!.path,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                          )
+                                        : Image.file(
+                                            File(proofImage!.path),
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                          ),
+                                  ),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: FloatingActionButton.small(
+                                      backgroundColor: Colors.white,
+                                      onPressed: () async {
+                                        final XFile? image = await _imagePicker
+                                            .pickImage(
+                                              source: ImageSource.camera,
+                                              imageQuality: 80,
+                                            );
+                                        if (image != null) {
+                                          setModalState(() {
+                                            proofImage = image;
+                                          });
+                                        }
+                                      },
+                                      child: Icon(
+                                        Icons.camera_alt,
+                                        color: AppConstants.primaryColor,
+                                        size: 20,
                                       ),
-                              )
-                            : Column(
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : GestureDetector(
+                              onTap: () async {
+                                final XFile? image = await _imagePicker
+                                    .pickImage(
+                                      source: ImageSource.camera,
+                                      imageQuality: 80,
+                                    );
+                                if (image != null) {
+                                  setModalState(() {
+                                    proofImage = image;
+                                  });
+                                }
+                              },
+                              child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
@@ -221,7 +259,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                                   ),
                                 ],
                               ),
-                      ),
+                            ),
                     ),
                   ),
                   SizedBox(height: 20),
@@ -273,7 +311,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                                   await _messagingService.sendMessage(
                                     conversationId: conversationResponse['id'],
                                     messageText:
-                                        'Order has been sent! 📦\nSee proof of delivery: $imageUrl',
+                                        'Order has been sent! 📦\n[IMAGE]$imageUrl',
                                   );
                                 }
 
@@ -448,25 +486,66 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
       if (success) {
         // Create conversation
-        await _requestService.getOrCreateConversation(widget.request.id);
+        final conversationId = await _requestService.getOrCreateConversation(
+          widget.request.id,
+        );
 
         if (!mounted) return;
 
-        // Show success
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Request accepted! You can now message the requester.',
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        if (conversationId != null) {
+          // Fetch the full conversation object
+          final conversationResponse = await _supabase
+              .from('conversations')
+              .select('*')
+              .eq('id', conversationId)
+              .single();
 
-        // Update state to show chat instead of navigating away
-        setState(() {
-          _request = _request.copyWith(status: 'Accepted');
-        });
+          final conversation = Conversation.fromJson(conversationResponse);
+
+          // Load other user info
+          final currentUserId = _supabase.auth.currentUser!.id;
+          final otherUserId = conversation.getOtherUserId(currentUserId);
+
+          final userResponse = await _supabase
+              .from('users')
+              .select('first_name, last_name, profile_image_url')
+              .eq('id', otherUserId)
+              .single();
+
+          conversation.otherUserName =
+              '${userResponse['first_name']} ${userResponse['last_name']}';
+          conversation.otherUserImage = userResponse['profile_image_url'];
+
+          // Load service type
+          final requestResponse = await _supabase
+              .from('service_requests')
+              .select('service_type')
+              .eq('id', widget.request.id)
+              .single();
+
+          conversation.serviceType = requestResponse['service_type'];
+
+          // Navigate to chat detail page
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatDetailPage(conversation: conversation),
+            ),
+          );
+
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Request accepted! You can now message the requester.',
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          throw Exception('Failed to create conversation');
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -752,12 +831,27 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                     ],
                   ),
                 ),
-                // Chat
+                // Chat message - tap to open full chat
                 Expanded(
-                  child: ChatWidget(
-                    requestId: _request.id,
-                    currentUserId: _supabase.auth.currentUser!.id,
-                    otherUserId: _request.requesterId,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 48 * scaleFactor,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 12 * scaleFactor),
+                        Text(
+                          'Tap "Message" to chat with requester',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14 * scaleFactor,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 // Bottom Actions
@@ -775,13 +869,61 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                   ),
                   child: Column(
                     children: [
-                      if (_request.status == 'Accepted')
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            // Get conversation for this request
+                            final conversationResponse = await _supabase
+                                .from('conversations')
+                                .select('*')
+                                .eq('request_id', _request.id)
+                                .maybeSingle();
+
+                            if (conversationResponse != null && mounted) {
+                              final conversation = Conversation.fromJson(
+                                conversationResponse,
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatDetailPage(
+                                    conversation: conversation,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppConstants.primaryColor,
+                            padding: EdgeInsets.symmetric(
+                              vertical: 16 * scaleFactor,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                            ),
+                          ),
+                          icon: Icon(Icons.chat_bubble, size: 20 * scaleFactor),
+                          label: Text(
+                            'Message Requester',
+                            style: TextStyle(
+                              fontSize: 16 * scaleFactor,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (_request.status == 'Accepted') ...[
+                        SizedBox(height: 8 * scaleFactor),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: _handleOrderSent,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppConstants.primaryColor,
+                              backgroundColor: Colors.green,
                               padding: EdgeInsets.symmetric(
                                 vertical: 16 * scaleFactor,
                               ),
@@ -801,6 +943,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                             ),
                           ),
                         ),
+                      ],
                       SizedBox(height: 8 * scaleFactor),
                       TextButton(
                         onPressed: _showDetailsBottomSheet,
@@ -958,30 +1101,6 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
               ],
             ),
           ),
-          if (showMessageButton && widget.request.status == 'Accepted')
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MessagesPage()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF00B4D8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8 * scaleFactor),
-                ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: 16 * scaleFactor,
-                  vertical: 8 * scaleFactor,
-                ),
-              ),
-              icon: Icon(Icons.message, size: 18 * scaleFactor),
-              label: Text(
-                'Message',
-                style: TextStyle(fontSize: 14 * scaleFactor),
-              ),
-            ),
         ],
       ),
     );

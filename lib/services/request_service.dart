@@ -100,6 +100,7 @@ class RequestService {
             'store_location': storeLocation,
             'product_cost': productCost,
             'service_fee': serviceFee,
+            'total_amount': productCost + serviceFee,
             'notes': notes,
             'status': 'Pending',
             'photo_urls': photoUrls,
@@ -153,6 +154,7 @@ class RequestService {
             'recipient_phone': recipientPhone,
             'dropoff_location': dropoffLocation,
             'service_fee': serviceFee,
+            'total_amount': serviceFee,
             'notes': notes,
             'status': 'Pending',
             'photo_urls': photoUrls,
@@ -311,7 +313,7 @@ class RequestService {
     try {
       final response = await _supabase.rpc(
         'get_or_create_conversation',
-        params: {'request_id': requestId},
+        params: {'req_id': requestId},
       );
 
       return response as String?;

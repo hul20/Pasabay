@@ -29,9 +29,10 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
 
   List<ServiceRequest> _pendingRequests = [];
   List<ServiceRequest> _acceptedRequests = [];
+  List<ServiceRequest> _completedRequests = [];
   Map<String, Map<String, dynamic>> _travelerInfoCache = {};
   bool _isLoading = true;
-  int _selectedTab = 0; // 0: Pending, 1: Ongoing
+  int _selectedTab = 0; // 0: Pending, 1: Ongoing, 2: Completed
   int _unreadNotifications = 0;
   RealtimeChannel? _notificationSubscription;
 
@@ -80,6 +81,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
 
       final pending = <ServiceRequest>[];
       final accepted = <ServiceRequest>[];
+      final completed = <ServiceRequest>[];
 
       for (var request in requests) {
         if (request.status == 'Pending') {
@@ -87,6 +89,8 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
         } else if (request.status == 'Accepted' ||
             request.status == 'Order Sent') {
           accepted.add(request);
+        } else if (request.status == 'Completed') {
+          completed.add(request);
         }
 
         if (!_travelerInfoCache.containsKey(request.travelerId)) {
@@ -103,6 +107,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
         setState(() {
           _pendingRequests = pending;
           _acceptedRequests = accepted;
+          _completedRequests = completed;
           _isLoading = false;
         });
       }
@@ -394,6 +399,13 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                                             _acceptedRequests.length.toString(),
                                             scaleFactor,
                                           ),
+                                          _buildVerticalDivider(scaleFactor),
+                                          _buildStatItem(
+                                            'Completed',
+                                            _completedRequests.length
+                                                .toString(),
+                                            scaleFactor,
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -408,6 +420,8 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                                   _buildTabButton('Pending', 0, scaleFactor),
                                   SizedBox(width: 8 * scaleFactor),
                                   _buildTabButton('Ongoing', 1, scaleFactor),
+                                  SizedBox(width: 8 * scaleFactor),
+                                  _buildTabButton('Completed', 2, scaleFactor),
                                 ],
                               ),
                               SizedBox(height: 20 * scaleFactor),
@@ -419,9 +433,15 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
                                   true,
                                   scaleFactor,
                                 )
-                              else
+                              else if (_selectedTab == 1)
                                 ..._buildRequestsList(
                                   _acceptedRequests,
+                                  false,
+                                  scaleFactor,
+                                )
+                              else
+                                ..._buildRequestsList(
+                                  _completedRequests,
                                   false,
                                   scaleFactor,
                                 ),

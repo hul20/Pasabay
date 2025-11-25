@@ -76,16 +76,16 @@ class NotificationService {
   Future<void> createNotification({
     required String userId,
     required String title,
-    required String message,
-    required String type,
+    required String body,
+    required String notificationType,
     String? relatedId,
   }) async {
     try {
       await _supabase.from('notifications').insert({
         'user_id': userId,
         'title': title,
-        'message': message,
-        'type': type,
+        'body': body,
+        'notification_type': notificationType,
         'related_id': relatedId,
         'is_read': false,
       });

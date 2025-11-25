@@ -178,14 +178,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   IconData _getIcon(String type) {
     switch (type) {
-      case 'request_update':
-        return Icons.local_shipping_outlined;
-      case 'message':
+      case 'new_request':
+        return Icons.add_shopping_cart;
+      case 'request_accepted':
+        return Icons.check_circle_outline;
+      case 'request_rejected':
+        return Icons.cancel_outlined;
+      case 'request_cancelled':
+        return Icons.cancel_outlined;
+      case 'new_message':
         return Icons.chat_bubble_outline;
-      case 'trip_update':
-        return Icons.flight_takeoff;
-      case 'system':
-        return Icons.info_outline;
       default:
         return Icons.notifications_outlined;
     }
@@ -193,14 +195,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Color _getIconColor(String type) {
     switch (type) {
-      case 'request_update':
-        return Colors.orange;
-      case 'message':
-        return Colors.blue;
-      case 'trip_update':
+      case 'new_request':
+        return Color(0xFF00B4D8);
+      case 'request_accepted':
         return Colors.green;
-      case 'system':
-        return Colors.purple;
+      case 'request_rejected':
+        return Colors.red;
+      case 'request_cancelled':
+        return Colors.orange;
+      case 'new_message':
+        return Colors.blue;
       default:
         return Colors.grey;
     }

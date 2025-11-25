@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/fcm_service.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
@@ -108,6 +109,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     );
 
     try {
+      // Delete FCM token before logging out
+      await FCMService.deleteFCMToken();
+
       await supabaseService.signOut();
 
       // Hide loading indicator and navigate to landing page

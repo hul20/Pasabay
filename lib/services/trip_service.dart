@@ -25,6 +25,8 @@ class TripService {
     String? estimatedArrivalTime,
     int availableCapacity = 5,
     double baseFee = 0.0,
+    double pasabayPrice = 50.0,
+    double pabakalPrice = 100.0,
     String? notes,
     String? routePolyline,
   }) async {
@@ -33,7 +35,7 @@ class TripService {
       if (user == null) throw 'User not authenticated';
 
       final now = DateTime.now();
-      
+
       final tripData = {
         'traveler_id': user.id,
         'departure_location': departureLocation,
@@ -50,6 +52,8 @@ class TripService {
         'current_requests': 0,
         'base_fee': baseFee,
         'total_earnings': 0.0,
+        'pasabay_price': pasabayPrice,
+        'pabakal_price': pabakalPrice,
         'notes': notes,
         'route_polyline': routePolyline,
         'created_at': now.toIso8601String(),
@@ -140,11 +144,13 @@ class TripService {
       final user = _supabaseService.currentUser;
       if (user == null) throw 'User not authenticated';
 
-      final response = await _supabase
-          .rpc('get_trip_stats', params: {'_traveler_id': user.id});
+      final response = await _supabase.rpc(
+        'get_trip_stats',
+        params: {'_traveler_id': user.id},
+      );
 
       if (response == null) return TripStats.empty();
-      
+
       return TripStats.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       print('❌ Error fetching trip stats: $e');
@@ -180,18 +186,28 @@ class TripService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      if (departureLocation != null) updateData['departure_location'] = departureLocation;
+      if (departureLocation != null)
+        updateData['departure_location'] = departureLocation;
       if (departureLat != null) updateData['departure_lat'] = departureLat;
       if (departureLng != null) updateData['departure_lng'] = departureLng;
-      if (destinationLocation != null) updateData['destination_location'] = destinationLocation;
-      if (destinationLat != null) updateData['destination_lat'] = destinationLat;
-      if (destinationLng != null) updateData['destination_lng'] = destinationLng;
-      if (departureDate != null) updateData['departure_date'] = departureDate.toIso8601String().split('T')[0];
+      if (destinationLocation != null)
+        updateData['destination_location'] = destinationLocation;
+      if (destinationLat != null)
+        updateData['destination_lat'] = destinationLat;
+      if (destinationLng != null)
+        updateData['destination_lng'] = destinationLng;
+      if (departureDate != null)
+        updateData['departure_date'] = departureDate.toIso8601String().split(
+          'T',
+        )[0];
       if (departureTime != null) updateData['departure_time'] = departureTime;
-      if (estimatedArrivalTime != null) updateData['estimated_arrival_time'] = estimatedArrivalTime;
+      if (estimatedArrivalTime != null)
+        updateData['estimated_arrival_time'] = estimatedArrivalTime;
       if (tripStatus != null) updateData['trip_status'] = tripStatus;
-      if (availableCapacity != null) updateData['available_capacity'] = availableCapacity;
-      if (currentRequests != null) updateData['current_requests'] = currentRequests;
+      if (availableCapacity != null)
+        updateData['available_capacity'] = availableCapacity;
+      if (currentRequests != null)
+        updateData['current_requests'] = currentRequests;
       if (baseFee != null) updateData['base_fee'] = baseFee;
       if (totalEarnings != null) updateData['total_earnings'] = totalEarnings;
       if (notes != null) updateData['notes'] = notes;
@@ -234,26 +250,17 @@ class TripService {
 
   /// Cancel a trip (soft delete - changes status to Cancelled)
   Future<Trip> cancelTrip(String tripId) async {
-    return await updateTrip(
-      tripId: tripId,
-      tripStatus: 'Cancelled',
-    );
+    return await updateTrip(tripId: tripId, tripStatus: 'Cancelled');
   }
 
   /// Start a trip (change status to In Progress)
   Future<Trip> startTrip(String tripId) async {
-    return await updateTrip(
-      tripId: tripId,
-      tripStatus: 'In Progress',
-    );
+    return await updateTrip(tripId: tripId, tripStatus: 'In Progress');
   }
 
   /// Complete a trip (change status to Completed)
   Future<Trip> completeTrip(String tripId) async {
-    return await updateTrip(
-      tripId: tripId,
-      tripStatus: 'Completed',
-    );
+    return await updateTrip(tripId: tripId, tripStatus: 'Completed');
   }
 
   /// Search for available trips (for requesters)
@@ -321,4 +328,3 @@ class TripService {
         .map((data) => data.map((json) => Trip.fromJson(json)).toList());
   }
 }
-

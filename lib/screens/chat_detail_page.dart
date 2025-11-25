@@ -37,6 +37,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   bool _isSending = false;
   bool _isUploading = false;
   RealtimeChannel? _messagesChannel;
+  RealtimeChannel? _requestChannel;
 
   @override
   void initState() {
@@ -53,6 +54,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     _scrollController.dispose();
     if (_messagesChannel != null) {
       _messagingService.unsubscribe(_messagesChannel!);
+    }
+    if (_requestChannel != null) {
+      _supabase.removeChannel(_requestChannel!);
     }
     super.dispose();
   }
@@ -93,6 +97,30 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         }
       },
     );
+  }
+
+  void _subscribeToRequestChanges() {
+    if (_serviceRequest == null) return;
+
+    _requestChannel = _supabase
+        .channel('request:${_serviceRequest!.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'service_requests',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: _serviceRequest!.id,
+          ),
+          callback: (payload) {
+            if (mounted) {
+              print('🔄 Request status changed: ${payload.newRecord}');
+              _loadRequestDetails(); // Reload request details when status changes
+            }
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _markAsRead() async {
@@ -157,6 +185,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         setState(() {
           _serviceRequest = request;
         });
+
+        // Subscribe to request changes after loading
+        if (_requestChannel == null && request != null) {
+          _subscribeToRequestChanges();
+        }
       }
     } catch (e) {
       print('Error loading request details: $e');
@@ -456,11 +489,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                     })
                                     .eq('id', _serviceRequest!.id);
 
-                                // 4. Send automated message
+                                // 4. Send automated message with image marker
                                 await _messagingService.sendMessage(
                                   conversationId: widget.conversation.id,
                                   messageText:
-                                      'Order has been sent! 📦\nSee proof of delivery: $imageUrl',
+                                      'Order has been sent! 📦\n[IMAGE]$imageUrl',
                                 );
 
                                 if (mounted) {
@@ -602,7 +635,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
 
     try {
-      // Update request status
+      print('🔄 Updating request ${_serviceRequest!.id} to Completed');
+      print('🔄 Current user: ${_supabase.auth.currentUser?.id}');
+      print('🔄 Requester ID: ${_serviceRequest!.requesterId}');
+
+      // Update request status without .single() to avoid RLS issues
       await _supabase
           .from('service_requests')
           .update({
@@ -610,6 +647,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', _serviceRequest!.id);
+
+      print('✅ Request updated successfully');
 
       // Send automated message
       await _messagingService.sendMessage(
@@ -619,9 +658,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
       if (mounted) {
         Navigator.pop(context); // Close loading
+
+        // Update local state
         setState(() {
           _serviceRequest = _serviceRequest!.copyWith(status: 'Completed');
         });
+
+        print('✅ Local state updated to: ${_serviceRequest!.status}');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Transaction completed successfully!'),
@@ -630,6 +674,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         );
       }
     } catch (e) {
+      print('❌ Error confirming item received: $e');
       if (mounted) {
         Navigator.pop(context); // Close loading
         ScaffoldMessenger.of(context).showSnackBar(
@@ -749,12 +794,24 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
-                                'Tap to view details',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12 * scaleFactor,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Service Fee: ',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 12 * scaleFactor,
+                                    ),
+                                  ),
+                                  Text(
+                                    '₱${_serviceRequest!.serviceFee.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      color: Colors.green[700],
+                                      fontSize: 12 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -852,9 +909,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                         SizedBox(width: 12 * scaleFactor),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed:
-                                (_serviceRequest!.status == 'Accepted' ||
-                                    _serviceRequest!.status == 'Order Sent')
+                            onPressed: (_serviceRequest!.status == 'Order Sent')
                                 ? _handleItemReceived
                                 : null,
                             style: ElevatedButton.styleFrom(
@@ -868,9 +923,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                               disabledBackgroundColor: Colors.grey[300],
                             ),
                             child: Text(
-                              'Item Received',
+                              _serviceRequest!.status == 'Completed'
+                                  ? 'Completed ✓'
+                                  : 'Item Received',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: _serviceRequest!.status == 'Completed'
+                                    ? Colors.grey[600]
+                                    : Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -984,6 +1043,19 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 
   Widget _buildMessageBubble(Message message, bool isMine, double scaleFactor) {
+    // Check if message contains an image
+    final hasImage = message.messageText.contains('[IMAGE]');
+    String? imageUrl;
+    String displayText = message.messageText;
+
+    if (hasImage) {
+      final parts = message.messageText.split('[IMAGE]');
+      displayText = parts[0].trim();
+      if (parts.length > 1) {
+        imageUrl = parts[1].trim();
+      }
+    }
+
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -1010,13 +1082,138 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message.messageText,
-              style: TextStyle(
-                color: isMine ? Colors.white : Colors.black87,
-                fontSize: 15 * scaleFactor,
+            if (displayText.isNotEmpty) ...[
+              Text(
+                displayText,
+                style: TextStyle(
+                  color: isMine ? Colors.white : Colors.black87,
+                  fontSize: 15 * scaleFactor,
+                ),
               ),
-            ),
+              if (imageUrl != null) SizedBox(height: 8 * scaleFactor),
+            ],
+            if (imageUrl != null) ...[
+              GestureDetector(
+                onTap: () {
+                  // Show full screen image
+                  showDialog(
+                    context: context,
+                    builder: (context) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: InteractiveViewer(
+                              child: Image.network(
+                                imageUrl!,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    padding: EdgeInsets.all(20),
+                                    color: Colors.white,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.broken_image,
+                                          size: 48,
+                                          color: Colors.grey,
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Failed to load image',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 40,
+                            right: 20,
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: 250 * scaleFactor,
+                    maxHeight: 200 * scaleFactor,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8 * scaleFactor),
+                    border: Border.all(
+                      color: isMine
+                          ? Colors.white.withOpacity(0.3)
+                          : Colors.grey[300]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8 * scaleFactor),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 150 * scaleFactor,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                  : null,
+                              color: isMine
+                                  ? Colors.white
+                                  : AppConstants.primaryColor,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 150 * scaleFactor,
+                          color: Colors.grey[200],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image_outlined,
+                                size: 40 * scaleFactor,
+                                color: Colors.grey[400],
+                              ),
+                              SizedBox(height: 8 * scaleFactor),
+                              Text(
+                                'Failed to load image',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12 * scaleFactor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
             SizedBox(height: 4 * scaleFactor),
             Row(
               mainAxisSize: MainAxisSize.min,
