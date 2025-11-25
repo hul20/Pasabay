@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
@@ -10,9 +11,11 @@ import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
 import '../models/trip.dart';
 import '../services/trip_service.dart';
+import '../services/notification_service.dart';
 import 'activity_page.dart';
 import 'messages_page.dart';
 import 'profile_page.dart';
+import 'notifications_page.dart';
 
 class TravelerHomePage extends StatefulWidget {
   const TravelerHomePage({super.key});
@@ -21,20 +24,21 @@ class TravelerHomePage extends StatefulWidget {
   State<TravelerHomePage> createState() => _TravelerHomePageState();
 }
 
-class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBindingObserver {
+class _TravelerHomePageState extends State<TravelerHomePage>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
   String userName = "Juan"; // Will be loaded from database
   int activeTrips = 0; // Will be loaded from TripService
   int totalEarnings = 0; // Will be loaded from TripService
   bool _isVerified = false;
   bool _isLoading = true;
-  
+
   // Trip form controllers
   final TextEditingController _departureController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  
+
   // Location coordinates
   double? _departureLat;
   double? _departureLng;
@@ -42,14 +46,17 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
   double? _destinationLng;
   double? _currentLat;
   double? _currentLng;
-  
+
   // Map controller
   GoogleMapController? _mapController;
   GoogleMapController? _expandedMapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
-  
+
   final TripService _tripService = TripService();
+  final NotificationService _notificationService = NotificationService();
+  int _unreadNotifications = 0;
+  RealtimeChannel? _notificationSubscription;
 
   @override
   void initState() {
@@ -58,12 +65,56 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
     _checkVerificationStatus();
     _loadUserName();
     _loadTripStats();
+    _loadUnreadNotifications();
+    _setupNotificationSubscription();
+  }
+
+  void _setupNotificationSubscription() {
+    try {
+      _notificationSubscription = _notificationService.subscribeToNotifications(
+        (notification) {
+          if (mounted) {
+            _loadUnreadNotifications();
+
+            // Show a snackbar for new notification
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(notification.title),
+                action: SnackBarAction(
+                  label: 'View',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationsPage(),
+                      ),
+                    );
+                  },
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      print('Error subscribing to notifications: $e');
+    }
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    final count = await _notificationService.getUnreadCount();
+    if (mounted) {
+      setState(() {
+        _unreadNotifications = count;
+      });
+    }
   }
 
   Future<void> _loadUserName() async {
     final supabaseService = SupabaseService();
     final userData = await supabaseService.getUserData();
-    
+
     if (userData != null && mounted) {
       setState(() {
         // Get first name only for greeting
@@ -88,6 +139,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
 
   @override
   void dispose() {
+    _notificationSubscription?.unsubscribe();
     _departureController.dispose();
     _destinationController.dispose();
     _mapController?.dispose();
@@ -103,6 +155,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
       _checkVerificationStatus();
       _loadUserName();
       _loadTripStats();
+      _loadUnreadNotifications();
     }
   }
 
@@ -111,20 +164,20 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
     final prefs = await SharedPreferences.getInstance();
     final userId = supabaseService.currentUser?.id ?? '';
     final hasShownKey = 'has_shown_verified_$userId';
-    
+
     final isVerified = await supabaseService.isUserVerified();
     final hasShownVerifiedMessage = prefs.getBool(hasShownKey) ?? false;
-    
+
     setState(() {
       _isVerified = isVerified;
       _isLoading = false;
     });
-    
+
     // Show verified message only once per user, ever
     if (isVerified && !hasShownVerifiedMessage && mounted) {
       // Mark as shown for this user
       await prefs.setBool(hasShownKey, true);
-      
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -169,7 +222,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
         );
       },
     );
-    
+
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
@@ -194,7 +247,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
         );
       },
     );
-    
+
     if (picked != null && picked != _selectedTime) {
       setState(() {
         _selectedTime = picked;
@@ -204,11 +257,14 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
 
   Future<void> _updateMapMarkers() async {
     Set<Marker> newMarkers = {};
-    
+
     // Try to geocode departure if we have text but no coordinates
-    if (_departureController.text.isNotEmpty && (_departureLat == null || _departureLng == null)) {
+    if (_departureController.text.isNotEmpty &&
+        (_departureLat == null || _departureLng == null)) {
       try {
-        final locations = await locationFromAddress(_departureController.text.trim());
+        final locations = await locationFromAddress(
+          _departureController.text.trim(),
+        );
         if (locations.isNotEmpty) {
           _departureLat = locations.first.latitude;
           _departureLng = locations.first.longitude;
@@ -218,11 +274,14 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
         print('❌ Could not geocode departure: $e');
       }
     }
-    
+
     // Try to geocode destination if we have text but no coordinates
-    if (_destinationController.text.isNotEmpty && (_destinationLat == null || _destinationLng == null)) {
+    if (_destinationController.text.isNotEmpty &&
+        (_destinationLat == null || _destinationLng == null)) {
       try {
-        final locations = await locationFromAddress(_destinationController.text.trim());
+        final locations = await locationFromAddress(
+          _destinationController.text.trim(),
+        );
         if (locations.isNotEmpty) {
           _destinationLat = locations.first.latitude;
           _destinationLng = locations.first.longitude;
@@ -232,22 +291,26 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
         print('❌ Could not geocode destination: $e');
       }
     }
-    
+
     // Add departure marker
     if (_departureLat != null && _departureLng != null) {
       newMarkers.add(
         Marker(
           markerId: MarkerId('departure'),
           position: LatLng(_departureLat!, _departureLng!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
           infoWindow: InfoWindow(
             title: 'Departure',
-            snippet: _departureController.text.isEmpty ? 'Starting point' : _departureController.text,
+            snippet: _departureController.text.isEmpty
+                ? 'Starting point'
+                : _departureController.text,
           ),
         ),
       );
     }
-    
+
     // Add destination marker
     if (_destinationLat != null && _destinationLng != null) {
       newMarkers.add(
@@ -257,30 +320,43 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
             title: 'Destination',
-            snippet: _destinationController.text.isEmpty ? 'End point' : _destinationController.text,
+            snippet: _destinationController.text.isEmpty
+                ? 'End point'
+                : _destinationController.text,
           ),
         ),
       );
     }
-    
+
     if (mounted) {
       setState(() {
         _markers = newMarkers;
       });
-      
+
       // Animate camera to show both markers
-      if (_departureLat != null && _departureLng != null && _destinationLat != null && _destinationLng != null) {
+      if (_departureLat != null &&
+          _departureLng != null &&
+          _destinationLat != null &&
+          _destinationLng != null) {
         try {
           // Calculate bounds
-          final double south = _departureLat! < _destinationLat! ? _departureLat! : _destinationLat!;
-          final double north = _departureLat! > _destinationLat! ? _departureLat! : _destinationLat!;
-          final double west = _departureLng! < _destinationLng! ? _departureLng! : _destinationLng!;
-          final double east = _departureLng! > _destinationLng! ? _departureLng! : _destinationLng!;
-          
+          final double south = _departureLat! < _destinationLat!
+              ? _departureLat!
+              : _destinationLat!;
+          final double north = _departureLat! > _destinationLat!
+              ? _departureLat!
+              : _destinationLat!;
+          final double west = _departureLng! < _destinationLng!
+              ? _departureLng!
+              : _destinationLng!;
+          final double east = _departureLng! > _destinationLng!
+              ? _departureLng!
+              : _destinationLng!;
+
           // Add padding to bounds
           final double latPadding = (north - south) * 0.3;
           final double lngPadding = (east - west) * 0.3;
-          
+
           await _mapController?.animateCamera(
             CameraUpdate.newLatLngBounds(
               LatLngBounds(
@@ -320,17 +396,17 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
       _showSnackBar('Please enter departure location', Colors.orange);
       return;
     }
-    
+
     if (_destinationController.text.isEmpty) {
       _showSnackBar('Please enter destination location', Colors.orange);
       return;
     }
-    
+
     if (_selectedDate == null) {
       _showSnackBar('Please select departure date', Colors.orange);
       return;
     }
-    
+
     if (_selectedTime == null) {
       _showSnackBar('Please select departure time', Colors.orange);
       return;
@@ -347,7 +423,9 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
       // Try to geocode locations if not already set
       if (_departureLat == null || _departureLng == null) {
         try {
-          final depLocations = await locationFromAddress(_departureController.text.trim());
+          final depLocations = await locationFromAddress(
+            _departureController.text.trim(),
+          );
           if (depLocations.isNotEmpty) {
             _departureLat = depLocations.first.latitude;
             _departureLng = depLocations.first.longitude;
@@ -357,10 +435,12 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
           // Continue without coordinates
         }
       }
-      
+
       if (_destinationLat == null || _destinationLng == null) {
         try {
-          final destLocations = await locationFromAddress(_destinationController.text.trim());
+          final destLocations = await locationFromAddress(
+            _destinationController.text.trim(),
+          );
           if (destLocations.isNotEmpty) {
             _destinationLat = destLocations.first.latitude;
             _destinationLng = destLocations.first.longitude;
@@ -370,10 +450,11 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
           // Continue without coordinates
         }
       }
-      
+
       // Format time as HH:mm:ss
-      final timeString = '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00';
-      
+      final timeString =
+          '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00';
+
       await _tripService.createTrip(
         departureLocation: _departureController.text.trim(),
         departureLat: _departureLat,
@@ -389,7 +470,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
 
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        
+
         // Clear form
         _departureController.clear();
         _destinationController.clear();
@@ -402,10 +483,10 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
           _destinationLng = null;
           _markers.clear();
         });
-        
+
         // Reload stats
         _loadTripStats();
-        
+
         _showSnackBar('Trip registered successfully!', Colors.green);
       }
     } catch (e) {
@@ -446,7 +527,10 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
       }
 
       if (permission == LocationPermission.deniedForever) {
-        _showSnackBar('Location permissions are permanently denied', Colors.red);
+        _showSnackBar(
+          'Location permissions are permanently denied',
+          Colors.red,
+        );
         return;
       }
 
@@ -467,7 +551,10 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
     }
   }
 
-  Widget _buildExpandedMapWidget(double scaleFactor, [VoidCallback? onMarkerUpdate]) {
+  Widget _buildExpandedMapWidget(
+    double scaleFactor, [
+    VoidCallback? onMarkerUpdate,
+  ]) {
     // Determine initial camera position
     LatLng initialPosition;
     double initialZoom = 11.0;
@@ -488,7 +575,9 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
     }
 
     return GoogleMap(
-      key: ValueKey('expanded_map_${_markers.length}'), // Force rebuild when markers change
+      key: ValueKey(
+        'expanded_map_${_markers.length}',
+      ), // Force rebuild when markers change
       initialCameraPosition: CameraPosition(
         target: initialPosition,
         zoom: initialZoom,
@@ -497,11 +586,11 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
       polylines: _polylines,
       onMapCreated: (GoogleMapController controller) async {
         if (!mounted) return;
-        
+
         try {
           _expandedMapController = controller;
           print('✅ Expanded map initialized successfully!');
-          
+
           // Center on current location if available
           if (_currentLat != null && _currentLng != null) {
             await Future.delayed(Duration(milliseconds: 500));
@@ -512,7 +601,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
               ),
             );
           }
-          
+
           // Update markers after a short delay
           await Future.delayed(Duration(milliseconds: 300));
           await _updateMapMarkers();
@@ -544,7 +633,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
   Future<void> _showExpandedMap(double scaleFactor) async {
     // Get current location before showing map
     await _getCurrentLocation();
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -568,10 +657,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                     padding: EdgeInsets.all(16 * scaleFactor),
                     decoration: BoxDecoration(
                       border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey[200]!,
-                          width: 1,
-                        ),
+                        bottom: BorderSide(color: Colors.grey[200]!, width: 1),
                       ),
                     ),
                     child: Row(
@@ -593,7 +679,8 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                             ),
                           ),
                         ),
-                        if (_departureController.text.isNotEmpty || _destinationController.text.isNotEmpty)
+                        if (_departureController.text.isNotEmpty ||
+                            _destinationController.text.isNotEmpty)
                           TextButton.icon(
                             onPressed: () {
                               _expandedMapController?.dispose();
@@ -624,52 +711,49 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                       ),
                     ),
                   ),
-              // Instructions
-              Container(
-                padding: EdgeInsets.all(16 * scaleFactor),
-                decoration: BoxDecoration(
-                  color: AppConstants.primaryColor.withOpacity(0.1),
-                  border: Border(
-                    top: BorderSide(
-                      color: Colors.grey[200]!,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppConstants.primaryColor,
-                      size: 20 * scaleFactor,
-                    ),
-                    SizedBox(width: 12 * scaleFactor),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tap on the map to drop pins',
-                            style: TextStyle(
-                              fontSize: 14 * scaleFactor,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          SizedBox(height: 4 * scaleFactor),
-                          Text(
-                            'First tap = Departure (🟢), Second tap = Destination (🔴)',
-                            style: TextStyle(
-                              fontSize: 12 * scaleFactor,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ],
+                  // Instructions
+                  Container(
+                    padding: EdgeInsets.all(16 * scaleFactor),
+                    decoration: BoxDecoration(
+                      color: AppConstants.primaryColor.withOpacity(0.1),
+                      border: Border(
+                        top: BorderSide(color: Colors.grey[200]!, width: 1),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: AppConstants.primaryColor,
+                          size: 20 * scaleFactor,
+                        ),
+                        SizedBox(width: 12 * scaleFactor),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tap on the map to drop pins',
+                                style: TextStyle(
+                                  fontSize: 14 * scaleFactor,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: 4 * scaleFactor),
+                              Text(
+                                'First tap = Departure (🟢), Second tap = Destination (🔴)',
+                                style: TextStyle(
+                                  fontSize: 12 * scaleFactor,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             );
@@ -681,25 +765,31 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
 
   Future<void> _onMapTap(LatLng position) async {
     // Determine which location to set based on what's empty
-    if (_departureController.text.isEmpty || (_departureLat == null && _destinationLat != null)) {
+    if (_departureController.text.isEmpty ||
+        (_departureLat == null && _destinationLat != null)) {
       // Set as departure
       setState(() {
         _departureLat = position.latitude;
         _departureLng = position.longitude;
       });
-      
+
       // Try to get address for this location
       try {
-        final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
         if (placemarks.isNotEmpty) {
           final place = placemarks.first;
-          final address = '${place.locality ?? place.subAdministrativeArea ?? ''}, ${place.country ?? ''}';
+          final address =
+              '${place.locality ?? place.subAdministrativeArea ?? ''}, ${place.country ?? ''}';
           _departureController.text = address.trim();
         }
       } catch (e) {
-        _departureController.text = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        _departureController.text =
+            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
       }
-      
+
       _showSnackBar('🟢 Departure location set!', Colors.green);
     } else if (_destinationController.text.isEmpty || _destinationLat == null) {
       // Set as destination
@@ -707,25 +797,30 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
         _destinationLat = position.latitude;
         _destinationLng = position.longitude;
       });
-      
+
       // Try to get address for this location
       try {
-        final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
         if (placemarks.isNotEmpty) {
           final place = placemarks.first;
-          final address = '${place.locality ?? place.subAdministrativeArea ?? ''}, ${place.country ?? ''}';
+          final address =
+              '${place.locality ?? place.subAdministrativeArea ?? ''}, ${place.country ?? ''}';
           _destinationController.text = address.trim();
         }
       } catch (e) {
-        _destinationController.text = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        _destinationController.text =
+            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
       }
-      
+
       _showSnackBar('🔴 Destination location set!', Colors.red);
     } else {
       // Both are set, ask which one to replace
       _showSnackBar('Clear a location first to set a new one', Colors.orange);
     }
-    
+
     _updateMapMarkers();
   }
 
@@ -745,16 +840,17 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
         polylines: _polylines,
         onMapCreated: (GoogleMapController controller) async {
           if (!mounted) return;
-          
+
           try {
             _mapController = controller;
             print('✅ Google Maps initialized successfully!');
-            
+
             // Wait a bit before updating markers
             await Future.delayed(Duration(milliseconds: 300));
-            
+
             // Auto-update markers if locations are already set
-            if (_departureController.text.isNotEmpty || _destinationController.text.isNotEmpty) {
+            if (_departureController.text.isNotEmpty ||
+                _destinationController.text.isNotEmpty) {
               _updateMapMarkers();
             }
           } catch (e) {
@@ -835,664 +931,380 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _checkVerificationStatus,
-        child: SingleChildScrollView(
+          child: SingleChildScrollView(
             physics: AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 12 * scaleFactor),
-                // Top bar: logo and role icon
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 36 * scaleFactor,
-                          height: 36 * scaleFactor,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              8 * scaleFactor,
-                            ),
-                            image: const DecorationImage(
-                              image: NetworkImage(AppConstants.logoUrl),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 8 * scaleFactor),
-                        Text(
-                          'Pasabay',
-                          style: TextStyle(
-                            fontSize: 18 * scaleFactor,
-                            fontWeight: FontWeight.w600,
-                            color: AppConstants.primaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Color(0xFF00B4D8),
-                        borderRadius: BorderRadius.circular(10 * scaleFactor),
-                      ),
-                      padding: EdgeInsets.all(8 * scaleFactor),
-                      child: Icon(
-                        Icons.directions_bus,
-                        color: Colors.white,
-                        size: 28 * scaleFactor,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16 * scaleFactor),
-                // Search bar with notifications
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12 * scaleFactor),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search for location, route, etc.',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 15 * scaleFactor,
-                            ),
-                            border: InputBorder.none,
-                            prefixIcon: Icon(Icons.search, color: Colors.grey),
-                            contentPadding: EdgeInsets.symmetric(
-                              vertical: 16 * scaleFactor,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12 * scaleFactor),
-                    Stack(
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            Icons.notifications_none,
-                            size: 28 * scaleFactor,
-                            color: Colors.black,
-                          ),
-                          onPressed: () {},
-                        ),
-                        Positioned(
-                          right: 8 * scaleFactor,
-                          top: 8 * scaleFactor,
-                          child: Container(
-                            width: 16 * scaleFactor,
-                            height: 16 * scaleFactor,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 12 * scaleFactor),
+                  // Top bar: logo and role icon
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 36 * scaleFactor,
+                            height: 36 * scaleFactor,
                             decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                '2',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10 * scaleFactor,
-                                ),
+                              borderRadius: BorderRadius.circular(
+                                8 * scaleFactor,
+                              ),
+                              image: const DecorationImage(
+                                image: AssetImage(AppConstants.logoPath),
+                                fit: BoxFit.cover,
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 18 * scaleFactor),
-                
-                // Verification Status Banner (only show warning if not verified)
-                if (!_isLoading && !_isVerified)
-                  Column(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(14 * scaleFactor),
-                        decoration: BoxDecoration(
-                          color: Color(0xFFFFF4E6),
-                          borderRadius: BorderRadius.circular(12 * scaleFactor),
-                          border: Border.all(
-                            color: Color(0xFFFFB74D),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              color: Color(0xFFF57C00),
-                              size: 24 * scaleFactor,
+                          SizedBox(width: 8 * scaleFactor),
+                          Text(
+                            'Pasabay',
+                            style: TextStyle(
+                              fontSize: 18 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: AppConstants.primaryColor,
                             ),
-                            SizedBox(width: 12 * scaleFactor),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Account Not Verified',
-                                    style: TextStyle(
-                                      fontSize: 15 * scaleFactor,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFFF57C00),
-                                    ),
-                                  ),
-                                  SizedBox(height: 4 * scaleFactor),
-                                  Text(
-                                    'Please verify your identity to start accepting delivery requests.',
-                                    style: TextStyle(
-                                      fontSize: 13 * scaleFactor,
-                                      color: Color(0xFF5D4037),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(width: 8 * scaleFactor),
-                            GestureDetector(
-                              onTap: () async {
-                                await Navigator.pushNamed(context, '/identity_verification');
-                                // Refresh status when returning from verification screen
-                                _checkVerificationStatus();
-                              },
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 12 * scaleFactor,
-                                  vertical: 8 * scaleFactor,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Color(0xFFF57C00),
-                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
-                                ),
-                                child: Text(
-                                  'Verify Now',
-                                  style: TextStyle(
-                                    fontSize: 13 * scaleFactor,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 18 * scaleFactor),
-                    ],
-                  ),
-                
-                // Greeting
-                Text(
-                  'Hello, $userName!',
-                  style: TextStyle(
-                    fontSize: 28 * scaleFactor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 6 * scaleFactor),
-                Text(
-                  "Here's an overview for this month of October",
-                  style: TextStyle(
-                    fontSize: 15 * scaleFactor,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                SizedBox(height: 18 * scaleFactor),
-                // Cards: Active Trips & Total Earnings
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.all(16 * scaleFactor),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16 * scaleFactor),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.07),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Active Trips',
-                              style: TextStyle(
-                                fontSize: 15 * scaleFactor,
-                                color: Colors.grey[700],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: 8 * scaleFactor),
-                            Text(
-                              '$activeTrips',
-                              style: TextStyle(
-                                fontSize: 28 * scaleFactor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12 * scaleFactor),
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.all(16 * scaleFactor),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16 * scaleFactor),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.07),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Total Earnings',
-                              style: TextStyle(
-                                fontSize: 15 * scaleFactor,
-                                color: Colors.grey[700],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: 8 * scaleFactor),
-                            Text(
-                              '₱$totalEarnings',
-                              style: TextStyle(
-                                fontSize: 28 * scaleFactor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 24 * scaleFactor),
-                // Plan Your Route
-                Text(
-                  'Plan Your Route',
-                  style: TextStyle(
-                    fontSize: 20 * scaleFactor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 12 * scaleFactor),
-                Container(
-                  padding: EdgeInsets.all(16 * scaleFactor),
-                  decoration: BoxDecoration(
-                    color: Color(0xFFDBF6FF),
-                    borderRadius: BorderRadius.circular(16 * scaleFactor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Destination',
-                        style: TextStyle(
-                          fontSize: 22 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF00B4D8),
-                        ),
-                      ),
-                      SizedBox(height: 4 * scaleFactor),
-                      Text(
-                        'Tap to pin departure and target location',
-                        style: TextStyle(
-                          fontSize: 14 * scaleFactor,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-                      TextField(
-                        controller: _departureController,
-                              decoration: InputDecoration(
-                          hintText: 'Departure Location (e.g., Manila, Philippines)',
-                                border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8 * scaleFactor),
-                                  borderSide: BorderSide.none,
-                                ),
-                                filled: true,
-                                fillColor: Colors.white,
-                                prefixIcon: Icon(
-                                  Icons.location_on_outlined,
-                            color: Colors.green,
-                          ),
-                          suffixIcon: _departureController.text.isNotEmpty
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.search, size: 20, color: Colors.green),
-                                      onPressed: () {
-                                        _updateMapMarkers();
-                                      },
-                                      tooltip: 'Find on map',
-                            ),
-                                    IconButton(
-                                      icon: Icon(Icons.clear, size: 20),
-                                      onPressed: () {
-                                        setState(() {
-                                          _departureController.clear();
-                                          _departureLat = null;
-                                          _departureLng = null;
-                                        });
-                                        _updateMapMarkers();
-                                      },
-                                    ),
-                                  ],
-                                )
-                              : null,
-                        ),
-                        onChanged: (value) {
-                          setState(() {});
-                        },
-                        onSubmitted: (value) {
-                          if (value.isNotEmpty) {
-                            _updateMapMarkers();
-                          }
-                        },
-                      ),
-                      SizedBox(height: 8 * scaleFactor),
-                      TextField(
-                        controller: _destinationController,
-                        decoration: InputDecoration(
-                          hintText: 'Destination Location (e.g., Baguio, Philippines)',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8 * scaleFactor),
-                            borderSide: BorderSide.none,
-                              ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          prefixIcon: Icon(
-                            Icons.place_outlined,
-                            color: Colors.red,
-                          ),
-                          suffixIcon: _destinationController.text.isNotEmpty
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.search, size: 20, color: Colors.red),
-                                      onPressed: () {
-                                        _updateMapMarkers();
-                                      },
-                                      tooltip: 'Find on map',
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.clear, size: 20),
-                                      onPressed: () {
-                                        setState(() {
-                                          _destinationController.clear();
-                                          _destinationLat = null;
-                                          _destinationLng = null;
-                                        });
-                                        _updateMapMarkers();
-                                      },
                           ),
                         ],
-                                )
-                              : null,
-                        ),
-                        onChanged: (value) {
-                          setState(() {});
-                        },
-                        onSubmitted: (value) {
-                          if (value.isNotEmpty) {
-                            _updateMapMarkers();
-                          }
-                        },
                       ),
-                      SizedBox(height: 12 * scaleFactor),
-                      // Pin on Maps Button
-                      GestureDetector(
-                        onTap: () => _showExpandedMap(scaleFactor),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 12 * scaleFactor,
-                            horizontal: 16 * scaleFactor,
-                          ),
+                      Row(
+                        children: [
+                          Container(
                             decoration: BoxDecoration(
+                              color: Color(0xFF00B4D8),
+                              borderRadius: BorderRadius.circular(
+                                10 * scaleFactor,
+                              ),
+                            ),
+                            padding: EdgeInsets.all(8 * scaleFactor),
+                            child: Icon(
+                              Icons.directions_bus,
+                              color: Colors.white,
+                              size: 28 * scaleFactor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16 * scaleFactor),
+                  // Search bar with notifications
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search for location, route, etc.',
+                              hintStyle: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 15 * scaleFactor,
+                              ),
+                              border: InputBorder.none,
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 16 * scaleFactor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12 * scaleFactor),
+                      GestureDetector(
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsPage(),
+                            ),
+                          );
+                          _loadUnreadNotifications();
+                        },
+                        child: Container(
+                          width: 44 * scaleFactor,
+                          height: 44 * scaleFactor,
+                          decoration: BoxDecoration(
                             color: AppConstants.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
+                          ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Icon(
+                                  Icons.notifications_outlined,
+                                  color: AppConstants.primaryColor,
+                                  size: 26 * scaleFactor,
+                                ),
+                              ),
+                              if (_unreadNotifications > 0)
+                                Positioned(
+                                  right: 10 * scaleFactor,
+                                  top: 10 * scaleFactor,
+                                  child: Container(
+                                    width: 10 * scaleFactor,
+                                    height: 10 * scaleFactor,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 18 * scaleFactor),
+
+                  // Verification Status Banner (only show warning if not verified)
+                  if (!_isLoading && !_isVerified)
+                    Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(14 * scaleFactor),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFFFF4E6),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                             border: Border.all(
-                              color: AppConstants.primaryColor.withOpacity(0.3),
+                              color: Color(0xFFFFB74D),
                               width: 1.5,
                             ),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.map_outlined,
-                                color: AppConstants.primaryColor,
-                                size: 20 * scaleFactor,
+                                Icons.warning_amber_rounded,
+                                color: Color(0xFFF57C00),
+                                size: 24 * scaleFactor,
                               ),
-                              SizedBox(width: 8 * scaleFactor),
-                              Text(
-                                'Pin on Maps',
-                                style: TextStyle(
-                                  fontSize: 15 * scaleFactor,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppConstants.primaryColor,
+                              SizedBox(width: 12 * scaleFactor),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Account Not Verified',
+                                      style: TextStyle(
+                                        fontSize: 15 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFF57C00),
+                                      ),
+                                    ),
+                                    SizedBox(height: 4 * scaleFactor),
+                                    Text(
+                                      'Please verify your identity to start accepting delivery requests.',
+                                      style: TextStyle(
+                                        fontSize: 13 * scaleFactor,
+                                        color: Color(0xFF5D4037),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              SizedBox(width: 4 * scaleFactor),
-                              Icon(
-                                Icons.open_in_full,
-                                color: AppConstants.primaryColor,
-                                size: 18 * scaleFactor,
+                              SizedBox(width: 8 * scaleFactor),
+                              GestureDetector(
+                                onTap: () async {
+                                  await Navigator.pushNamed(
+                                    context,
+                                    '/identity_verification',
+                                  );
+                                  // Refresh status when returning from verification screen
+                                  _checkVerificationStatus();
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12 * scaleFactor,
+                                    vertical: 8 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFF57C00),
+                                    borderRadius: BorderRadius.circular(
+                                      8 * scaleFactor,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Verify Now',
+                                    style: TextStyle(
+                                      fontSize: 13 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 18 * scaleFactor),
-                // Schedule
-                Container(
-                  padding: EdgeInsets.all(16 * scaleFactor),
-                  decoration: BoxDecoration(
-                    color: Color(0xFFDBF6FF),
-                    borderRadius: BorderRadius.circular(16 * scaleFactor),
-                  ),
-                  child: Column(
+                        SizedBox(height: 18 * scaleFactor),
+                      ],
+                    ),
+
+                  // Greeting
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Schedule',
+                        'Hello, $userName!',
                         style: TextStyle(
-                          fontSize: 22 * scaleFactor,
+                          fontSize: 28 * scaleFactor,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF00B4D8),
+                          color: Colors.black87,
                         ),
                       ),
-                      SizedBox(height: 4 * scaleFactor),
+                      SizedBox(height: 6 * scaleFactor),
                       Text(
-                        'Tap to add travel date and time',
+                        "Here's your overview for ${DateFormat('MMMM').format(DateTime.now())}",
                         style: TextStyle(
-                          fontSize: 14 * scaleFactor,
-                          color: Colors.black,
+                          fontSize: 15 * scaleFactor,
+                          color: Colors.grey[600],
                         ),
-                      ),
-                      SizedBox(height: 12 * scaleFactor),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    8 * scaleFactor,
-                                  ),
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  vertical: 14 * scaleFactor,
-                                ),
-                              ),
-                              icon: Icon(Icons.calendar_today_outlined),
-                              label: Text(
-                                _selectedDate == null
-                                    ? 'Select Date'
-                                    : DateFormat('MMM dd, yyyy').format(_selectedDate!),
-                                style: TextStyle(fontSize: 13 * scaleFactor),
-                              ),
-                              onPressed: _selectDate,
-                            ),
-                          ),
-                          SizedBox(width: 8 * scaleFactor),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    8 * scaleFactor,
-                                  ),
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  vertical: 14 * scaleFactor,
-                                ),
-                              ),
-                              icon: Icon(Icons.access_time_outlined),
-                              label: Text(
-                                _selectedTime == null
-                                    ? 'Select Time'
-                                    : _selectedTime!.format(context),
-                                style: TextStyle(fontSize: 13 * scaleFactor),
-                              ),
-                              onPressed: _selectTime,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
-                ),
-                SizedBox(height: 18 * scaleFactor),
-                // Map
-                Container(
-                  height: 200 * scaleFactor,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(16 * scaleFactor),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16 * scaleFactor),
-                  child: Stack(
+                  SizedBox(height: 24 * scaleFactor),
+                  // Cards: Active Trips & Total Earnings
+                  Row(
                     children: [
-                        // Map Widget with error handling
-                        _buildMapWidgetWithErrorHandling(scaleFactor),
-                        // Instructions banner
-                        if (_markers.isEmpty)
-                          Positioned(
-                            top: 12 * scaleFactor,
-                            left: 12 * scaleFactor,
-                            right: 12 * scaleFactor,
-                            child: Container(
-                              padding: EdgeInsets.all(12 * scaleFactor),
-                              decoration: BoxDecoration(
-                                color: AppConstants.primaryColor,
-                                borderRadius: BorderRadius.circular(12 * scaleFactor),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
+                      Expanded(
+                        child: Container(
+                          padding: EdgeInsets.all(16 * scaleFactor),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              16 * scaleFactor,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.touch_app,
-                                    color: Colors.white,
-                                    size: 20 * scaleFactor,
+                            ],
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.1),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(8 * scaleFactor),
+                                decoration: BoxDecoration(
+                                  color: AppConstants.primaryColor.withOpacity(
+                                    0.1,
                                   ),
-                                  SizedBox(width: 8 * scaleFactor),
-                                  Expanded(
-                        child: Text(
-                                      'Tap map to drop pins or type locations above',
-                          style: TextStyle(
-                                        fontSize: 12 * scaleFactor,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w500,
+                                  borderRadius: BorderRadius.circular(
+                                    8 * scaleFactor,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.directions_car_filled,
+                                  color: AppConstants.primaryColor,
+                                  size: 20 * scaleFactor,
+                                ),
+                              ),
+                              SizedBox(height: 12 * scaleFactor),
+                              Text(
+                                'Active Trips',
+                                style: TextStyle(
+                                  fontSize: 13 * scaleFactor,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 4 * scaleFactor),
+                              Text(
+                                '$activeTrips',
+                                style: TextStyle(
+                                  fontSize: 24 * scaleFactor,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        
-                        // Route preview badge (when markers exist)
-                        if (_markers.isNotEmpty)
-                      Positioned(
-                        top: 12 * scaleFactor,
-                        left: 12 * scaleFactor,
+                      SizedBox(width: 12 * scaleFactor),
+                      Expanded(
                         child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12 * scaleFactor,
-                            vertical: 6 * scaleFactor,
-                          ),
+                          padding: EdgeInsets.all(16 * scaleFactor),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                                borderRadius: BorderRadius.circular(12 * scaleFactor),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
+                            borderRadius: BorderRadius.circular(
+                              16 * scaleFactor,
                             ),
-                                ],
-                          ),
-                          child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                    Icons.route,
-                                    color: AppConstants.primaryColor,
-                                    size: 14 * scaleFactor,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                              SizedBox(width: 6 * scaleFactor),
+                            ],
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.1),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(8 * scaleFactor),
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF00B4D8).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(
+                                    8 * scaleFactor,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.account_balance_wallet,
+                                  color: Color(0xFF00B4D8),
+                                  size: 20 * scaleFactor,
+                                ),
+                              ),
+                              SizedBox(height: 12 * scaleFactor),
                               Text(
-                                    '${_markers.length} location${_markers.length > 1 ? 's' : ''}',
+                                'Total Earnings',
                                 style: TextStyle(
                                   fontSize: 13 * scaleFactor,
-                                  color: Colors.black,
-                                      fontWeight: FontWeight.w600,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 4 * scaleFactor),
+                              Text(
+                                '₱$totalEarnings',
+                                style: TextStyle(
+                                  fontSize: 24 * scaleFactor,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ],
@@ -1500,43 +1312,531 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
                         ),
                       ),
                     ],
+                  ),
+                  SizedBox(height: 24 * scaleFactor),
+                  SizedBox(height: 24 * scaleFactor),
+                  // Plan Your Route
+                  Text(
+                    'Plan Your Route',
+                    style: TextStyle(
+                      fontSize: 18 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
-                ),
-                SizedBox(height: 18 * scaleFactor),
-                // Register Travel Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 54 * scaleFactor,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isVerified ? AppConstants.primaryColor : Colors.grey,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16 * scaleFactor),
-                      ),
+                  SizedBox(height: 12 * scaleFactor),
+                  Container(
+                    padding: EdgeInsets.all(20 * scaleFactor),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
                     ),
-                    onPressed: _isVerified ? _registerTrip : null,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.add_circle_outline, size: 22 * scaleFactor),
-                        SizedBox(width: 8 * scaleFactor),
-                        Text(
-                      'Register Travel',
-                      style: TextStyle(
-                        fontSize: 18 * scaleFactor,
-                        fontWeight: FontWeight.bold,
-                      ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.map,
+                              color: AppConstants.primaryColor,
+                              size: 20 * scaleFactor,
+                            ),
+                            SizedBox(width: 8 * scaleFactor),
+                            Text(
+                              'Trip Details',
+                              style: TextStyle(
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
+                        TextField(
+                          controller: _departureController,
+                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          decoration: InputDecoration(
+                            hintText: 'Departure Location',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14 * scaleFactor,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * scaleFactor,
+                              vertical: 14 * scaleFactor,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(
+                                color: AppConstants.primaryColor,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(
+                              Icons.my_location,
+                              color: AppConstants.primaryColor,
+                              size: 20 * scaleFactor,
+                            ),
+                            suffixIcon: _departureController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      size: 18 * scaleFactor,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _departureController.clear();
+                                        _departureLat = null;
+                                        _departureLng = null;
+                                      });
+                                      _updateMapMarkers();
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            setState(() {});
+                          },
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              _updateMapMarkers();
+                            }
+                          },
+                        ),
+                        SizedBox(height: 12 * scaleFactor),
+                        TextField(
+                          controller: _destinationController,
+                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          decoration: InputDecoration(
+                            hintText: 'Destination Location',
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14 * scaleFactor,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * scaleFactor,
+                              vertical: 14 * scaleFactor,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              borderSide: BorderSide(
+                                color: AppConstants.primaryColor,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            prefixIcon: Icon(
+                              Icons.location_on,
+                              color: Colors.red,
+                              size: 20 * scaleFactor,
+                            ),
+                            suffixIcon: _destinationController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      size: 18 * scaleFactor,
+                                      color: Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _destinationController.clear();
+                                        _destinationLat = null;
+                                        _destinationLng = null;
+                                      });
+                                      _updateMapMarkers();
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            setState(() {});
+                          },
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              _updateMapMarkers();
+                            }
+                          },
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
+                        // Pin on Maps Button
+                        GestureDetector(
+                          onTap: () => _showExpandedMap(scaleFactor),
+                          child: Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(
+                              vertical: 12 * scaleFactor,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppConstants.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              border: Border.all(
+                                color: AppConstants.primaryColor.withOpacity(
+                                  0.3,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.map_outlined,
+                                  color: AppConstants.primaryColor,
+                                  size: 20 * scaleFactor,
+                                ),
+                                SizedBox(width: 8 * scaleFactor),
+                                Text(
+                                  'Open Map to Pin Locations',
+                                  style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppConstants.primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ),
-                SizedBox(height: 24 * scaleFactor),
-              ],
-            ),
+                  SizedBox(height: 18 * scaleFactor),
+                  SizedBox(height: 18 * scaleFactor),
+                  // Schedule
+                  Container(
+                    padding: EdgeInsets.all(20 * scaleFactor),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_month,
+                              color: AppConstants.primaryColor,
+                              size: 20 * scaleFactor,
+                            ),
+                            SizedBox(width: 8 * scaleFactor),
+                            Text(
+                              'Schedule',
+                              style: TextStyle(
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16 * scaleFactor),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _selectDate,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 14 * scaleFactor,
+                                    horizontal: 12 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 18 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                      SizedBox(width: 8 * scaleFactor),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedDate == null
+                                              ? 'Select Date'
+                                              : DateFormat(
+                                                  'MMM dd, yyyy',
+                                                ).format(_selectedDate!),
+                                          style: TextStyle(
+                                            fontSize: 14 * scaleFactor,
+                                            color: _selectedDate == null
+                                                ? Colors.grey[500]
+                                                : Colors.black87,
+                                            fontWeight: _selectedDate == null
+                                                ? FontWeight.normal
+                                                : FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 12 * scaleFactor),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _selectTime,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 14 * scaleFactor,
+                                    horizontal: 12 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.access_time_outlined,
+                                        size: 18 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                      SizedBox(width: 8 * scaleFactor),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedTime == null
+                                              ? 'Select Time'
+                                              : _selectedTime!.format(context),
+                                          style: TextStyle(
+                                            fontSize: 14 * scaleFactor,
+                                            color: _selectedTime == null
+                                                ? Colors.grey[500]
+                                                : Colors.black87,
+                                            fontWeight: _selectedTime == null
+                                                ? FontWeight.normal
+                                                : FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 18 * scaleFactor),
+                  // Map
+                  Container(
+                    height: 200 * scaleFactor,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20 * scaleFactor),
+                      child: Stack(
+                        children: [
+                          // Map Widget with error handling
+                          _buildMapWidgetWithErrorHandling(scaleFactor),
+                          // Instructions banner
+                          if (_markers.isEmpty)
+                            Positioned(
+                              top: 12 * scaleFactor,
+                              left: 12 * scaleFactor,
+                              right: 12 * scaleFactor,
+                              child: Container(
+                                padding: EdgeInsets.all(12 * scaleFactor),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(
+                                    12 * scaleFactor,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.touch_app,
+                                      color: AppConstants.primaryColor,
+                                      size: 20 * scaleFactor,
+                                    ),
+                                    SizedBox(width: 8 * scaleFactor),
+                                    Expanded(
+                                      child: Text(
+                                        'Tap map to drop pins or type locations above',
+                                        style: TextStyle(
+                                          fontSize: 12 * scaleFactor,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                          // Route preview badge (when markers exist)
+                          if (_markers.isNotEmpty)
+                            Positioned(
+                              top: 12 * scaleFactor,
+                              left: 12 * scaleFactor,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 12 * scaleFactor,
+                                  vertical: 6 * scaleFactor,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(
+                                    12 * scaleFactor,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.route,
+                                      color: AppConstants.primaryColor,
+                                      size: 14 * scaleFactor,
+                                    ),
+                                    SizedBox(width: 6 * scaleFactor),
+                                    Text(
+                                      '${_markers.length} location${_markers.length > 1 ? 's' : ''}',
+                                      style: TextStyle(
+                                        fontSize: 13 * scaleFactor,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 18 * scaleFactor),
+                  // Register Travel Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56 * scaleFactor,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isVerified
+                            ? AppConstants.primaryColor
+                            : Colors.grey,
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                        shadowColor: AppConstants.primaryColor.withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16 * scaleFactor),
+                        ),
+                      ),
+                      onPressed: _isVerified ? _registerTrip : null,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline,
+                            size: 24 * scaleFactor,
+                          ),
+                          SizedBox(width: 10 * scaleFactor),
+                          Text(
+                            'Register Travel',
+                            style: TextStyle(
+                              fontSize: 18 * scaleFactor,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 24 * scaleFactor),
+                ],
+              ),
             ),
           ),
         ),
@@ -1551,9 +1851,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
             // Navigate to Activity page
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ActivityPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ActivityPage()),
             ).then((_) {
               // Reset to home tab when returning from Activity page
               setState(() {
@@ -1564,9 +1862,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
             // Navigate to Messages page
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const MessagesPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const MessagesPage()),
             ).then((_) {
               // Reset to home tab when returning from Messages page
               setState(() {
@@ -1577,9 +1873,7 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
             // Navigate to Profile page
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ProfilePage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             ).then((_) {
               // Reset to home tab when returning from Profile page
               setState(() {
@@ -1587,9 +1881,9 @@ class _TravelerHomePageState extends State<TravelerHomePage> with WidgetsBinding
               });
             });
           } else {
-          setState(() {
-            _selectedIndex = index;
-          });
+            setState(() {
+              _selectedIndex = index;
+            });
           }
         },
         items: const [

@@ -44,7 +44,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
 
     try {
       final conversations = await _messagingService.getConversations();
-      
+
       if (mounted) {
         setState(() {
           _conversations = conversations;
@@ -68,7 +68,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
     }
 
     _totalUnread = _conversations.fold<int>(
-      0, 
+      0,
       (sum, conv) => sum + conv.getUnreadCount(currentUserId),
     );
   }
@@ -94,18 +94,23 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
               child: _isLoading
                   ? Center(child: CircularProgressIndicator())
                   : _conversations.isEmpty
-                      ? _buildEmptyState(scaleFactor)
-                      : RefreshIndicator(
-                          onRefresh: _loadConversations,
-                          child: ListView.builder(
-                            padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
-                            itemCount: _conversations.length,
-                            itemBuilder: (context, index) {
-                              final conversation = _conversations[index];
-                              return _buildConversationCard(conversation, scaleFactor);
-                            },
-                          ),
+                  ? _buildEmptyState(scaleFactor)
+                  : RefreshIndicator(
+                      onRefresh: _loadConversations,
+                      child: ListView.builder(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 18 * scaleFactor,
                         ),
+                        itemCount: _conversations.length,
+                        itemBuilder: (context, index) {
+                          final conversation = _conversations[index];
+                          return _buildConversationCard(
+                            conversation,
+                            scaleFactor,
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -130,7 +135,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
+                        image: AssetImage(AppConstants.logoPath),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -247,18 +252,16 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
   Widget _buildConversationCard(Conversation conversation, double scaleFactor) {
     final currentUserId = _supabase.auth.currentUser?.id ?? '';
     final unreadCount = conversation.getUnreadCount(currentUserId);
-    
+
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatDetailPage(
-              conversation: conversation,
-            ),
+            builder: (context) => ChatDetailPage(conversation: conversation),
           ),
         );
-        
+
         if (result == true) {
           await _loadConversations();
         }
@@ -286,7 +289,11 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                   ? NetworkImage(conversation.otherUserImage!)
                   : null,
               child: conversation.otherUserImage == null
-                  ? Icon(Icons.person, size: 30 * scaleFactor, color: Colors.white)
+                  ? Icon(
+                      Icons.person,
+                      size: 30 * scaleFactor,
+                      color: Colors.white,
+                    )
                   : null,
             ),
             SizedBox(width: 14 * scaleFactor),
@@ -318,7 +325,9 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                             color: conversation.serviceType == 'Pabakal'
                                 ? Colors.blue.withOpacity(0.1)
                                 : Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
                           child: Text(
                             conversation.serviceType!,
@@ -341,8 +350,12 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                           conversation.lastMessageText ?? 'No messages yet',
                           style: TextStyle(
                             fontSize: 14 * scaleFactor,
-                            color: unreadCount > 0 ? Colors.black87 : Colors.grey[600],
-                            fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                            color: unreadCount > 0
+                                ? Colors.black87
+                                : Colors.grey[600],
+                            fontWeight: unreadCount > 0
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -406,23 +419,32 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
           if (index == 0) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterHomePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterHomePage(),
+              ),
             );
           } else if (index == 1) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterActivityPage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterActivityPage(),
+              ),
             );
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterProfilePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterProfilePage(),
+              ),
             );
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Activity'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Activity',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
@@ -430,4 +452,3 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
     );
   }
 }
-

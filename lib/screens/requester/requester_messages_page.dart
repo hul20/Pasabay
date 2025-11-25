@@ -4,7 +4,9 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../models/conversation.dart';
 import '../../services/messaging_service.dart';
+import '../../services/notification_service.dart';
 import '../chat_detail_page.dart';
+import '../notifications_page.dart';
 import 'requester_home_page.dart';
 import 'requester_activity_page.dart';
 import 'requester_profile_page.dart';
@@ -18,10 +20,13 @@ class RequesterMessagesPage extends StatefulWidget {
 
 class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
   final MessagingService _messagingService = MessagingService();
+  final NotificationService _notificationService = NotificationService();
   List<Conversation> _conversations = [];
   bool _isLoading = true;
   int _totalUnread = 0;
+  int _unreadNotifications = 0;
   RealtimeChannel? _conversationsChannel;
+  RealtimeChannel? _notificationSubscription;
   final _supabase = Supabase.instance.client;
 
   @override
@@ -29,6 +34,8 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
     super.initState();
     _loadConversations();
     _subscribeToConversations();
+    _loadUnreadNotifications();
+    _setupNotificationSubscription();
   }
 
   @override
@@ -36,7 +43,31 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
     if (_conversationsChannel != null) {
       _messagingService.unsubscribe(_conversationsChannel!);
     }
+    _notificationSubscription?.unsubscribe();
     super.dispose();
+  }
+
+  void _setupNotificationSubscription() {
+    try {
+      _notificationSubscription = _notificationService.subscribeToNotifications(
+        (notification) {
+          if (mounted) {
+            _loadUnreadNotifications();
+          }
+        },
+      );
+    } catch (e) {
+      print('Error subscribing to notifications: $e');
+    }
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    final count = await _notificationService.getUnreadCount();
+    if (mounted) {
+      setState(() {
+        _unreadNotifications = count;
+      });
+    }
   }
 
   Future<void> _loadConversations() async {
@@ -44,7 +75,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
 
     try {
       final conversations = await _messagingService.getConversations();
-      
+
       if (mounted) {
         setState(() {
           _conversations = conversations;
@@ -68,7 +99,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
     }
 
     _totalUnread = _conversations.fold<int>(
-      0, 
+      0,
       (sum, conv) => sum + conv.getUnreadCount(currentUserId),
     );
   }
@@ -94,18 +125,23 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
               child: _isLoading
                   ? Center(child: CircularProgressIndicator())
                   : _conversations.isEmpty
-                      ? _buildEmptyState(scaleFactor)
-                      : RefreshIndicator(
-                          onRefresh: _loadConversations,
-                          child: ListView.builder(
-                            padding: EdgeInsets.symmetric(horizontal: 18 * scaleFactor),
-                            itemCount: _conversations.length,
-                            itemBuilder: (context, index) {
-                              final conversation = _conversations[index];
-                              return _buildConversationCard(conversation, scaleFactor);
-                            },
-                          ),
+                  ? _buildEmptyState(scaleFactor)
+                  : RefreshIndicator(
+                      onRefresh: _loadConversations,
+                      child: ListView.builder(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 18 * scaleFactor,
                         ),
+                        itemCount: _conversations.length,
+                        itemBuilder: (context, index) {
+                          final conversation = _conversations[index];
+                          return _buildConversationCard(
+                            conversation,
+                            scaleFactor,
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -130,7 +166,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.logoUrl),
+                        image: AssetImage(AppConstants.logoPath),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -147,35 +183,98 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                 ],
               ),
               Container(
-                width: 44 * scaleFactor,
-                height: 44 * scaleFactor,
                 decoration: BoxDecoration(
-                  color: AppConstants.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  color: Color(0xFF00B4D8),
+                  borderRadius: BorderRadius.circular(10 * scaleFactor),
                 ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Icon(
-                        Icons.notifications_outlined,
-                        color: AppConstants.primaryColor,
-                        size: 26 * scaleFactor,
+                padding: EdgeInsets.all(8 * scaleFactor),
+                child: Icon(
+                  Icons.person,
+                  color: Colors.white,
+                  size: 28 * scaleFactor,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16 * scaleFactor),
+          // Search bar with notifications
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search for a message',
+                      hintStyle: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 15 * scaleFactor,
+                      ),
+                      border: InputBorder.none,
+                      prefixIcon: Icon(Icons.search, color: Colors.grey),
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16 * scaleFactor,
                       ),
                     ),
-                    if (_totalUnread > 0)
-                      Positioned(
-                        right: 10 * scaleFactor,
-                        top: 10 * scaleFactor,
-                        child: Container(
-                          width: 8 * scaleFactor,
-                          height: 8 * scaleFactor,
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12 * scaleFactor),
+              GestureDetector(
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsPage(),
+                    ),
+                  );
+                  _loadUnreadNotifications();
+                },
+                child: Container(
+                  width: 44 * scaleFactor,
+                  height: 44 * scaleFactor,
+                  decoration: BoxDecoration(
+                    color: AppConstants.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Icon(
+                          Icons.notifications_outlined,
+                          color: AppConstants.primaryColor,
+                          size: 26 * scaleFactor,
                         ),
                       ),
-                  ],
+                      if (_unreadNotifications > 0)
+                        Positioned(
+                          right: 10 * scaleFactor,
+                          top: 10 * scaleFactor,
+                          child: Container(
+                            width: 10 * scaleFactor,
+                            height: 10 * scaleFactor,
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -247,18 +346,16 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
   Widget _buildConversationCard(Conversation conversation, double scaleFactor) {
     final currentUserId = _supabase.auth.currentUser?.id ?? '';
     final unreadCount = conversation.getUnreadCount(currentUserId);
-    
+
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatDetailPage(
-              conversation: conversation,
-            ),
+            builder: (context) => ChatDetailPage(conversation: conversation),
           ),
         );
-        
+
         if (result == true) {
           await _loadConversations();
         }
@@ -286,7 +383,11 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                   ? NetworkImage(conversation.otherUserImage!)
                   : null,
               child: conversation.otherUserImage == null
-                  ? Icon(Icons.person, size: 30 * scaleFactor, color: Colors.white)
+                  ? Icon(
+                      Icons.person,
+                      size: 30 * scaleFactor,
+                      color: Colors.white,
+                    )
                   : null,
             ),
             SizedBox(width: 14 * scaleFactor),
@@ -318,7 +419,9 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                             color: conversation.serviceType == 'Pabakal'
                                 ? Colors.blue.withOpacity(0.1)
                                 : Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
                           child: Text(
                             conversation.serviceType!,
@@ -341,8 +444,12 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                           conversation.lastMessageText ?? 'No messages yet',
                           style: TextStyle(
                             fontSize: 14 * scaleFactor,
-                            color: unreadCount > 0 ? Colors.black87 : Colors.grey[600],
-                            fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                            color: unreadCount > 0
+                                ? Colors.black87
+                                : Colors.grey[600],
+                            fontWeight: unreadCount > 0
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -406,23 +513,32 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
           if (index == 0) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterHomePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterHomePage(),
+              ),
             );
           } else if (index == 1) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterActivityPage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterActivityPage(),
+              ),
             );
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const RequesterProfilePage()),
+              MaterialPageRoute(
+                builder: (context) => const RequesterProfilePage(),
+              ),
             );
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Activity'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Activity',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
@@ -430,4 +546,3 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
     );
   }
 }
-

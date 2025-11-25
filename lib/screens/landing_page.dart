@@ -26,8 +26,8 @@ class LandingPage extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // ✅ Responsive logo (no fixed width/height)
-                    Image.network(
-                      AppConstants.logoUrl,
+                    Image.asset(
+                      AppConstants.logoPath,
                       width: screenWidth * 0.6, // 60% of screen width
                       height: screenWidth * 0.6,
                       fit: BoxFit.contain,

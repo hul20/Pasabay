@@ -8,6 +8,9 @@ import '../services/trip_service.dart';
 import '../services/request_service.dart';
 import 'messages_page.dart';
 import 'profile_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/notification_service.dart';
+import 'notifications_page.dart';
 import 'traveler/edit_trip_page.dart';
 import 'traveler/request_detail_page.dart';
 
@@ -22,17 +25,51 @@ class _ActivityPageState extends State<ActivityPage> {
   bool _showRequests = true; // true for "Requests", false for "Ongoing"
   final TripService _tripService = TripService();
   final RequestService _requestService = RequestService();
+  final NotificationService _notificationService = NotificationService();
   List<Trip> _myTrips = [];
   Trip? _selectedTrip;
   bool _isLoading = true;
   List<ServiceRequest> _pendingRequests = [];
   List<ServiceRequest> _ongoingRequests = [];
   Map<String, Map<String, dynamic>> _requesterInfoCache = {};
+  int _unreadNotifications = 0;
+  RealtimeChannel? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadTrips();
+    _loadUnreadNotifications();
+    _setupNotificationSubscription();
+  }
+
+  void _setupNotificationSubscription() {
+    try {
+      _notificationSubscription = _notificationService.subscribeToNotifications(
+        (notification) {
+          if (mounted) {
+            _loadUnreadNotifications();
+          }
+        },
+      );
+    } catch (e) {
+      print('Error subscribing to notifications: $e');
+    }
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    final count = await _notificationService.getUnreadCount();
+    if (mounted) {
+      setState(() {
+        _unreadNotifications = count;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _loadTrips() async {
@@ -51,7 +88,7 @@ class _ActivityPageState extends State<ActivityPage> {
           }
           _isLoading = false;
         });
-        
+
         // Load requests for the selected trip
         if (_selectedTrip != null) {
           await _loadRequests();
@@ -73,31 +110,33 @@ class _ActivityPageState extends State<ActivityPage> {
     try {
       // Get all requests for the traveler
       final allRequests = await _requestService.getTravelerRequests();
-      
+
       // Filter by selected trip
-      final tripRequests = allRequests.where((req) => 
-        req.tripId == _selectedTrip!.id
-      ).toList();
-      
+      final tripRequests = allRequests
+          .where((req) => req.tripId == _selectedTrip!.id)
+          .toList();
+
       // Separate into pending and ongoing
-      final pending = tripRequests.where((req) => 
-        req.status == 'Pending'
-      ).toList();
-      
-      final ongoing = tripRequests.where((req) => 
-        req.status == 'Accepted'
-      ).toList();
-      
+      final pending = tripRequests
+          .where((req) => req.status == 'Pending')
+          .toList();
+
+      final ongoing = tripRequests
+          .where((req) => req.status == 'Accepted')
+          .toList();
+
       // Load requester info for each request
       for (var request in tripRequests) {
         if (!_requesterInfoCache.containsKey(request.requesterId)) {
-          final info = await _requestService.getRequesterInfo(request.requesterId);
+          final info = await _requestService.getRequesterInfo(
+            request.requesterId,
+          );
           if (info != null) {
             _requesterInfoCache[request.requesterId] = info;
           }
         }
       }
-      
+
       if (mounted) {
         setState(() {
           _pendingRequests = pending;
@@ -151,7 +190,7 @@ class _ActivityPageState extends State<ActivityPage> {
                     ),
                   ),
                   Divider(height: 1),
-                  
+
                   // Scrollable Trip List
                   Expanded(
                     child: _myTrips.isEmpty
@@ -189,26 +228,35 @@ class _ActivityPageState extends State<ActivityPage> {
                           )
                         : ListView.builder(
                             controller: scrollController,
-                            padding: EdgeInsets.symmetric(vertical: 8 * scaleFactor),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 8 * scaleFactor,
+                            ),
                             itemCount: _myTrips.length,
                             itemBuilder: (context, index) {
                               final trip = _myTrips[index];
                               final isSelected = _selectedTrip?.id == trip.id;
-                              final canDelete = trip.currentRequests == 0; // Can delete if no bookings
-                              
+                              final canDelete =
+                                  trip.currentRequests ==
+                                  0; // Can delete if no bookings
+
                               return Container(
                                 margin: EdgeInsets.symmetric(
                                   horizontal: 12 * scaleFactor,
                                   vertical: 4 * scaleFactor,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: isSelected 
-                                      ? AppConstants.primaryColor.withOpacity(0.05)
+                                  color: isSelected
+                                      ? AppConstants.primaryColor.withOpacity(
+                                          0.05,
+                                        )
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12 * scaleFactor),
-                                  border: isSelected 
+                                  borderRadius: BorderRadius.circular(
+                                    12 * scaleFactor,
+                                  ),
+                                  border: isSelected
                                       ? Border.all(
-                                          color: AppConstants.primaryColor.withOpacity(0.3),
+                                          color: AppConstants.primaryColor
+                                              .withOpacity(0.3),
                                           width: 1,
                                         )
                                       : null,
@@ -220,20 +268,25 @@ class _ActivityPageState extends State<ActivityPage> {
                                   ),
                                   leading: Icon(
                                     Icons.route,
-                                    color: isSelected ? AppConstants.primaryColor : Colors.grey,
+                                    color: isSelected
+                                        ? AppConstants.primaryColor
+                                        : Colors.grey,
                                     size: 28 * scaleFactor,
                                   ),
                                   title: Text(
                                     '${trip.departureLocation} → ${trip.destinationLocation}',
                                     style: TextStyle(
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
                                       fontSize: 15 * scaleFactor,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       SizedBox(height: 4 * scaleFactor),
                                       Text(
@@ -267,9 +320,16 @@ class _ActivityPageState extends State<ActivityPage> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: trip.currentRequests == 0
-                                                  ? Colors.green.withOpacity(0.1)
-                                                  : Colors.orange.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(4 * scaleFactor),
+                                                  ? Colors.green.withOpacity(
+                                                      0.1,
+                                                    )
+                                                  : Colors.orange.withOpacity(
+                                                      0.1,
+                                                    ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    4 * scaleFactor,
+                                                  ),
                                             ),
                                             child: Text(
                                               '${trip.currentRequests}/${trip.availableCapacity} requests',
@@ -303,7 +363,10 @@ class _ActivityPageState extends State<ActivityPage> {
                                             color: Colors.red[400],
                                             size: 22 * scaleFactor,
                                           ),
-                                          onPressed: () => _confirmDeleteTrip(trip, scaleFactor),
+                                          onPressed: () => _confirmDeleteTrip(
+                                            trip,
+                                            scaleFactor,
+                                          ),
                                           tooltip: 'Delete trip',
                                         ),
                                       ],
@@ -321,7 +384,7 @@ class _ActivityPageState extends State<ActivityPage> {
                             },
                           ),
                   ),
-                  
+
                   // Add New Trip Button
                   Container(
                     padding: EdgeInsets.all(20 * scaleFactor),
@@ -472,10 +535,7 @@ class _ActivityPageState extends State<ActivityPage> {
               ),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Delete',
-              style: TextStyle(fontSize: 15 * scaleFactor),
-            ),
+            child: Text('Delete', style: TextStyle(fontSize: 15 * scaleFactor)),
           ),
         ],
       ),
@@ -491,20 +551,18 @@ class _ActivityPageState extends State<ActivityPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
 
     try {
       await _tripService.deleteTrip(trip.id);
-      
+
       // Close loading dialog
       if (mounted) Navigator.pop(context);
-      
+
       // Close trip selection modal if open
       if (mounted) Navigator.pop(context);
-      
+
       // Update state
       setState(() {
         _myTrips.removeWhere((t) => t.id == trip.id);
@@ -521,9 +579,7 @@ class _ActivityPageState extends State<ActivityPage> {
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 12),
-                Expanded(
-                  child: Text('Trip deleted successfully'),
-                ),
+                Expanded(child: Text('Trip deleted successfully')),
               ],
             ),
             backgroundColor: Colors.green,
@@ -537,7 +593,7 @@ class _ActivityPageState extends State<ActivityPage> {
     } catch (e) {
       // Close loading dialog
       if (mounted) Navigator.pop(context);
-      
+
       // Show error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -546,9 +602,7 @@ class _ActivityPageState extends State<ActivityPage> {
               children: [
                 Icon(Icons.error_outline, color: Colors.white),
                 SizedBox(width: 12),
-                Expanded(
-                  child: Text('Failed to delete trip: ${e.toString()}'),
-                ),
+                Expanded(child: Text('Failed to delete trip: ${e.toString()}')),
               ],
             ),
             backgroundColor: Colors.red,
@@ -699,7 +753,7 @@ class _ActivityPageState extends State<ActivityPage> {
                                 8 * scaleFactor,
                               ),
                               image: const DecorationImage(
-                                image: NetworkImage(AppConstants.logoUrl),
+                                image: AssetImage(AppConstants.logoPath),
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -737,7 +791,9 @@ class _ActivityPageState extends State<ActivityPage> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
@@ -754,7 +810,10 @@ class _ActivityPageState extends State<ActivityPage> {
                                 fontSize: 15 * scaleFactor,
                               ),
                               border: InputBorder.none,
-                              prefixIcon: Icon(Icons.search, color: Colors.grey),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey,
+                              ),
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 16 * scaleFactor,
                               ),
@@ -763,38 +822,54 @@ class _ActivityPageState extends State<ActivityPage> {
                         ),
                       ),
                       SizedBox(width: 12 * scaleFactor),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.notifications_none,
-                              size: 28 * scaleFactor,
-                              color: Colors.black,
+                      GestureDetector(
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsPage(),
                             ),
-                            onPressed: () {},
+                          );
+                          _loadUnreadNotifications();
+                        },
+                        child: Container(
+                          width: 44 * scaleFactor,
+                          height: 44 * scaleFactor,
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
-                          Positioned(
-                            right: 8 * scaleFactor,
-                            top: 8 * scaleFactor,
-                            child: Container(
-                              width: 16 * scaleFactor,
-                              height: 16 * scaleFactor,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '2',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10 * scaleFactor,
-                                  ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Icon(
+                                  Icons.notifications_outlined,
+                                  color: AppConstants.primaryColor,
+                                  size: 26 * scaleFactor,
                                 ),
                               ),
-                            ),
+                              if (_unreadNotifications > 0)
+                                Positioned(
+                                  right: 10 * scaleFactor,
+                                  top: 10 * scaleFactor,
+                                  child: Container(
+                                    width: 10 * scaleFactor,
+                                    height: 10 * scaleFactor,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -821,7 +896,9 @@ class _ActivityPageState extends State<ActivityPage> {
                             padding: EdgeInsets.all(20 * scaleFactor),
                             decoration: BoxDecoration(
                               color: Color(0xFF00B4D8),
-                              borderRadius: BorderRadius.circular(20 * scaleFactor),
+                              borderRadius: BorderRadius.circular(
+                                20 * scaleFactor,
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -861,7 +938,9 @@ class _ActivityPageState extends State<ActivityPage> {
                                   padding: EdgeInsets.all(14 * scaleFactor),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
                                   ),
                                   child: _selectedTrip == null
                                       ? Center(
@@ -887,14 +966,19 @@ class _ActivityPageState extends State<ActivityPage> {
                                                   style: TextStyle(
                                                     fontSize: 14 * scaleFactor,
                                                     color: Colors.black,
-                                                    fontFamily: AppConstants.fontFamily,
+                                                    fontFamily:
+                                                        AppConstants.fontFamily,
                                                   ),
                                                   children: [
                                                     TextSpan(
                                                       text: _getTruncatedLocation(
-                                                          _selectedTrip!.departureLocation, 15),
+                                                        _selectedTrip!
+                                                            .departureLocation,
+                                                        15,
+                                                      ),
                                                       style: TextStyle(
-                                                        fontWeight: FontWeight.w600,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
                                                     ),
                                                     TextSpan(
@@ -905,9 +989,13 @@ class _ActivityPageState extends State<ActivityPage> {
                                                     ),
                                                     TextSpan(
                                                       text: _getTruncatedLocation(
-                                                          _selectedTrip!.destinationLocation, 15),
+                                                        _selectedTrip!
+                                                            .destinationLocation,
+                                                        15,
+                                                      ),
                                                       style: TextStyle(
-                                                        fontWeight: FontWeight.w600,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
                                                     ),
                                                   ],
@@ -949,7 +1037,9 @@ class _ActivityPageState extends State<ActivityPage> {
                                     color: _showRequests
                                         ? Color(0xFF00B4D8)
                                         : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
                                   ),
                                   child: Center(
                                     child: Text(
@@ -982,7 +1072,9 @@ class _ActivityPageState extends State<ActivityPage> {
                                     color: !_showRequests
                                         ? Color(0xFF00B4D8)
                                         : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                                    borderRadius: BorderRadius.circular(
+                                      12 * scaleFactor,
+                                    ),
                                   ),
                                   child: Center(
                                     child: Text(
@@ -1064,17 +1156,13 @@ class _ActivityPageState extends State<ActivityPage> {
             // Navigate to Messages page
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const MessagesPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const MessagesPage()),
             );
           } else if (index == 3) {
             // Navigate to Profile page
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ProfilePage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             );
           }
           // Handle other navigation items
@@ -1098,7 +1186,6 @@ class _ActivityPageState extends State<ActivityPage> {
     );
   }
 
-
   Widget _buildRequestCard({
     required ServiceRequest request,
     Map<String, dynamic>? requesterInfo,
@@ -1108,7 +1195,7 @@ class _ActivityPageState extends State<ActivityPage> {
         ? '${requesterInfo['first_name']} ${requesterInfo['last_name']}'
         : 'Unknown';
     final String? imageUrl = requesterInfo?['profile_image_url'];
-    
+
     final String itemsDescription = request.serviceType == 'Pabakal'
         ? request.productName ?? 'Items'
         : (request.packageDescription ?? 'Package delivery');
@@ -1124,7 +1211,7 @@ class _ActivityPageState extends State<ActivityPage> {
             ),
           ),
         );
-        
+
         // Refresh if needed (if request was accepted/rejected)
         if (result == true) {
           await _loadRequests();
@@ -1207,7 +1294,7 @@ class _ActivityPageState extends State<ActivityPage> {
                   Row(
                     children: [
                       Icon(
-                        request.serviceType == 'Pabakal' 
+                        request.serviceType == 'Pabakal'
                             ? Icons.shopping_bag
                             : Icons.local_shipping,
                         size: 14 * scaleFactor,
@@ -1253,7 +1340,9 @@ class _ActivityPageState extends State<ActivityPage> {
                           ),
                           decoration: BoxDecoration(
                             color: Colors.green,
-                            borderRadius: BorderRadius.circular(10 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              10 * scaleFactor,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -1300,4 +1389,3 @@ class _ActivityPageState extends State<ActivityPage> {
     );
   }
 }
-

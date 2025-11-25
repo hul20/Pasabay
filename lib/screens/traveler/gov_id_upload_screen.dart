@@ -183,7 +183,7 @@ class _GovIdUploadScreenState extends State<GovIdUploadScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8 * scaleFactor),
                       image: const DecorationImage(
-                        image: NetworkImage(AppConstants.smallLogoUrl),
+                        image: AssetImage(AppConstants.smallLogoPath),
                         fit: BoxFit.cover,
                       ),
                     ),

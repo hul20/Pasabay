@@ -57,6 +57,76 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     return widget.requesterInfo?['phone_number'];
   }
 
+  bool get _isOngoing {
+    return ['Accepted', 'Order Sent'].contains(widget.request.status);
+  }
+
+  void _showRequestDetails() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
+
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.all(16 * scaleFactor),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Request Details',
+                    style: TextStyle(
+                      fontSize: 20 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 20 * scaleFactor),
+                  _buildRequesterCard(scaleFactor, showMessageButton: false),
+                  SizedBox(height: 24 * scaleFactor),
+                  if (widget.request.serviceType == 'Pabakal')
+                    _buildPabakalDetails(scaleFactor)
+                  else
+                    _buildPasabayDetails(scaleFactor),
+                  SizedBox(height: 24 * scaleFactor),
+                  _buildPaymentCard(scaleFactor),
+                  if (widget.request.photoUrls != null &&
+                      widget.request.photoUrls!.isNotEmpty) ...[
+                    SizedBox(height: 24 * scaleFactor),
+                    _buildAttachments(scaleFactor),
+                  ],
+                  SizedBox(height: 20 * scaleFactor),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _handleOrderSent() {
     showModalBottomSheet(
       context: context,
@@ -811,7 +881,10 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     }
   }
 
-  Widget _buildRequesterCard(double scaleFactor) {
+  Widget _buildRequesterCard(
+    double scaleFactor, {
+    bool showMessageButton = true,
+  }) {
     return Container(
       padding: EdgeInsets.all(16 * scaleFactor),
       decoration: BoxDecoration(
@@ -885,7 +958,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
               ],
             ),
           ),
-          if (widget.request.status == 'Accepted')
+          if (showMessageButton && widget.request.status == 'Accepted')
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
