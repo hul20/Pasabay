@@ -11,6 +11,7 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
 import '../messages_page.dart';
+import '../../widgets/chat_widget.dart';
 
 class RequestDetailPage extends StatefulWidget {
   final ServiceRequest request;
@@ -54,6 +55,76 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
   String? get _requesterPhone {
     return widget.requesterInfo?['phone_number'];
+  }
+
+  bool get _isOngoing {
+    return ['Accepted', 'Order Sent'].contains(widget.request.status);
+  }
+
+  void _showRequestDetails() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
+
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.all(16 * scaleFactor),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Request Details',
+                    style: TextStyle(
+                      fontSize: 20 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 20 * scaleFactor),
+                  _buildRequesterCard(scaleFactor, showMessageButton: false),
+                  SizedBox(height: 24 * scaleFactor),
+                  if (widget.request.serviceType == 'Pabakal')
+                    _buildPabakalDetails(scaleFactor)
+                  else
+                    _buildPasabayDetails(scaleFactor),
+                  SizedBox(height: 24 * scaleFactor),
+                  _buildPaymentCard(scaleFactor),
+                  if (widget.request.photoUrls != null &&
+                      widget.request.photoUrls!.isNotEmpty) ...[
+                    SizedBox(height: 24 * scaleFactor),
+                    _buildAttachments(scaleFactor),
+                  ],
+                  SizedBox(height: 20 * scaleFactor),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _handleOrderSent() {
@@ -557,6 +628,141 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
+    if (_isOngoing) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            '${widget.request.serviceType} Request',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 18 * scaleFactor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        body: Column(
+          children: [
+            // Status Banner
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                vertical: 12 * scaleFactor,
+                horizontal: 16 * scaleFactor,
+              ),
+              color: _getStatusColor().withOpacity(0.1),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: _getStatusColor(),
+                    size: 20 * scaleFactor,
+                  ),
+                  SizedBox(width: 12 * scaleFactor),
+                  Text(
+                    'Status: ${widget.request.status}',
+                    style: TextStyle(
+                      color: _getStatusColor(),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16 * scaleFactor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Chat Interface
+            Expanded(
+              child: ChatWidget(
+                requestId: widget.request.id,
+                otherUserId: widget.request.requesterId,
+                otherUserName: _requesterName,
+                otherUserImage: _requesterImage,
+              ),
+            ),
+
+            // Bottom Actions
+            Container(
+              padding: EdgeInsets.all(16 * scaleFactor),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.request.status == 'Accepted')
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 12 * scaleFactor),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _handleOrderSent,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppConstants.primaryColor,
+                            padding: EdgeInsets.symmetric(
+                              vertical: 16 * scaleFactor,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Item Delivered',
+                            style: TextStyle(
+                              fontSize: 16 * scaleFactor,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _showRequestDetails,
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 16 * scaleFactor,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        ),
+                        side: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        'View Request Details',
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -690,7 +896,10 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     }
   }
 
-  Widget _buildRequesterCard(double scaleFactor) {
+  Widget _buildRequesterCard(
+    double scaleFactor, {
+    bool showMessageButton = true,
+  }) {
     return Container(
       padding: EdgeInsets.all(16 * scaleFactor),
       decoration: BoxDecoration(
@@ -764,7 +973,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
               ],
             ),
           ),
-          if (widget.request.status == 'Accepted')
+          if (showMessageButton && widget.request.status == 'Accepted')
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
