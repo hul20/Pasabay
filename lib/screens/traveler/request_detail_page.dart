@@ -11,6 +11,7 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
 import '../messages_page.dart';
+import '../../widgets/chat_widget.dart';
 
 class RequestDetailPage extends StatefulWidget {
   final ServiceRequest request;
@@ -54,6 +55,76 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
   String? get _requesterPhone {
     return widget.requesterInfo?['phone_number'];
+  }
+
+  bool get _isOngoing {
+    return ['Accepted', 'Order Sent'].contains(widget.request.status);
+  }
+
+  void _showRequestDetails() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
+
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.all(16 * scaleFactor),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Request Details',
+                    style: TextStyle(
+                      fontSize: 20 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 20 * scaleFactor),
+                  _buildRequesterCard(scaleFactor, showMessageButton: false),
+                  SizedBox(height: 24 * scaleFactor),
+                  if (widget.request.serviceType == 'Pabakal')
+                    _buildPabakalDetails(scaleFactor)
+                  else
+                    _buildPasabayDetails(scaleFactor),
+                  SizedBox(height: 24 * scaleFactor),
+                  _buildPaymentCard(scaleFactor),
+                  if (widget.request.photoUrls != null &&
+                      widget.request.photoUrls!.isNotEmpty) ...[
+                    SizedBox(height: 24 * scaleFactor),
+                    _buildAttachments(scaleFactor),
+                  ],
+                  SizedBox(height: 20 * scaleFactor),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _handleOrderSent() {
@@ -377,13 +448,11 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
       if (success) {
         // Create conversation
-        final conversationId = await _requestService.getOrCreateConversation(
-          widget.request.id,
-        );
+        await _requestService.getOrCreateConversation(widget.request.id);
 
         if (!mounted) return;
 
-        // Show success and navigate to messages
+        // Show success
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -394,14 +463,10 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
           ),
         );
 
-        // Small delay to let conversation be created
-        await Future.delayed(Duration(milliseconds: 500));
-
-        // Navigate to messages page
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MessagesPage()),
-        );
+        // Update state to show chat instead of navigating away
+        setState(() {
+          _request = _request.copyWith(status: 'Accepted');
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -549,10 +614,71 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     }
   }
 
+  void _showDetailsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, controller) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SingleChildScrollView(
+              controller: controller,
+              padding: EdgeInsets.all(20 * scaleFactor),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  _buildRequesterCard(scaleFactor),
+                  SizedBox(height: 20 * scaleFactor),
+                  if (_request.serviceType == 'Pabakal')
+                    _buildPabakalDetails(scaleFactor)
+                  else
+                    _buildPasabayDetails(scaleFactor),
+                  SizedBox(height: 20 * scaleFactor),
+                  _buildPaymentCard(scaleFactor),
+                  if (_request.photoUrls != null &&
+                      _request.photoUrls!.isNotEmpty) ...[
+                    SizedBox(height: 20 * scaleFactor),
+                    _buildAttachments(scaleFactor),
+                  ],
+                  SizedBox(height: 40 * scaleFactor),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
+
+    // Check if ongoing
+    bool isOngoing =
+        _request.status == 'Accepted' || _request.status == 'Order Sent';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -593,80 +719,148 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(18 * scaleFactor),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Requester Info Card
-              _buildRequesterCard(scaleFactor),
-
-              SizedBox(height: 24 * scaleFactor),
-
-              // Service Details
-              Text(
-                'Service Details',
-                style: TextStyle(
-                  fontSize: 18 * scaleFactor,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-
-              SizedBox(height: 16 * scaleFactor),
-
-              // Show details based on service type
-              if (widget.request.serviceType == 'Pabakal')
-                _buildPabakalDetails(scaleFactor)
-              else
-                _buildPasabayDetails(scaleFactor),
-
-              SizedBox(height: 24 * scaleFactor),
-
-              // Payment Info
-              _buildPaymentCard(scaleFactor),
-
-              // Attachments
-              if (widget.request.photoUrls != null &&
-                  widget.request.photoUrls!.isNotEmpty) ...[
-                SizedBox(height: 24 * scaleFactor),
-                _buildAttachments(scaleFactor),
-              ],
-
-              SizedBox(height: 32 * scaleFactor),
-
-              // Action Buttons (only show if pending)
-              if (widget.request.status == 'Pending')
-                _buildActionButtons(scaleFactor),
-
-              // Item Delivered Button (only show if accepted)
-              if (widget.request.status == 'Accepted')
-                SizedBox(
+      body: isOngoing
+          ? Column(
+              children: [
+                // Status Banner
+                Container(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _handleOrderSent,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppConstants.primaryColor,
-                      padding: EdgeInsets.symmetric(vertical: 16 * scaleFactor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  padding: EdgeInsets.symmetric(
+                    vertical: 12 * scaleFactor,
+                    horizontal: 16 * scaleFactor,
+                  ),
+                  color: _getStatusColor().withOpacity(0.1),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: _getStatusColor(),
+                        size: 20 * scaleFactor,
                       ),
-                    ),
-                    child: Text(
-                      'Item Delivered',
-                      style: TextStyle(
-                        fontSize: 16 * scaleFactor,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      SizedBox(width: 8 * scaleFactor),
+                      Expanded(
+                        child: Text(
+                          _request.status == 'Accepted'
+                              ? 'Request Accepted. You can now chat.'
+                              : 'Order Sent. Waiting for confirmation.',
+                          style: TextStyle(
+                            color: _getStatusColor(),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-            ],
-          ),
-        ),
-      ),
+                // Chat
+                Expanded(
+                  child: ChatWidget(
+                    requestId: _request.id,
+                    currentUserId: _supabase.auth.currentUser!.id,
+                    otherUserId: _request.requesterId,
+                  ),
+                ),
+                // Bottom Actions
+                Container(
+                  padding: EdgeInsets.all(16 * scaleFactor),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 4,
+                        offset: Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      if (_request.status == 'Accepted')
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _handleOrderSent,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppConstants.primaryColor,
+                              padding: EdgeInsets.symmetric(
+                                vertical: 16 * scaleFactor,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  12 * scaleFactor,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              'Item Delivered',
+                              style: TextStyle(
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      SizedBox(height: 8 * scaleFactor),
+                      TextButton(
+                        onPressed: _showDetailsBottomSheet,
+                        child: Text('View Request Details'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.all(18 * scaleFactor),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Requester Info Card
+                    _buildRequesterCard(scaleFactor),
+
+                    SizedBox(height: 24 * scaleFactor),
+
+                    // Service Details
+                    Text(
+                      'Service Details',
+                      style: TextStyle(
+                        fontSize: 18 * scaleFactor,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+
+                    SizedBox(height: 16 * scaleFactor),
+
+                    // Show details based on service type
+                    if (widget.request.serviceType == 'Pabakal')
+                      _buildPabakalDetails(scaleFactor)
+                    else
+                      _buildPasabayDetails(scaleFactor),
+
+                    SizedBox(height: 24 * scaleFactor),
+
+                    // Payment Info
+                    _buildPaymentCard(scaleFactor),
+
+                    // Attachments
+                    if (widget.request.photoUrls != null &&
+                        widget.request.photoUrls!.isNotEmpty) ...[
+                      SizedBox(height: 24 * scaleFactor),
+                      _buildAttachments(scaleFactor),
+                    ],
+
+                    SizedBox(height: 32 * scaleFactor),
+
+                    // Action Buttons (only show if pending)
+                    if (widget.request.status == 'Pending')
+                      _buildActionButtons(scaleFactor),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
@@ -687,7 +881,10 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     }
   }
 
-  Widget _buildRequesterCard(double scaleFactor) {
+  Widget _buildRequesterCard(
+    double scaleFactor, {
+    bool showMessageButton = true,
+  }) {
     return Container(
       padding: EdgeInsets.all(16 * scaleFactor),
       decoration: BoxDecoration(
@@ -761,7 +958,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
               ],
             ),
           ),
-          if (widget.request.status == 'Accepted')
+          if (showMessageButton && widget.request.status == 'Accepted')
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
