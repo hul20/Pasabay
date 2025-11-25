@@ -219,7 +219,7 @@ class RequestService {
         'reject_service_request',
         params: {
           'request_id': requestId,
-          'rejection_reason': reason ?? 'Request declined',
+          'reason': reason ?? 'Request declined',
         },
       );
       return true;

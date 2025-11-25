@@ -377,9 +377,12 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
       if (success) {
         // Create conversation
-        final conversationId = await _requestService.getOrCreateConversation(
-          widget.request.id,
-        );
+        try {
+          await _requestService.getOrCreateConversation(widget.request.id);
+        } catch (e) {
+          print('Error creating conversation: $e');
+          // Continue even if conversation creation fails, as the request is accepted
+        }
 
         if (!mounted) return;
 
