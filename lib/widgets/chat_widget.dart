@@ -6,16 +6,14 @@ import '../services/messaging_service.dart';
 
 class ChatWidget extends StatefulWidget {
   final String requestId;
+  final String currentUserId;
   final String otherUserId;
-  final String otherUserName;
-  final String? otherUserImage;
 
   const ChatWidget({
     super.key,
     required this.requestId,
+    required this.currentUserId,
     required this.otherUserId,
-    required this.otherUserName,
-    this.otherUserImage,
   });
 
   @override
@@ -33,6 +31,8 @@ class _ChatWidgetState extends State<ChatWidget> {
   bool _isSending = false;
   RealtimeChannel? _messagesChannel;
   String? _conversationId;
+  String _otherUserName = 'User';
+  String? _otherUserImage;
 
   @override
   void initState() {
@@ -52,23 +52,33 @@ class _ChatWidgetState extends State<ChatWidget> {
 
   Future<void> _initializeChat() async {
     try {
-      // Get conversation ID
-      final conversationResponse = await _supabase
-          .from('conversations')
-          .select('id')
-          .eq('request_id', widget.requestId)
-          .maybeSingle();
+      // Get other user info
+      final userResponse = await _supabase
+          .from('users')
+          .select('first_name, last_name, profile_image_url')
+          .eq('id', widget.otherUserId)
+          .single();
 
-      if (conversationResponse != null) {
-        _conversationId = conversationResponse['id'];
+      if (mounted) {
+        setState(() {
+          _otherUserName =
+              '${userResponse['first_name']} ${userResponse['last_name']}';
+          _otherUserImage = userResponse['profile_image_url'];
+        });
+      }
+
+      // Get conversation ID
+      final conversationId = await _messagingService.getOrCreateConversation(
+        widget.requestId,
+      );
+
+      if (conversationId != null) {
+        _conversationId = conversationId;
         await _loadMessages();
         _subscribeToMessages();
         _markAsRead();
       } else {
-        // Create conversation if it doesn't exist
-        // This might happen if the request was just accepted
-        // We'll try to create it or wait
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
       print('Error initializing chat: $e');
@@ -98,22 +108,21 @@ class _ChatWidgetState extends State<ChatWidget> {
   void _subscribeToMessages() {
     if (_conversationId == null) return;
 
-    _messagesChannel = _messagingService.subscribeToMessages(
-      _conversationId!,
-      (message) {
-        if (mounted) {
-          setState(() {
-            _messages.add(message);
-          });
-          _scrollToBottom();
+    _messagesChannel = _messagingService.subscribeToMessages(_conversationId!, (
+      message,
+    ) {
+      if (mounted) {
+        setState(() {
+          _messages.add(message);
+        });
+        _scrollToBottom();
 
-          // Mark as read if it's from the other user
-          if (message.senderId != _supabase.auth.currentUser?.id) {
-            _markAsRead();
-          }
+        // Mark as read if it's from the other user
+        if (message.senderId != widget.currentUserId) {
+          _markAsRead();
         }
-      },
-    );
+      }
+    });
   }
 
   Future<void> _markAsRead() async {
@@ -128,8 +137,8 @@ class _ChatWidgetState extends State<ChatWidget> {
     setState(() => _isSending = true);
 
     try {
-      // If conversation doesn't exist yet, create it
       if (_conversationId == null) {
+        // Try to create conversation again if it failed initially
         final conversationId = await _messagingService.getOrCreateConversation(
           widget.requestId,
         );
@@ -201,10 +210,10 @@ class _ChatWidgetState extends State<ChatWidget> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: AppConstants.primaryColor,
-                  backgroundImage: widget.otherUserImage != null
-                      ? NetworkImage(widget.otherUserImage!)
+                  backgroundImage: _otherUserImage != null
+                      ? NetworkImage(_otherUserImage!)
                       : null,
-                  child: widget.otherUserImage == null
+                  child: _otherUserImage == null
                       ? Icon(Icons.person, color: Colors.white, size: 20)
                       : null,
                 ),
@@ -214,7 +223,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.otherUserName,
+                        _otherUserName,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -235,10 +244,12 @@ class _ChatWidgetState extends State<ChatWidget> {
           Expanded(
             child: _messages.isEmpty
                 ? Center(
-                    child: Text(
-                      'Start a conversation',
-                      style: TextStyle(color: Colors.grey),
-                    ),
+                    child: _isLoading
+                        ? CircularProgressIndicator()
+                        : Text(
+                            'Start a conversation',
+                            style: TextStyle(color: Colors.grey),
+                          ),
                   )
                 : ListView.builder(
                     controller: _scrollController,
@@ -246,8 +257,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
-                      final isMe =
-                          message.senderId == _supabase.auth.currentUser?.id;
+                      final isMe = message.senderId == widget.currentUserId;
 
                       return Align(
                         alignment: isMe
@@ -273,12 +283,27 @@ class _ChatWidgetState extends State<ChatWidget> {
                             ],
                           ),
                           constraints: BoxConstraints(maxWidth: 260),
-                          child: Text(
-                            message.messageText,
-                            style: TextStyle(
-                              color: isMe ? Colors.white : Colors.black87,
-                              fontSize: 14,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                message.messageText,
+                                style: TextStyle(
+                                  color: isMe ? Colors.white : Colors.black87,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                message.formattedTime,
+                                style: TextStyle(
+                                  color: isMe
+                                      ? Colors.white70
+                                      : Colors.grey[500],
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
