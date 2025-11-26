@@ -7,6 +7,7 @@ import '../../services/request_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/trip.dart';
 import '../notifications_page.dart';
+import '../tracking_map_page.dart';
 import 'requester_activity_page.dart';
 import 'requester_messages_page.dart';
 import 'requester_profile_page.dart';
@@ -32,6 +33,10 @@ class _RequesterHomePageState extends State<RequesterHomePage>
   int _unreadNotifications = 0;
   RealtimeChannel? _notificationSubscription;
 
+  // Ongoing transaction
+  Map<String, dynamic>? _ongoingRequest;
+  bool _loadingRequest = false;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +44,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
     _fetchUserProfile();
     _loadUnreadNotifications();
     _setupNotificationSubscription();
+    _fetchOngoingRequest();
   }
 
   void _setupNotificationSubscription() {
@@ -181,6 +187,173 @@ class _RequesterHomePageState extends State<RequesterHomePage>
     }
   }
 
+  List<String> _getProgressSteps(String serviceType) {
+    if (serviceType == 'Pabakal') {
+      return [
+        'Order Accepted',
+        'Item Bought',
+        'On the Way',
+        'Dropped Off',
+        'Completed',
+      ];
+    } else {
+      return [
+        'Order Accepted',
+        'Picked Up',
+        'On the Way',
+        'Dropped Off',
+        'Completed',
+      ];
+    }
+  }
+
+  int _getCurrentStepIndex(String status, String serviceType) {
+    final Map<String, int> pabakalSteps = {
+      'Accepted': 0,
+      'Item Bought': 1,
+      'On the Way': 2,
+      'Dropped Off': 3,
+      'Order Sent': 3,
+      'Completed': 4,
+    };
+
+    final Map<String, int> pasabaySteps = {
+      'Accepted': 0,
+      'Picked Up': 1,
+      'On the Way': 2,
+      'Dropped Off': 3,
+      'Order Sent': 3,
+      'Completed': 4,
+    };
+
+    if (serviceType == 'Pabakal') {
+      return pabakalSteps[status] ?? 0;
+    } else {
+      return pasabaySteps[status] ?? 0;
+    }
+  }
+
+  Future<void> _fetchOngoingRequest() async {
+    setState(() {
+      _loadingRequest = true;
+    });
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Get most urgent ongoing request (all active statuses)
+      final response = await Supabase.instance.client
+          .from('service_requests')
+          .select('*')
+          .eq('requester_id', userId)
+          .inFilter('status', [
+            'Accepted',
+            'Item Bought',
+            'Picked Up',
+            'On the Way',
+            'Dropped Off',
+          ])
+          .order('created_at', ascending: false)
+          .limit(1);
+
+      if (mounted && response.isNotEmpty) {
+        setState(() {
+          _ongoingRequest = response.first;
+          _loadingRequest = false;
+        });
+      } else {
+        setState(() {
+          _ongoingRequest = null;
+          _loadingRequest = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching ongoing request: \$e');
+      if (mounted) {
+        setState(() {
+          _ongoingRequest = null;
+          _loadingRequest = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildProgressBar(
+    List<String> steps,
+    int currentStep,
+    double scaleFactor,
+  ) {
+    return Column(
+      children: [
+        // Progress dots and lines
+        Row(
+          children: List.generate(steps.length * 2 - 1, (index) {
+            if (index.isEven) {
+              // Dot
+              int stepIndex = index ~/ 2;
+              bool isCompleted = stepIndex <= currentStep;
+              return Container(
+                width: 24 * scaleFactor,
+                height: 24 * scaleFactor,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[300],
+                  border: Border.all(
+                    color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[400]!,
+                    width: 2,
+                  ),
+                ),
+                child: isCompleted
+                    ? Icon(
+                        Icons.check,
+                        size: 14 * scaleFactor,
+                        color: Colors.white,
+                      )
+                    : null,
+              );
+            } else {
+              // Line
+              int stepIndex = index ~/ 2;
+              bool isCompleted = stepIndex < currentStep;
+              return Expanded(
+                child: Container(
+                  height: 2,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[300],
+                ),
+              );
+            }
+          }),
+        ),
+        SizedBox(height: 8 * scaleFactor),
+        // Step labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: steps.asMap().entries.map((entry) {
+            int stepIndex = entry.key;
+            String label = entry.value;
+            bool isCompleted = stepIndex <= currentStep;
+            return Expanded(
+              child: Text(
+                label,
+                textAlign: stepIndex == 0
+                    ? TextAlign.start
+                    : stepIndex == steps.length - 1
+                    ? TextAlign.end
+                    : TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10 * scaleFactor,
+                  fontWeight: isCompleted ? FontWeight.w600 : FontWeight.w400,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[600],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -190,7 +363,10 @@ class _RequesterHomePageState extends State<RequesterHomePage>
       backgroundColor: Colors.white,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _fetchUserProfile,
+          onRefresh: () async {
+            await _fetchUserProfile();
+            await _fetchOngoingRequest();
+          },
           child: SingleChildScrollView(
             physics: AlwaysScrollableScrollPhysics(),
             child: Padding(
@@ -366,113 +542,285 @@ class _RequesterHomePageState extends State<RequesterHomePage>
 
                   SizedBox(height: 24 * scaleFactor),
 
-                  // Stats Cards Row (Active Travelers & Hot Route)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: EdgeInsets.all(16 * scaleFactor),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(
-                              16 * scaleFactor,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
+                  // Ongoing Transaction Overview
+                  if (_loadingRequest)
+                    Container(
+                      padding: EdgeInsets.all(20 * scaleFactor),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16 * scaleFactor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Active Travelers',
+                        ],
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF00B4D8),
+                        ),
+                      ),
+                    )
+                  else if (_ongoingRequest != null)
+                    GestureDetector(
+                      onTap: () {
+                        // Navigate to tracking map if status is "On the Way"
+                        if (_ongoingRequest!['status'] == 'On the Way') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TrackingMapPage(
+                                requestId: _ongoingRequest!['id'],
+                                travelerName:
+                                    'Traveler', // You can fetch this from users table
+                                serviceType:
+                                    _ongoingRequest!['service_type'] ??
+                                    'Service',
+                                status: _ongoingRequest!['status'] ?? 'Active',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(20 * scaleFactor),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16 * scaleFactor),
+                          border: Border.all(
+                            color: Color(0xFF00B4D8),
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFF00B4D8).withOpacity(0.15),
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header with service type badge
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12 * scaleFactor,
+                                    vertical: 6 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFF00B4D8).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(
+                                      8 * scaleFactor,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _ongoingRequest!['service_type'] ??
+                                        'Pasabay',
+                                    style: TextStyle(
+                                      fontSize: 13 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF00B4D8),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12 * scaleFactor,
+                                    vertical: 6 * scaleFactor,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        _ongoingRequest!['status'] == 'Accepted'
+                                        ? Colors.green.withOpacity(0.1)
+                                        : Colors.orange.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(
+                                      8 * scaleFactor,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _ongoingRequest!['status'] ?? 'Pending',
+                                    style: TextStyle(
+                                      fontSize: 13 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          _ongoingRequest!['status'] ==
+                                              'Accepted'
+                                          ? Colors.green
+                                          : Colors.orange,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 16 * scaleFactor),
+
+                            // Traveler name or product details
+                            Text(
+                              _ongoingRequest!['service_type'] == 'Pabakal'
+                                  ? _ongoingRequest!['product_name'] ?? 'Item'
+                                  : _ongoingRequest!['recipient_name'] ??
+                                        'Package',
+                              style: TextStyle(
+                                fontSize: 18 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            SizedBox(height: 8 * scaleFactor),
+
+                            // Destination info
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  size: 16 * scaleFactor,
+                                  color: Colors.grey[600],
+                                ),
+                                SizedBox(width: 6 * scaleFactor),
+                                Expanded(
+                                  child: Text(
+                                    _ongoingRequest!['service_type'] ==
+                                            'Pabakal'
+                                        ? 'To: ${_ongoingRequest!['delivery_address'] ?? 'N/A'}'
+                                        : 'To: ${_ongoingRequest!['recipient_address'] ?? 'N/A'}',
                                     style: TextStyle(
                                       fontSize: 13 * scaleFactor,
                                       color: Colors.grey[600],
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  Icon(
-                                    Icons.trending_up,
-                                    color: Color(0xFF00B4D8),
-                                    size: 18 * scaleFactor,
-                                  ),
-                                ],
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 16 * scaleFactor),
+
+                            // Progress Bar
+                            _buildProgressBar(
+                              _getProgressSteps(
+                                _ongoingRequest!['service_type'] ?? 'Pasabay',
                               ),
-                              SizedBox(height: 8 * scaleFactor),
-                              Text(
-                                '67',
-                                style: TextStyle(
-                                  fontSize: 36 * scaleFactor,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
+                              _getCurrentStepIndex(
+                                _ongoingRequest!['status'] ?? 'Accepted',
+                                _ongoingRequest!['service_type'] ?? 'Pasabay',
+                              ),
+                              scaleFactor,
+                            ),
+                            SizedBox(height: 16 * scaleFactor),
+
+                            // Divider
+                            Divider(color: Colors.grey[300]),
+                            SizedBox(height: 12 * scaleFactor),
+
+                            // Amount
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Total Amount',
+                                  style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  '₱${(_ongoingRequest!['total_amount'] ?? 0).toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontSize: 20 * scaleFactor,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF00B4D8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 12 * scaleFactor),
+
+                            // Chat button
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const RequesterMessagesPage(),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Color(0xFF00B4D8),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 12 * scaleFactor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    10 * scaleFactor,
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12 * scaleFactor),
-                      Expanded(
-                        child: Container(
-                          padding: EdgeInsets.all(16 * scaleFactor),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(
-                              16 * scaleFactor,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  Icon(
+                                    Icons.chat_bubble_outline,
+                                    color: Colors.white,
+                                    size: 18 * scaleFactor,
+                                  ),
+                                  SizedBox(width: 8 * scaleFactor),
                                   Text(
-                                    'Hot Route',
+                                    'Chat',
                                     style: TextStyle(
-                                      fontSize: 13 * scaleFactor,
-                                      color: Colors.grey[600],
+                                      fontSize: 15 * scaleFactor,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
                                     ),
                                   ),
-                                  Icon(
-                                    Icons.trending_up,
-                                    color: Color(0xFF00B4D8),
-                                    size: 18 * scaleFactor,
-                                  ),
                                 ],
                               ),
-                              SizedBox(height: 8 * scaleFactor),
-                              Text(
-                                'Iloilo To\nRoxas',
-                                style: TextStyle(
-                                  fontSize: 16 * scaleFactor,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                  height: 1.3,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    )
+                  else
+                    Container(
+                      padding: EdgeInsets.all(20 * scaleFactor),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(16 * scaleFactor),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 48 * scaleFactor,
+                            color: Colors.grey[400],
+                          ),
+                          SizedBox(height: 12 * scaleFactor),
+                          Text(
+                            'No Ongoing Transactions',
+                            style: TextStyle(
+                              fontSize: 16 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          SizedBox(height: 4 * scaleFactor),
+                          Text(
+                            'Search for travelers below to start',
+                            style: TextStyle(
+                              fontSize: 13 * scaleFactor,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                   SizedBox(height: 28 * scaleFactor),
 
@@ -635,132 +983,6 @@ class _RequesterHomePageState extends State<RequesterHomePage>
                           ),
                         ),
                       ],
-                    ),
-                  ),
-
-                  SizedBox(height: 16 * scaleFactor),
-
-                  // Ideal Schedule Card (Gray-Blue) - Optional filter
-                  Container(
-                    padding: EdgeInsets.all(20 * scaleFactor),
-                    decoration: BoxDecoration(
-                      color: Color(0xFF6B9AA5),
-                      borderRadius: BorderRadius.circular(16 * scaleFactor),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Filter by Schedule',
-                          style: TextStyle(
-                            fontSize: 24 * scaleFactor,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 8 * scaleFactor),
-                        Text(
-                          'Optional: Filter by preferred travel date',
-                          style: TextStyle(
-                            fontSize: 13 * scaleFactor,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                        ),
-                        SizedBox(height: 16 * scaleFactor),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 16 * scaleFactor,
-                                  vertical: 14 * scaleFactor,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(
-                                    12 * scaleFactor,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.calendar_today_outlined,
-                                      color: Colors.black,
-                                      size: 20 * scaleFactor,
-                                    ),
-                                    SizedBox(width: 8 * scaleFactor),
-                                    Text(
-                                      'Any Date',
-                                      style: TextStyle(
-                                        fontSize: 14 * scaleFactor,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12 * scaleFactor),
-                            Expanded(
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 16 * scaleFactor,
-                                  vertical: 14 * scaleFactor,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(
-                                    12 * scaleFactor,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.access_time,
-                                      color: Colors.black,
-                                      size: 20 * scaleFactor,
-                                    ),
-                                    SizedBox(width: 8 * scaleFactor),
-                                    Text(
-                                      'Any Time',
-                                      style: TextStyle(
-                                        fontSize: 14 * scaleFactor,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: 16 * scaleFactor),
-
-                  // Find Travelers Button
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: 16 * scaleFactor),
-                    decoration: BoxDecoration(
-                      color: Color(0xFF00B4D8),
-                      borderRadius: BorderRadius.circular(12 * scaleFactor),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Find Travelers',
-                        style: TextStyle(
-                          fontSize: 18 * scaleFactor,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
                     ),
                   ),
 

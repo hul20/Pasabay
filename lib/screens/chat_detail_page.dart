@@ -7,6 +7,8 @@ import '../models/message.dart';
 import '../models/request.dart';
 import '../services/messaging_service.dart';
 import '../services/request_service.dart';
+import '../services/location_tracking_service.dart';
+import 'tracking_map_page.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -28,6 +30,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   final MessagingService _messagingService = MessagingService();
   final RequestService _requestService = RequestService();
   final SupabaseService _supabaseService = SupabaseService();
+  final LocationTrackingService _trackingService = LocationTrackingService();
   final _supabase = Supabase.instance.client;
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -125,6 +128,127 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   Future<void> _markAsRead() async {
     await _messagingService.markMessagesAsRead(widget.conversation.id);
+  }
+
+  List<String> _getProgressSteps(String serviceType) {
+    if (serviceType == 'Pabakal') {
+      return [
+        'Order Accepted',
+        'Item Bought',
+        'On the Way',
+        'Dropped Off',
+        'Completed',
+      ];
+    } else {
+      return [
+        'Order Accepted',
+        'Picked Up',
+        'On the Way',
+        'Dropped Off',
+        'Completed',
+      ];
+    }
+  }
+
+  int _getCurrentStepIndex(String status, String serviceType) {
+    final Map<String, int> pabakalSteps = {
+      'Accepted': 0,
+      'Item Bought': 1,
+      'On the Way': 2,
+      'Dropped Off': 3,
+      'Order Sent': 3,
+      'Completed': 4,
+    };
+
+    final Map<String, int> pasabaySteps = {
+      'Accepted': 0,
+      'Picked Up': 1,
+      'On the Way': 2,
+      'Dropped Off': 3,
+      'Order Sent': 3,
+      'Completed': 4,
+    };
+
+    if (serviceType == 'Pabakal') {
+      return pabakalSteps[status] ?? 0;
+    } else {
+      return pasabaySteps[status] ?? 0;
+    }
+  }
+
+  Widget _buildProgressBar(
+    List<String> steps,
+    int currentStep,
+    double scaleFactor,
+  ) {
+    return Column(
+      children: [
+        // Progress dots and lines
+        Row(
+          children: List.generate(steps.length * 2 - 1, (index) {
+            if (index.isEven) {
+              // Dot
+              int stepIndex = index ~/ 2;
+              bool isCompleted = stepIndex <= currentStep;
+              return Container(
+                width: 20 * scaleFactor,
+                height: 20 * scaleFactor,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[300],
+                  border: Border.all(
+                    color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[400]!,
+                    width: 2,
+                  ),
+                ),
+                child: isCompleted
+                    ? Icon(
+                        Icons.check,
+                        size: 12 * scaleFactor,
+                        color: Colors.white,
+                      )
+                    : null,
+              );
+            } else {
+              // Line
+              int stepIndex = index ~/ 2;
+              bool isCompleted = stepIndex < currentStep;
+              return Expanded(
+                child: Container(
+                  height: 2,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[300],
+                ),
+              );
+            }
+          }),
+        ),
+        SizedBox(height: 6 * scaleFactor),
+        // Step labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: steps.asMap().entries.map((entry) {
+            int stepIndex = entry.key;
+            String label = entry.value;
+            bool isCompleted = stepIndex <= currentStep;
+            return Expanded(
+              child: Text(
+                label,
+                textAlign: stepIndex == 0
+                    ? TextAlign.start
+                    : stepIndex == steps.length - 1
+                    ? TextAlign.end
+                    : TextAlign.center,
+                style: TextStyle(
+                  fontSize: 9 * scaleFactor,
+                  fontWeight: isCompleted ? FontWeight.w600 : FontWeight.w400,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[600],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   void _scrollToBottom() {
@@ -684,6 +808,360 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     }
   }
 
+  String _getNextActionLabel() {
+    if (_serviceRequest == null) return 'Update Status';
+
+    final status = _serviceRequest!.status;
+    final serviceType = _serviceRequest!.serviceType;
+
+    if (status == 'Accepted') {
+      return serviceType == 'Pabakal' ? 'Item Bought' : 'Picked Up';
+    } else if (status == 'Item Bought' || status == 'Picked Up') {
+      return 'On the Way';
+    } else if (status == 'On the Way') {
+      return 'Dropped Off';
+    } else if (status == 'Dropped Off') {
+      return 'Completed ✓';
+    } else if (status == 'Order Sent') {
+      return 'Completed ✓';
+    } else {
+      return 'Completed ✓';
+    }
+  }
+
+  VoidCallback? _getNextActionForTraveler() {
+    if (_serviceRequest == null) return null;
+
+    final status = _serviceRequest!.status;
+
+    if (status == 'Accepted') {
+      return _handleItemBoughtOrPickedUp;
+    } else if (status == 'Item Bought' || status == 'Picked Up') {
+      return _handleOnTheWay;
+    } else if (status == 'On the Way') {
+      return _handleDroppedOff;
+    } else if (status == 'Dropped Off' ||
+        status == 'Order Sent' ||
+        status == 'Completed') {
+      return null; // Disabled
+    }
+
+    return null;
+  }
+
+  Future<void> _handleItemBoughtOrPickedUp() async {
+    final serviceType = _serviceRequest!.serviceType;
+    final newStatus = serviceType == 'Pabakal' ? 'Item Bought' : 'Picked Up';
+    final title = serviceType == 'Pabakal'
+        ? 'Confirm Item Bought'
+        : 'Confirm Picked Up';
+    final description = serviceType == 'Pabakal'
+        ? 'Please upload a photo proof that you have bought the item.'
+        : 'Please upload a photo proof that you have picked up the package.';
+    final message = serviceType == 'Pabakal'
+        ? 'Item has been bought! 🛍️'
+        : 'Package has been picked up! 📦';
+
+    await _showProofUploadModal(newStatus, title, description, message);
+  }
+
+  Future<void> _handleOnTheWay() async {
+    await _updateTravelerStatus('On the Way', 'On the way to delivery! 🚗');
+
+    // Start location tracking when traveler goes "On the Way"
+    try {
+      await _trackingService.startTracking(_serviceRequest!.id);
+      print('✅ Location tracking started for request: ${_serviceRequest!.id}');
+      
+      // Send a message with tracking link
+      await _messagingService.sendMessage(
+        conversationId: widget.conversation.id,
+        messageText: '📍 [TRACK_LOCATION] Tap here to track my live location in real-time!',
+      );
+    } catch (e) {
+      print('❌ Error starting location tracking: $e');
+      // Show error but don't block the status update
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Location tracking unavailable: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleDroppedOff() async {
+    await _showProofUploadModal(
+      'Dropped Off',
+      'Confirm Drop Off',
+      'Please upload a photo proof that you have dropped off the item/package.',
+      'Item has been dropped off! 📍',
+    );
+  }
+
+  Future<void> _showProofUploadModal(
+    String newStatus,
+    String title,
+    String description,
+    String successMessage,
+  ) async {
+    // Show modal to upload proof image
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        XFile? proofImage;
+        bool isSubmitting = false;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Confirm Drop Off',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Please upload a photo proof that you have dropped off the item/package.',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                  ),
+                  SizedBox(height: 20),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final XFile? image = await _imagePicker.pickImage(
+                          source: ImageSource.camera,
+                          imageQuality: 80,
+                        );
+                        if (image != null) {
+                          setModalState(() {
+                            proofImage = image;
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: proofImage != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: kIsWeb
+                                    ? Image.network(
+                                        proofImage!.path,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.file(
+                                        File(proofImage!.path),
+                                        fit: BoxFit.cover,
+                                      ),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 48,
+                                    color: Colors.grey[400],
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Tap to take photo',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: (proofImage == null || isSubmitting)
+                          ? null
+                          : () async {
+                              setModalState(() => isSubmitting = true);
+                              try {
+                                // 1. Prepare file for upload
+                                dynamic fileToUpload;
+                                if (kIsWeb) {
+                                  fileToUpload = await proofImage!
+                                      .readAsBytes();
+                                } else {
+                                  fileToUpload = File(proofImage!.path);
+                                }
+
+                                // 2. Upload image
+                                final imageUrl = await _supabaseService.uploadFile(
+                                  'proof-images',
+                                  '${newStatus.toLowerCase().replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                  fileToUpload,
+                                );
+
+                                // 3. Update request status
+                                await _supabase
+                                    .from('service_requests')
+                                    .update({
+                                      'status': newStatus,
+                                      'proof_image_url': imageUrl,
+                                      'updated_at': DateTime.now()
+                                          .toIso8601String(),
+                                    })
+                                    .eq('id', _serviceRequest!.id);
+
+                                // 4. Send automated message with image marker
+                                await _messagingService.sendMessage(
+                                  conversationId: widget.conversation.id,
+                                  messageText:
+                                      '$successMessage\n[IMAGE]$imageUrl',
+                                );
+
+                                if (mounted) {
+                                  Navigator.pop(context);
+                                  setState(() {
+                                    _serviceRequest = _serviceRequest!.copyWith(
+                                      status: newStatus,
+                                      proofImageUrl: imageUrl,
+                                    );
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Status updated with proof!',
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setModalState(() => isSubmitting = false);
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: isSubmitting
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              'Confirm & Upload',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _updateTravelerStatus(String newStatus, String message) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Update request status
+      await _supabase
+          .from('service_requests')
+          .update({
+            'status': newStatus,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', _serviceRequest!.id);
+
+      // Send automated message
+      await _messagingService.sendMessage(
+        conversationId: widget.conversation.id,
+        messageText: message,
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+
+        setState(() {
+          _serviceRequest = _serviceRequest!.copyWith(status: newStatus);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Status updated to: $newStatus'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error updating status: $e');
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -692,6 +1170,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 2,
@@ -824,6 +1303,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                       ],
                     ),
                   ),
+                  SizedBox(height: 12 * scaleFactor),
+                  // Progress Bar
+                  _buildProgressBar(
+                    _getProgressSteps(_serviceRequest!.serviceType),
+                    _getCurrentStepIndex(
+                      _serviceRequest!.status,
+                      _serviceRequest!.serviceType,
+                    ),
+                    scaleFactor,
+                  ),
                   if (widget.conversation.travelerId == currentUserId) ...[
                     SizedBox(height: 12 * scaleFactor),
                     Row(
@@ -854,9 +1343,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                         SizedBox(width: 12 * scaleFactor),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _serviceRequest!.status == 'Accepted'
-                                ? _handleOrderSent
-                                : null,
+                            onPressed: _getNextActionForTraveler(),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppConstants.primaryColor,
                               padding: EdgeInsets.symmetric(
@@ -868,9 +1355,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                               disabledBackgroundColor: Colors.grey[300],
                             ),
                             child: Text(
-                              'Item Delivered',
+                              _getNextActionLabel(),
                               style: TextStyle(
-                                color: Colors.white,
+                                color:
+                                    _serviceRequest!.status == 'Completed' ||
+                                        _serviceRequest!.status ==
+                                            'Order Sent' ||
+                                        _serviceRequest!.status == 'Dropped Off'
+                                    ? Colors.grey[600]
+                                    : Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -883,33 +1376,71 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                     SizedBox(height: 12 * scaleFactor),
                     Row(
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _showRequestDetails,
-                            style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(
-                                vertical: 12 * scaleFactor,
+                        if (_serviceRequest!.status == 'On the Way') ...[
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TrackingMapPage(
+                                      requestId: _serviceRequest!.id,
+                                      travelerName: 'Traveler',
+                                      serviceType: _serviceRequest!.serviceType,
+                                      status: _serviceRequest!.status,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: Icon(Icons.my_location, size: 18 * scaleFactor),
+                              label: Text(
+                                'Track',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              side: BorderSide(
-                                color: AppConstants.primaryColor,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              'Details',
-                              style: TextStyle(
-                                color: AppConstants.primaryColor,
-                                fontWeight: FontWeight.w600,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Color(0xFF00B4D8),
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 12 * scaleFactor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ] else ...[
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _showRequestDetails,
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 12 * scaleFactor,
+                                ),
+                                side: BorderSide(
+                                  color: AppConstants.primaryColor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                'Details',
+                                style: TextStyle(
+                                  color: AppConstants.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         SizedBox(width: 12 * scaleFactor),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: (_serviceRequest!.status == 'Order Sent')
+                            onPressed:
+                                (_serviceRequest!.status == 'Dropped Off')
                                 ? _handleItemReceived
                                 : null,
                             style: ElevatedButton.styleFrom(
@@ -929,7 +1460,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                               style: TextStyle(
                                 color: _serviceRequest!.status == 'Completed'
                                     ? Colors.grey[600]
-                                    : Colors.white,
+                                    : (_serviceRequest!.status == 'Dropped Off'
+                                          ? Colors.white
+                                          : Colors.grey[600]),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1045,6 +1578,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   Widget _buildMessageBubble(Message message, bool isMine, double scaleFactor) {
     // Check if message contains an image
     final hasImage = message.messageText.contains('[IMAGE]');
+    final hasTracking = message.messageText.contains('[TRACK_LOCATION]');
     String? imageUrl;
     String displayText = message.messageText;
 
@@ -1055,11 +1589,32 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         imageUrl = parts[1].trim();
       }
     }
+    
+    if (hasTracking) {
+      displayText = displayText.replaceAll('[TRACK_LOCATION]', '').trim();
+    }
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: EdgeInsets.only(
+      child: GestureDetector(
+        onTap: hasTracking ? () {
+          // Navigate to tracking page when tapping tracking message
+          if (_serviceRequest != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TrackingMapPage(
+                  requestId: _serviceRequest!.id,
+                  travelerName: 'Traveler',
+                  serviceType: _serviceRequest!.serviceType,
+                  status: _serviceRequest!.status,
+                ),
+              ),
+            );
+          }
+        } : null,
+        child: Container(
+          margin: EdgeInsets.only(
           bottom: 8 * scaleFactor,
           left: isMine ? 60 * scaleFactor : 0,
           right: isMine ? 0 : 60 * scaleFactor,
@@ -1069,8 +1624,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           vertical: 10 * scaleFactor,
         ),
         decoration: BoxDecoration(
-          color: isMine ? Color(0xFF00B4D8) : Colors.white,
+          color: hasTracking ? Color(0xFF00B4D8).withOpacity(0.9) : (isMine ? Color(0xFF00B4D8) : Colors.white),
           borderRadius: BorderRadius.circular(16 * scaleFactor),
+          border: hasTracking ? Border.all(color: Colors.white, width: 2) : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -1083,12 +1639,28 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (displayText.isNotEmpty) ...[
-              Text(
-                displayText,
-                style: TextStyle(
-                  color: isMine ? Colors.white : Colors.black87,
-                  fontSize: 15 * scaleFactor,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasTracking) ...[
+                    Icon(
+                      Icons.my_location,
+                      color: Colors.white,
+                      size: 18 * scaleFactor,
+                    ),
+                    SizedBox(width: 8 * scaleFactor),
+                  ],
+                  Flexible(
+                    child: Text(
+                      displayText,
+                      style: TextStyle(
+                        color: hasTracking ? Colors.white : (isMine ? Colors.white : Colors.black87),
+                        fontSize: 15 * scaleFactor,
+                        fontWeight: hasTracking ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (imageUrl != null) SizedBox(height: 8 * scaleFactor),
             ],
@@ -1238,6 +1810,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               ],
             ),
           ],
+        ),
         ),
       ),
     );

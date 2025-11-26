@@ -158,7 +158,7 @@ BEGIN
         jsonb_build_object('request_id', NEW.id::text, 'type', 'request_cancelled')
       );
     
-    ELSIF NEW.status = 'Order Sent' AND OLD.status = 'Accepted' THEN
+    ELSIF NEW.status = 'Order Sent' THEN
       INSERT INTO public.notifications (user_id, notification_type, title, body, related_id)
       VALUES (
         NEW.requester_id,
@@ -175,7 +175,7 @@ BEGIN
         jsonb_build_object('request_id', NEW.id::text, 'type', 'order_sent')
       );
     
-    ELSIF NEW.status = 'Completed' AND OLD.status = 'Order Sent' THEN
+    ELSIF NEW.status = 'Completed' THEN
       INSERT INTO public.notifications (user_id, notification_type, title, body, related_id)
       VALUES (
         NEW.traveler_id,
