@@ -872,11 +872,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     try {
       await _trackingService.startTracking(_serviceRequest!.id);
       print('✅ Location tracking started for request: ${_serviceRequest!.id}');
-      
+
       // Send a message with tracking link
       await _messagingService.sendMessage(
         conversationId: widget.conversation.id,
-        messageText: '📍 [TRACK_LOCATION] Tap here to track my live location in real-time!',
+        messageText:
+            '📍 [TRACK_LOCATION] Tap here to track my live location in real-time!',
       );
     } catch (e) {
       print('❌ Error starting location tracking: $e');
@@ -1392,12 +1393,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                   ),
                                 );
                               },
-                              icon: Icon(Icons.my_location, size: 18 * scaleFactor),
+                              icon: Icon(
+                                Icons.my_location,
+                                size: 18 * scaleFactor,
+                              ),
                               label: Text(
                                 'Track',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w600),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Color(0xFF00B4D8),
@@ -1589,7 +1591,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         imageUrl = parts[1].trim();
       }
     }
-    
+
     if (hasTracking) {
       displayText = displayText.replaceAll('[TRACK_LOCATION]', '').trim();
     }
@@ -1597,220 +1599,233 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onTap: hasTracking ? () {
-          // Navigate to tracking page when tapping tracking message
-          if (_serviceRequest != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TrackingMapPage(
-                  requestId: _serviceRequest!.id,
-                  travelerName: 'Traveler',
-                  serviceType: _serviceRequest!.serviceType,
-                  status: _serviceRequest!.status,
-                ),
-              ),
-            );
-          }
-        } : null,
-        child: Container(
-          margin: EdgeInsets.only(
-          bottom: 8 * scaleFactor,
-          left: isMine ? 60 * scaleFactor : 0,
-          right: isMine ? 0 : 60 * scaleFactor,
-        ),
-        padding: EdgeInsets.symmetric(
-          horizontal: 16 * scaleFactor,
-          vertical: 10 * scaleFactor,
-        ),
-        decoration: BoxDecoration(
-          color: hasTracking ? Color(0xFF00B4D8).withOpacity(0.9) : (isMine ? Color(0xFF00B4D8) : Colors.white),
-          borderRadius: BorderRadius.circular(16 * scaleFactor),
-          border: hasTracking ? Border.all(color: Colors.white, width: 2) : null,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (displayText.isNotEmpty) ...[
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (hasTracking) ...[
-                    Icon(
-                      Icons.my_location,
-                      color: Colors.white,
-                      size: 18 * scaleFactor,
-                    ),
-                    SizedBox(width: 8 * scaleFactor),
-                  ],
-                  Flexible(
-                    child: Text(
-                      displayText,
-                      style: TextStyle(
-                        color: hasTracking ? Colors.white : (isMine ? Colors.white : Colors.black87),
-                        fontSize: 15 * scaleFactor,
-                        fontWeight: hasTracking ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (imageUrl != null) SizedBox(height: 8 * scaleFactor),
-            ],
-            if (imageUrl != null) ...[
-              GestureDetector(
-                onTap: () {
-                  // Show full screen image
-                  showDialog(
-                    context: context,
-                    builder: (context) => Dialog(
-                      backgroundColor: Colors.transparent,
-                      child: Stack(
-                        children: [
-                          Center(
-                            child: InteractiveViewer(
-                              child: Image.network(
-                                imageUrl!,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    padding: EdgeInsets.all(20),
-                                    color: Colors.white,
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.broken_image,
-                                          size: 48,
-                                          color: Colors.grey,
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          'Failed to load image',
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 40,
-                            right: 20,
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.close,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ),
-                        ],
+        onTap: hasTracking
+            ? () {
+                // Navigate to tracking page when tapping tracking message
+                if (_serviceRequest != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TrackingMapPage(
+                        requestId: _serviceRequest!.id,
+                        travelerName: 'Traveler',
+                        serviceType: _serviceRequest!.serviceType,
+                        status: _serviceRequest!.status,
                       ),
                     ),
                   );
-                },
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxWidth: 250 * scaleFactor,
-                    maxHeight: 200 * scaleFactor,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8 * scaleFactor),
-                    border: Border.all(
-                      color: isMine
-                          ? Colors.white.withOpacity(0.3)
-                          : Colors.grey[300]!,
-                      width: 1,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8 * scaleFactor),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 150 * scaleFactor,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                  : null,
-                              color: isMine
-                                  ? Colors.white
-                                  : AppConstants.primaryColor,
-                              strokeWidth: 2,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          height: 150 * scaleFactor,
-                          color: Colors.grey[200],
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.broken_image_outlined,
-                                size: 40 * scaleFactor,
-                                color: Colors.grey[400],
-                              ),
-                              SizedBox(height: 8 * scaleFactor),
-                              Text(
-                                'Failed to load image',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12 * scaleFactor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
+                }
+              }
+            : null,
+        child: Container(
+          margin: EdgeInsets.only(
+            bottom: 8 * scaleFactor,
+            left: isMine ? 60 * scaleFactor : 0,
+            right: isMine ? 0 : 60 * scaleFactor,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16 * scaleFactor,
+            vertical: 10 * scaleFactor,
+          ),
+          decoration: BoxDecoration(
+            color: hasTracking
+                ? Color(0xFF00B4D8).withOpacity(0.9)
+                : (isMine ? Color(0xFF00B4D8) : Colors.white),
+            borderRadius: BorderRadius.circular(16 * scaleFactor),
+            border: hasTracking
+                ? Border.all(color: Colors.white, width: 2)
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: Offset(0, 2),
               ),
             ],
-            SizedBox(height: 4 * scaleFactor),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  message.formattedTime,
-                  style: TextStyle(
-                    color: isMine
-                        ? Colors.white.withOpacity(0.8)
-                        : Colors.grey[500],
-                    fontSize: 11 * scaleFactor,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (displayText.isNotEmpty) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasTracking) ...[
+                      Icon(
+                        Icons.my_location,
+                        color: Colors.white,
+                        size: 18 * scaleFactor,
+                      ),
+                      SizedBox(width: 8 * scaleFactor),
+                    ],
+                    Flexible(
+                      child: Text(
+                        displayText,
+                        style: TextStyle(
+                          color: hasTracking
+                              ? Colors.white
+                              : (isMine ? Colors.white : Colors.black87),
+                          fontSize: 15 * scaleFactor,
+                          fontWeight: hasTracking
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (imageUrl != null) SizedBox(height: 8 * scaleFactor),
+              ],
+              if (imageUrl != null) ...[
+                GestureDetector(
+                  onTap: () {
+                    // Show full screen image
+                    showDialog(
+                      context: context,
+                      builder: (context) => Dialog(
+                        backgroundColor: Colors.transparent,
+                        child: Stack(
+                          children: [
+                            Center(
+                              child: InteractiveViewer(
+                                child: Image.network(
+                                  imageUrl!,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      padding: EdgeInsets.all(20),
+                                      color: Colors.white,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.broken_image,
+                                            size: 48,
+                                            color: Colors.grey,
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            'Failed to load image',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 40,
+                              right: 20,
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxWidth: 250 * scaleFactor,
+                      maxHeight: 200 * scaleFactor,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor),
+                      border: Border.all(
+                        color: isMine
+                            ? Colors.white.withOpacity(0.3)
+                            : Colors.grey[300]!,
+                        width: 1,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor),
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            height: 150 * scaleFactor,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: isMine
+                                    ? Colors.white
+                                    : AppConstants.primaryColor,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 150 * scaleFactor,
+                            color: Colors.grey[200],
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.broken_image_outlined,
+                                  size: 40 * scaleFactor,
+                                  color: Colors.grey[400],
+                                ),
+                                SizedBox(height: 8 * scaleFactor),
+                                Text(
+                                  'Failed to load image',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12 * scaleFactor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
-                if (isMine) ...[
-                  SizedBox(width: 4 * scaleFactor),
-                  Icon(
-                    message.isRead ? Icons.done_all : Icons.done,
-                    size: 14 * scaleFactor,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ],
               ],
-            ),
-          ],
-        ),
+              SizedBox(height: 4 * scaleFactor),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message.formattedTime,
+                    style: TextStyle(
+                      color: isMine
+                          ? Colors.white.withOpacity(0.8)
+                          : Colors.grey[500],
+                      fontSize: 11 * scaleFactor,
+                    ),
+                  ),
+                  if (isMine) ...[
+                    SizedBox(width: 4 * scaleFactor),
+                    Icon(
+                      message.isRead ? Icons.done_all : Icons.done,
+                      size: 14 * scaleFactor,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
