@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../models/conversation.dart';
@@ -55,6 +56,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _trackingService.stopTracking(); // Stop tracking when chat is closed
     if (_messagesChannel != null) {
       _messagingService.unsubscribe(_messagesChannel!);
     }
@@ -879,6 +881,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         messageText:
             '📍 [TRACK_LOCATION] Tap here to track my live location in real-time!',
       );
+    } on LocationPermissionException catch (e) {
+      print('❌ Location permission error: $e');
+      // Show dialog with option to open settings
+      if (mounted) {
+        _showLocationPermissionDialog(e.message, e.shouldOpenSettings);
+      }
     } catch (e) {
       print('❌ Error starting location tracking: $e');
       // Show error but don't block the status update
@@ -887,10 +895,54 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           SnackBar(
             content: Text('Location tracking unavailable: $e'),
             backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
           ),
         );
       }
     }
+  }
+
+  void _showLocationPermissionDialog(String message, bool shouldOpenSettings) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.location_off, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Location Required'),
+          ],
+        ),
+        content: Text(
+          '$message\n\nLocation tracking is essential for delivery updates. Please enable location services to continue.',
+        ),
+        actions: [
+          if (shouldOpenSettings)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Geolocator.openAppSettings();
+              },
+              child: Text('Open Settings'),
+            ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Retry permission check
+              _handleOnTheWay();
+            },
+            child: Text('Retry'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleDroppedOff() async {
@@ -1123,6 +1175,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
 
     try {
+      // Stop tracking if status is changing from "On the Way"
+      if (_serviceRequest!.status == 'On the Way' &&
+          newStatus != 'On the Way') {
+        _trackingService.stopTracking();
+        print(
+          '🛑 Stopped tracking - status changed from On the Way to $newStatus',
+        );
+      }
+
       // Update request status
       await _supabase
           .from('service_requests')

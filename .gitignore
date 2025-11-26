@@ -67,3 +67,4 @@ ios/Flutter/local.properties
 lib/config/api_keys.dart
 
 node_modules
+lib/utils/constants.dart

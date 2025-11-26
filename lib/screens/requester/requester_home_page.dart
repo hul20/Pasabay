@@ -249,6 +249,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
           .eq('requester_id', userId)
           .inFilter('status', [
             'Accepted',
+            'Order Sent',
             'Item Bought',
             'Picked Up',
             'On the Way',

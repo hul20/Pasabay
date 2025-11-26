@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -12,6 +14,7 @@ import '../utils/supabase_service.dart';
 import '../models/trip.dart';
 import '../services/trip_service.dart';
 import '../services/notification_service.dart';
+import '../services/distance_service.dart';
 import 'activity_page.dart';
 import 'messages_page.dart';
 import 'profile_page.dart';
@@ -39,12 +42,12 @@ class _TravelerHomePageState extends State<TravelerHomePage>
   final TextEditingController _slotsController = TextEditingController(
     text: '5',
   );
-  final TextEditingController _pasabayPriceController = TextEditingController(
-    text: '50',
-  );
-  final TextEditingController _pabakalPriceController = TextEditingController(
-    text: '100',
-  );
+
+  // Distance and pricing
+  double? _totalDistanceKm;
+  double? _calculatedPrice;
+  bool _isCalculatingDistance = false;
+  final DistanceService _distanceService = DistanceService();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
 
@@ -76,6 +79,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
     _loadTripStats();
     _loadUnreadNotifications();
     _setupNotificationSubscription();
+    _setDefaultDeparture(); // Set current location as default departure
   }
 
   void _setupNotificationSubscription() {
@@ -152,8 +156,6 @@ class _TravelerHomePageState extends State<TravelerHomePage>
     _departureController.dispose();
     _destinationController.dispose();
     _slotsController.dispose();
-    _pasabayPriceController.dispose();
-    _pabakalPriceController.dispose();
     _mapController?.dispose();
     _expandedMapController?.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -467,12 +469,11 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       final timeString =
           '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00';
 
-      // Parse slots and pricing
+      // Parse slots
       final slots = int.tryParse(_slotsController.text.trim()) ?? 5;
-      final pasabayPrice =
-          double.tryParse(_pasabayPriceController.text.trim()) ?? 50.0;
-      final pabakalPrice =
-          double.tryParse(_pabakalPriceController.text.trim()) ?? 100.0;
+
+      // Use calculated price (both services use same price based on distance)
+      final servicePrice = _calculatedPrice ?? 50.0;
 
       await _tripService.createTrip(
         departureLocation: _departureController.text.trim(),
@@ -485,8 +486,8 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         departureTime: timeString,
         availableCapacity: slots,
         baseFee: 0.0,
-        pasabayPrice: pasabayPrice,
-        pabakalPrice: pabakalPrice,
+        pasabayPrice: servicePrice,
+        pabakalPrice: servicePrice,
       );
 
       if (mounted) {
@@ -496,8 +497,6 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         _departureController.clear();
         _destinationController.clear();
         _slotsController.text = '5';
-        _pasabayPriceController.text = '50';
-        _pabakalPriceController.text = '100';
         setState(() {
           _selectedDate = null;
           _selectedTime = null;
@@ -505,6 +504,8 @@ class _TravelerHomePageState extends State<TravelerHomePage>
           _departureLng = null;
           _destinationLat = null;
           _destinationLng = null;
+          _totalDistanceKm = null;
+          _calculatedPrice = null;
           _markers.clear();
         });
 
@@ -575,6 +576,104 @@ class _TravelerHomePageState extends State<TravelerHomePage>
     }
   }
 
+  /// Set current city as default departure location
+  Future<void> _setDefaultDeparture() async {
+    try {
+      // Check if location permission is granted
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        // Get current position
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        setState(() {
+          _currentLat = position.latitude;
+          _currentLng = position.longitude;
+          _departureLat = position.latitude;
+          _departureLng = position.longitude;
+        });
+
+        // Get city name from coordinates
+        try {
+          final placemarks = await placemarkFromCoordinates(
+            position.latitude,
+            position.longitude,
+          );
+          if (placemarks.isNotEmpty) {
+            final place = placemarks.first;
+            final cityName =
+                place.locality ?? place.subAdministrativeArea ?? '';
+            if (cityName.isNotEmpty) {
+              _departureController.text = cityName;
+              print('✅ Default departure set to: $cityName');
+            }
+          }
+        } catch (e) {
+          print('⚠️ Could not get city name: $e');
+          _departureController.text = 'Current Location';
+        }
+
+        _updateMapMarkers();
+      }
+    } catch (e) {
+      print('⚠️ Could not set default departure: $e');
+      // Silent fail - user can manually enter location
+    }
+  }
+
+  /// Calculate distance and price when both locations are set
+  Future<void> _calculateDistanceAndPrice() async {
+    if (_departureLat == null ||
+        _departureLng == null ||
+        _destinationLat == null ||
+        _destinationLng == null) {
+      return;
+    }
+
+    setState(() {
+      _isCalculatingDistance = true;
+    });
+
+    try {
+      final result = await _distanceService.calculateDistance(
+        originLat: _departureLat!,
+        originLng: _departureLng!,
+        destLat: _destinationLat!,
+        destLng: _destinationLng!,
+      );
+
+      if (result.success) {
+        setState(() {
+          _totalDistanceKm = result.distanceInKm;
+          _calculatedPrice = result.price;
+          _isCalculatingDistance = false;
+        });
+        print('✅ Distance: ${result.distanceInKm.toStringAsFixed(2)} km');
+        print('✅ Price: ₱${result.price.toStringAsFixed(2)}');
+      } else {
+        setState(() {
+          _isCalculatingDistance = false;
+        });
+        _showSnackBar(
+          'Could not calculate distance: ${result.errorMessage}',
+          Colors.orange,
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isCalculatingDistance = false;
+      });
+      print('❌ Error calculating distance: $e');
+    }
+  }
+
   Widget _buildExpandedMapWidget(
     double scaleFactor, [
     VoidCallback? onMarkerUpdate,
@@ -608,6 +707,20 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       ),
       markers: _markers,
       polylines: _polylines,
+      gestureRecognizers: Set()
+        ..add(Factory<PanGestureRecognizer>(() => PanGestureRecognizer()))
+        ..add(Factory<ScaleGestureRecognizer>(() => ScaleGestureRecognizer()))
+        ..add(Factory<TapGestureRecognizer>(() => TapGestureRecognizer()))
+        ..add(
+          Factory<VerticalDragGestureRecognizer>(
+            () => VerticalDragGestureRecognizer(),
+          ),
+        )
+        ..add(
+          Factory<HorizontalDragGestureRecognizer>(
+            () => HorizontalDragGestureRecognizer(),
+          ),
+        ),
       onMapCreated: (GoogleMapController controller) async {
         if (!mounted) return;
 
@@ -696,7 +809,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                         ),
                         Expanded(
                           child: Text(
-                            'Pin Locations on Map',
+                            'Pin Destination on Map',
                             style: TextStyle(
                               fontSize: 18 * scaleFactor,
                               fontWeight: FontWeight.bold,
@@ -723,16 +836,15 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                   ),
                   // Expanded Map
                   Expanded(
-                    child: Container(
-                      child: Builder(
-                        builder: (context) {
-                          // Create a callback that updates both parent and modal state
-                          return _buildExpandedMapWidget(scaleFactor, () {
-                            setModalState(() {});
-                            setState(() {});
-                          });
-                        },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(24 * scaleFactor),
+                        bottomRight: Radius.circular(24 * scaleFactor),
                       ),
+                      child: _buildExpandedMapWidget(scaleFactor, () {
+                        setModalState(() {});
+                        setState(() {});
+                      }),
                     ),
                   ),
                   // Instructions
@@ -840,6 +952,11 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       }
 
       _showSnackBar('🔴 Destination location set!', Colors.red);
+
+      // Calculate distance if both locations are set
+      if (_departureLat != null && _departureLng != null) {
+        await _calculateDistanceAndPrice();
+      }
     } else {
       // Both are set, ask which one to replace
       _showSnackBar('Clear a location first to set a new one', Colors.orange);
@@ -1385,14 +1502,24 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                           ],
                         ),
                         SizedBox(height: 16 * scaleFactor),
+                        // Departure Field - Editable
                         TextField(
                           controller: _departureController,
-                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          style: TextStyle(
+                            fontSize: 14 * scaleFactor,
+                            fontWeight: FontWeight.w500,
+                          ),
                           decoration: InputDecoration(
-                            hintText: 'Departure Location',
+                            hintText: 'From (Tap to change)',
                             hintStyle: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 14 * scaleFactor,
+                            ),
+                            helperText:
+                                'Current location auto-filled, tap to change',
+                            helperStyle: TextStyle(
+                              fontSize: 11 * scaleFactor,
+                              color: Colors.grey[600],
                             ),
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 16 * scaleFactor,
@@ -1446,21 +1573,48 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                           onChanged: (value) {
                             setState(() {});
                           },
-                          onSubmitted: (value) {
+                          onSubmitted: (value) async {
                             if (value.isNotEmpty) {
-                              _updateMapMarkers();
+                              // Try to geocode the entered location
+                              try {
+                                final locations = await locationFromAddress(
+                                  value,
+                                );
+                                if (locations.isNotEmpty) {
+                                  setState(() {
+                                    _departureLat = locations.first.latitude;
+                                    _departureLng = locations.first.longitude;
+                                  });
+                                  _updateMapMarkers();
+                                  // Calculate if destination is also set
+                                  if (_destinationLat != null &&
+                                      _destinationLng != null) {
+                                    await _calculateDistanceAndPrice();
+                                  }
+                                }
+                              } catch (e) {
+                                _showSnackBar(
+                                  'Could not find location',
+                                  Colors.orange,
+                                );
+                              }
                             }
                           },
                         ),
                         SizedBox(height: 12 * scaleFactor),
+                        // Destination Field - "Where to?"
                         TextField(
                           controller: _destinationController,
-                          style: TextStyle(fontSize: 14 * scaleFactor),
+                          style: TextStyle(
+                            fontSize: 16 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                          ),
                           decoration: InputDecoration(
-                            hintText: 'Destination Location',
+                            hintText: 'Where to?',
                             hintStyle: TextStyle(
                               color: Colors.grey[400],
-                              fontSize: 14 * scaleFactor,
+                              fontSize: 16 * scaleFactor,
+                              fontWeight: FontWeight.w500,
                             ),
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 16 * scaleFactor,
@@ -1514,9 +1668,31 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                           onChanged: (value) {
                             setState(() {});
                           },
-                          onSubmitted: (value) {
+                          onSubmitted: (value) async {
                             if (value.isNotEmpty) {
-                              _updateMapMarkers();
+                              // Try to geocode the entered location
+                              try {
+                                final locations = await locationFromAddress(
+                                  value,
+                                );
+                                if (locations.isNotEmpty) {
+                                  setState(() {
+                                    _destinationLat = locations.first.latitude;
+                                    _destinationLng = locations.first.longitude;
+                                  });
+                                  _updateMapMarkers();
+                                  // Calculate if departure is also set
+                                  if (_departureLat != null &&
+                                      _departureLng != null) {
+                                    await _calculateDistanceAndPrice();
+                                  }
+                                }
+                              } catch (e) {
+                                _showSnackBar(
+                                  'Could not find location',
+                                  Colors.orange,
+                                );
+                              }
                             }
                           },
                         ),
@@ -1550,7 +1726,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                                 ),
                                 SizedBox(width: 8 * scaleFactor),
                                 Text(
-                                  'Open Map to Pin Locations',
+                                  'Open Map to Select Destination',
                                   style: TextStyle(
                                     fontSize: 14 * scaleFactor,
                                     fontWeight: FontWeight.w600,
@@ -1799,159 +1975,171 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                           ),
                         ),
                         SizedBox(height: 16 * scaleFactor),
-                        // Pasabay Price
-                        Text(
-                          'Pasabay Price (Package Delivery)',
-                          style: TextStyle(
-                            fontSize: 13 * scaleFactor,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
+                        // Distance and Price Display
+                        if (_totalDistanceKm != null &&
+                            _calculatedPrice != null) ...[
+                          Container(
+                            padding: EdgeInsets.all(16 * scaleFactor),
+                            decoration: BoxDecoration(
+                              color: AppConstants.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                              border: Border.all(
+                                color: AppConstants.primaryColor.withOpacity(
+                                  0.3,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.route,
+                                          color: AppConstants.primaryColor,
+                                          size: 20 * scaleFactor,
+                                        ),
+                                        SizedBox(width: 8 * scaleFactor),
+                                        Text(
+                                          'Total Distance',
+                                          style: TextStyle(
+                                            fontSize: 14 * scaleFactor,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      _distanceService.formatDistance(
+                                        _totalDistanceKm!,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 16 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppConstants.primaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 12 * scaleFactor),
+                                Divider(height: 1),
+                                SizedBox(height: 12 * scaleFactor),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.attach_money,
+                                          color: Colors.green[700],
+                                          size: 20 * scaleFactor,
+                                        ),
+                                        SizedBox(width: 8 * scaleFactor),
+                                        Text(
+                                          'Service Fee',
+                                          style: TextStyle(
+                                            fontSize: 14 * scaleFactor,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      _distanceService.formatPrice(
+                                        _calculatedPrice!,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 18 * scaleFactor,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green[700],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 8 * scaleFactor),
+                                Text(
+                                  'Same price for both Pasabay & Pabakal',
+                                  style: TextStyle(
+                                    fontSize: 11 * scaleFactor,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 8 * scaleFactor),
-                        TextField(
-                          controller: _pasabayPriceController,
-                          keyboardType: TextInputType.numberWithOptions(
-                            decimal: true,
+                        ] else if (_isCalculatingDistance) ...[
+                          Container(
+                            padding: EdgeInsets.all(16 * scaleFactor),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(
+                                12 * scaleFactor,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20 * scaleFactor,
+                                  height: 20 * scaleFactor,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                SizedBox(width: 12 * scaleFactor),
+                                Text(
+                                  'Calculating distance...',
+                                  style: TextStyle(
+                                    fontSize: 13 * scaleFactor,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          style: TextStyle(fontSize: 14 * scaleFactor),
-                          decoration: InputDecoration(
-                            hintText: 'Price per request',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14 * scaleFactor,
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16 * scaleFactor,
-                              vertical: 14 * scaleFactor,
-                            ),
-                            border: OutlineInputBorder(
+                        ] else ...[
+                          Container(
+                            padding: EdgeInsets.all(16 * scaleFactor),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(
                                 12 * scaleFactor,
                               ),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(
-                                color: AppConstants.primaryColor,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            prefixIcon: Padding(
-                              padding: EdgeInsets.only(
-                                left: 16 * scaleFactor,
-                                right: 8 * scaleFactor,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '₱',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.grey[600],
+                                  size: 20 * scaleFactor,
+                                ),
+                                SizedBox(width: 12 * scaleFactor),
+                                Expanded(
+                                  child: Text(
+                                    'Set both locations to calculate service fee',
                                     style: TextStyle(
-                                      fontSize: 16 * scaleFactor,
-                                      color: Colors.grey[700],
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13 * scaleFactor,
+                                      color: Colors.grey[600],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            suffixIcon: Icon(
-                              Icons.local_shipping_outlined,
-                              color: Colors.green[600],
-                              size: 20 * scaleFactor,
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        SizedBox(height: 16 * scaleFactor),
-                        // Pabakal Price
-                        Text(
-                          'Pabakal Price (Shopping Service)',
-                          style: TextStyle(
-                            fontSize: 13 * scaleFactor,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        SizedBox(height: 8 * scaleFactor),
-                        TextField(
-                          controller: _pabakalPriceController,
-                          keyboardType: TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          style: TextStyle(fontSize: 14 * scaleFactor),
-                          decoration: InputDecoration(
-                            hintText: 'Price per request',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14 * scaleFactor,
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16 * scaleFactor,
-                              vertical: 14 * scaleFactor,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(
-                                color: AppConstants.primaryColor,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            prefixIcon: Padding(
-                              padding: EdgeInsets.only(
-                                left: 16 * scaleFactor,
-                                right: 8 * scaleFactor,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '₱',
-                                    style: TextStyle(
-                                      fontSize: 16 * scaleFactor,
-                                      color: Colors.grey[700],
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            suffixIcon: Icon(
-                              Icons.shopping_bag_outlined,
-                              color: Colors.blue[600],
-                              size: 20 * scaleFactor,
-                            ),
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
-                  SizedBox(height: 18 * scaleFactor),
+                  SizedBox(height: 20 * scaleFactor),
                   // Map
                   Container(
                     height: 200 * scaleFactor,

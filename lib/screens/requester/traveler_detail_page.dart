@@ -49,18 +49,24 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
   List<String> _uploadedPhotoUrls = [];
 
   double get _serviceFee {
-    // Use the trip's set pricing for each service type
+    // Use the trip's calculated distance-based pricing
+    // Both Pabakal and Pasabay use the same distance-based price (₱1/km, min ₱20)
     if (_selectedServiceType == 'Pabakal') {
-      return widget.trip.pabakalPrice; // Use traveler's set Pabakal price
+      return widget.trip.pabakalPrice;
     } else if (_selectedServiceType == 'Pasabay') {
-      return widget.trip.pasabayPrice; // Use traveler's set Pasabay price
+      return widget.trip.pasabayPrice;
     }
     return 0.0;
   }
 
   double get _totalAmount {
-    final productCost = double.tryParse(_costController.text) ?? 0;
-    return productCost + _serviceFee;
+    if (_selectedServiceType == 'Pabakal') {
+      final productCost = double.tryParse(_costController.text) ?? 0;
+      return productCost + _serviceFee;
+    } else {
+      // Pasabay: service fee only (no product cost)
+      return _serviceFee;
+    }
   }
 
   @override
@@ -978,7 +984,35 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                           border: Border.all(color: Colors.grey[200]!),
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Route info
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.route,
+                                  size: 14 * scaleFactor,
+                                  color: Colors.grey[600],
+                                ),
+                                SizedBox(width: 6 * scaleFactor),
+                                Expanded(
+                                  child: Text(
+                                    '${widget.trip.departureLocation} → ${widget.trip.destinationLocation}',
+                                    style: TextStyle(
+                                      fontSize: 12 * scaleFactor,
+                                      color: Colors.grey[600],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 12 * scaleFactor),
+                            Divider(height: 1, color: Colors.grey[300]),
+                            SizedBox(height: 12 * scaleFactor),
+
                             if (_selectedServiceType == 'Pabakal') ...[
                               Row(
                                 mainAxisAlignment:
@@ -1006,12 +1040,28 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Service Fee',
-                                  style: TextStyle(
-                                    fontSize: 14 * scaleFactor,
-                                    color: Colors.grey[600],
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      _selectedServiceType == 'Pabakal'
+                                          ? 'Delivery Fee'
+                                          : 'Service Fee',
+                                      style: TextStyle(
+                                        fontSize: 14 * scaleFactor,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    SizedBox(width: 4 * scaleFactor),
+                                    Tooltip(
+                                      message:
+                                          'Distance-based: ₱1/km (min ₱20)',
+                                      child: Icon(
+                                        Icons.info_outline,
+                                        size: 14 * scaleFactor,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 Text(
                                   '₱${_serviceFee.toStringAsFixed(2)}',
@@ -1042,6 +1092,34 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
                                   ),
                                   Text(
                                     '₱${_totalAmount.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 20 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF00B4D8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else ...[
+                              // For Pasabay, show the service fee as total
+                              Divider(
+                                height: 24 * scaleFactor,
+                                color: Colors.grey[300],
+                              ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Amount',
+                                    style: TextStyle(
+                                      fontSize: 16 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  Text(
+                                    '₱${_serviceFee.toStringAsFixed(2)}',
                                     style: TextStyle(
                                       fontSize: 20 * scaleFactor,
                                       fontWeight: FontWeight.bold,

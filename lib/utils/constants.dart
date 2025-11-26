@@ -32,6 +32,10 @@ class AppConstants {
   // API URLs (to be added later)
   static const String baseApiUrl = 'https://api.pasabay.com';
 
+  // Google Maps API Key
+  static const String googleMapsApiKey =
+      'AIzaSyA_NbVgJyqKX2HehA9Xkm4CZ6ItBXL7f4s';
+
   // Asset Paths
   static const String logoPath = 'assets/PasabayLogo.png';
   static const String smallLogoPath = 'assets/SmallLogo.png';
