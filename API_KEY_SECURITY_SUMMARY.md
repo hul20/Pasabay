@@ -15,11 +15,13 @@ android/
 ```
 
 **`android/local.properties`** (Your actual key - **PROTECTED**):
+
 ```properties
 GOOGLE_MAPS_API_KEY=AIzaSyAo68STzpH2Ykjc8jjjSyVyURc9opbwJ1s
 ```
 
 **`android/local.properties.example`** (Template - **SAFE**):
+
 ```properties
 GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY_HERE
 ```
@@ -29,6 +31,7 @@ GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY_HERE
 ### **2. Updated `.gitignore`**
 
 Added comprehensive protection:
+
 ```gitignore
 # Google Maps API Keys (SENSITIVE - DO NOT COMMIT!)
 android/local.properties          ← Your API key file
@@ -39,6 +42,7 @@ lib/config/api_keys.dart
 ```
 
 **✅ Verified:** Git is ignoring `android/local.properties`
+
 ```bash
 $ git check-ignore android/local.properties
 android/local.properties  ← ✅ CONFIRMED IGNORED
@@ -49,6 +53,7 @@ android/local.properties  ← ✅ CONFIRMED IGNORED
 ### **3. Modified Build System**
 
 **`android/app/build.gradle.kts`:**
+
 ```kotlin
 // Load API key from local.properties
 val localProperties = java.util.Properties()
@@ -73,6 +78,7 @@ android {
 ### **4. Updated AndroidManifest.xml**
 
 **Before (❌ EXPOSED):**
+
 ```xml
 <meta-data
     android:name="com.google.android.geo.API_KEY"
@@ -80,6 +86,7 @@ android {
 ```
 
 **After (✅ SECURE):**
+
 ```xml
 <meta-data
     android:name="com.google.android.geo.API_KEY"
@@ -95,12 +102,14 @@ API key is now injected at **build time**, not hardcoded!
 Three comprehensive guides:
 
 1. **`SECURITY_SETUP.md`** (1,200+ lines)
+
    - Complete security implementation
    - Team setup instructions
    - Troubleshooting guide
    - Best practices
 
 2. **`README_API_KEYS.md`** (Quick reference)
+
    - 2-minute setup guide
    - Getting API keys
    - Quick troubleshooting
@@ -133,12 +142,12 @@ Untracked files:
 
 ### **Files Protected:**
 
-| File | Contains Key? | Git Status |
-|------|---------------|------------|
-| `android/local.properties` | ✅ YES | 🔒 **IGNORED** |
-| `android/local.properties.example` | ❌ NO | ✅ Safe |
-| `AndroidManifest.xml` | ❌ NO (placeholder) | ✅ Safe |
-| `build.gradle.kts` | ❌ NO (reads file) | ✅ Safe |
+| File                               | Contains Key?       | Git Status     |
+| ---------------------------------- | ------------------- | -------------- |
+| `android/local.properties`         | ✅ YES              | 🔒 **IGNORED** |
+| `android/local.properties.example` | ❌ NO               | ✅ Safe        |
+| `AndroidManifest.xml`              | ❌ NO (placeholder) | ✅ Safe        |
+| `build.gradle.kts`                 | ❌ NO (reads file)  | ✅ Safe        |
 
 ---
 
@@ -237,13 +246,13 @@ Before pushing to Git:
 
 ## 🎉 Benefits
 
-| Before | After |
-|--------|-------|
-| ❌ API key in source code | ✅ API key in ignored file |
+| Before                     | After                        |
+| -------------------------- | ---------------------------- |
+| ❌ API key in source code  | ✅ API key in ignored file   |
 | ❌ Key visible to everyone | ✅ Key stays on your machine |
-| ❌ Risk of exposure | ✅ Protected by `.gitignore` |
-| ❌ Can't share code safely | ✅ Safe to push to GitHub |
-| ❌ No team setup guide | ✅ Complete documentation |
+| ❌ Risk of exposure        | ✅ Protected by `.gitignore` |
+| ❌ Can't share code safely | ✅ Safe to push to GitHub    |
+| ❌ No team setup guide     | ✅ Complete documentation    |
 
 ---
 
@@ -252,6 +261,7 @@ Before pushing to Git:
 ### **Immediate:**
 
 1. **Test the build:**
+
    ```bash
    flutter clean
    flutter pub get
@@ -274,6 +284,7 @@ Before pushing to Git:
 ### **Optional (Enhanced Security):**
 
 1. **Restrict API key in Google Cloud Console:**
+
    - Application restrictions: `com.pasabay.app`
    - API restrictions: Maps SDK, Geocoding API only
 
@@ -322,6 +333,7 @@ git check-ignore android/local.properties
 ### **New team member can't build?**
 
 Send them:
+
 1. `README_API_KEYS.md` (quick setup)
 2. Tell them to copy `local.properties.example` to `local.properties`
 3. They need to get their own Google Maps API key
@@ -352,4 +364,3 @@ If you encounter any issues:
 4. Try `flutter clean && flutter pub get && flutter run`
 
 **Your API key is now production-ready and secure!** ✨
-
