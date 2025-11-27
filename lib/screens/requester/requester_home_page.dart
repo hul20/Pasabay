@@ -40,7 +40,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
   // Ongoing transaction
   Map<String, dynamic>? _ongoingRequest;
   bool _loadingRequest = false;
-  
+
   // ETA for ongoing request
   double _etaMinutes = 0;
   double _distanceKm = 0;
@@ -279,7 +279,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
           _ongoingRequest = response.first;
           _loadingRequest = false;
         });
-        
+
         // Calculate ETA if status is "On the Way"
         if (response.first['status'] == 'On the Way') {
           _calculateETA(response.first);
@@ -303,33 +303,33 @@ class _RequesterHomePageState extends State<RequesterHomePage>
 
   Future<void> _calculateETA(Map<String, dynamic> request) async {
     if (_isCalculatingETA) return;
-    
+
     setState(() => _isCalculatingETA = true);
-    
+
     try {
       // Get traveler's current location
       final location = await _trackingService.getCurrentLocation(request['id']);
-      
+
       if (location == null) {
         setState(() => _isCalculatingETA = false);
         return;
       }
-      
+
       // Get destination coordinates from trip
       final tripData = request['trips'];
       if (tripData == null) {
         setState(() => _isCalculatingETA = false);
         return;
       }
-      
+
       final destLat = tripData['destination_lat'];
       final destLng = tripData['destination_lng'];
-      
+
       if (destLat == null || destLng == null) {
         setState(() => _isCalculatingETA = false);
         return;
       }
-      
+
       // Calculate distance and ETA
       final result = await _distanceService.calculateDistance(
         originLat: location['latitude']!,
@@ -337,7 +337,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
         destLat: (destLat as num).toDouble(),
         destLng: (destLng as num).toDouble(),
       );
-      
+
       if (mounted && result.success) {
         setState(() {
           _etaMinutes = result.durationInMinutes;

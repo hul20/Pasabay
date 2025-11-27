@@ -30,25 +30,25 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
   final LocationTrackingService _trackingService = LocationTrackingService();
   final DistanceService _distanceService = DistanceService();
   final _supabase = Supabase.instance.client;
-  
+
   GoogleMapController? _mapController;
   RealtimeChannel? _locationChannel;
 
   LatLng? _travelerLocation;
   LatLng? _destinationLocation;
   String? _destinationName;
-  
+
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
-  
+
   bool _isLoading = true;
   String _errorMessage = '';
-  
+
   // ETA and distance
   double _distanceKm = 0;
   double _durationMinutes = 0;
   bool _isCalculatingRoute = false;
-  
+
   // Custom marker icons
   BitmapDescriptor? _travelerIcon;
   BitmapDescriptor? _destinationIcon;
@@ -75,14 +75,14 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
       AppConstants.primaryColor,
       56,
     );
-    
+
     // Create destination icon (location pin)
     _destinationIcon = await _createCustomIcon(
       Icons.location_on,
       Colors.red,
       56,
     );
-    
+
     if (mounted) setState(() {});
   }
 
@@ -94,21 +94,17 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
     final pictureRecorder = ui.PictureRecorder();
     final canvas = Canvas(pictureRecorder);
     final paint = Paint()..color = color;
-    
+
     // Draw circle background
-    canvas.drawCircle(
-      Offset(size / 2, size / 2),
-      size / 2,
-      paint,
-    );
-    
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
+
     // Draw white inner circle
     canvas.drawCircle(
       Offset(size / 2, size / 2),
       size / 2 - 4,
       Paint()..color = Colors.white,
     );
-    
+
     // Draw icon
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
@@ -122,10 +118,7 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(
-        (size - textPainter.width) / 2,
-        (size - textPainter.height) / 2,
-      ),
+      Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2),
     );
 
     final image = await pictureRecorder.endRecording().toImage(
@@ -157,9 +150,10 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
       final tripData = requestData['trips'];
       if (tripData != null) {
         _destinationName = tripData['destination_location'];
-        
+
         // Get destination coordinates
-        if (tripData['destination_lat'] != null && tripData['destination_lng'] != null) {
+        if (tripData['destination_lat'] != null &&
+            tripData['destination_lng'] != null) {
           _destinationLocation = LatLng(
             (tripData['destination_lat'] as num).toDouble(),
             (tripData['destination_lng'] as num).toDouble(),
@@ -168,7 +162,9 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
       }
 
       // Get traveler's current location
-      final location = await _trackingService.getCurrentLocation(widget.requestId);
+      final location = await _trackingService.getCurrentLocation(
+        widget.requestId,
+      );
 
       if (location != null && mounted) {
         setState(() {
@@ -205,7 +201,7 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
         setState(() {
           _travelerLocation = LatLng(lat, lng);
         });
-        
+
         _updateMarkersAndRoute();
       }
     });
@@ -220,7 +216,9 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
       Marker(
         markerId: const MarkerId('traveler'),
         position: _travelerLocation!,
-        icon: _travelerIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon:
+            _travelerIcon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         flat: true,
         anchor: const Offset(0.5, 0.5),
         rotation: 0,
@@ -237,7 +235,9 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
         Marker(
           markerId: const MarkerId('destination'),
           position: _destinationLocation!,
-          icon: _destinationIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          icon:
+              _destinationIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
             title: 'Destination',
             snippet: _destinationName ?? 'Drop-off point',
@@ -305,7 +305,7 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
 
   void _fitMapToBounds() {
     if (_mapController == null) return;
-    
+
     if (_travelerLocation != null && _destinationLocation != null) {
       // Create bounds that include both points
       final bounds = LatLngBounds(
@@ -326,10 +326,8 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
               : _destinationLocation!.longitude,
         ),
       );
-      
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 80),
-      );
+
+      _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
     } else if (_travelerLocation != null) {
       _mapController!.animateCamera(
         CameraUpdate.newLatLngZoom(_travelerLocation!, 15),
@@ -390,7 +388,10 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppConstants.primaryColor,
                       ),
-                      child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                      child: const Text(
+                        'Retry',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                   ],
                 ),
@@ -559,7 +560,7 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                       borderRadius: BorderRadius.circular(2 * scaleFactor),
                     ),
                   ),
-                  
+
                   Padding(
                     padding: EdgeInsets.all(20 * scaleFactor),
                     child: Column(
@@ -605,7 +606,9 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppConstants.primaryColor,
-                                  borderRadius: BorderRadius.circular(20 * scaleFactor),
+                                  borderRadius: BorderRadius.circular(
+                                    20 * scaleFactor,
+                                  ),
                                 ),
                                 child: Text(
                                   _formatETA(),
@@ -618,15 +621,17 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                               ),
                           ],
                         ),
-                        
+
                         SizedBox(height: 20 * scaleFactor),
-                        
+
                         // Traveler info card
                         Container(
                           padding: EdgeInsets.all(16 * scaleFactor),
                           decoration: BoxDecoration(
                             color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(16 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              16 * scaleFactor,
+                            ),
                             border: Border.all(color: Colors.grey[200]!),
                           ),
                           child: Row(
@@ -636,8 +641,12 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                                 width: 50 * scaleFactor,
                                 height: 50 * scaleFactor,
                                 decoration: BoxDecoration(
-                                  color: AppConstants.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12 * scaleFactor),
+                                  color: AppConstants.primaryColor.withOpacity(
+                                    0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    12 * scaleFactor,
+                                  ),
                                 ),
                                 child: Icon(
                                   Icons.local_shipping,
@@ -693,7 +702,9 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                                   color: widget.serviceType == 'Pabakal'
                                       ? Colors.blue.withOpacity(0.1)
                                       : Colors.green.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                                  borderRadius: BorderRadius.circular(
+                                    8 * scaleFactor,
+                                  ),
                                 ),
                                 child: Text(
                                   widget.serviceType,
@@ -709,15 +720,17 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                             ],
                           ),
                         ),
-                        
+
                         SizedBox(height: 16 * scaleFactor),
-                        
+
                         // Info banner
                         Container(
                           padding: EdgeInsets.all(12 * scaleFactor),
                           decoration: BoxDecoration(
                             color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(12 * scaleFactor),
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -739,7 +752,7 @@ class _TrackingMapPageState extends State<TrackingMapPage> {
                             ],
                           ),
                         ),
-                        
+
                         SizedBox(height: MediaQuery.of(context).padding.bottom),
                       ],
                     ),
