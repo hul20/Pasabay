@@ -4,23 +4,28 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
 import 'requester_home_page.dart';
+import 'requester_main_page.dart';
 import 'requester_activity_page.dart';
 import 'requester_messages_page.dart';
-import '../traveler_home_page.dart';
+import '../traveler/traveler_main_page.dart';
 import '../landing_page.dart';
 import '../settings_page.dart';
 import '../edit_profile_page.dart';
 import '../wallet_page.dart';
 
 class RequesterProfilePage extends StatefulWidget {
-  const RequesterProfilePage({super.key});
+  final bool embedded;
+  const RequesterProfilePage({super.key, this.embedded = false});
 
   @override
   State<RequesterProfilePage> createState() => _RequesterProfilePageState();
 }
 
 class _RequesterProfilePageState extends State<RequesterProfilePage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   String userName = " ";
   String userEmail = " ";
   String userRole = " ";
@@ -250,7 +255,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const TravelerHomePage(),
+                    builder: (context) => const TravelerMainPage(),
                   ),
                   (route) => false,
                 );
@@ -258,7 +263,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const RequesterHomePage(),
+                    builder: (context) => const RequesterMainPage(),
                   ),
                   (route) => false,
                 );
@@ -305,6 +310,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
@@ -673,46 +679,48 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppConstants.primaryColor,
-        unselectedItemColor: Colors.grey,
-        currentIndex: 3, // Profile tab selected
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pop(context);
-          } else if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const RequesterActivityPage(),
-              ),
-            );
-          } else if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const RequesterMessagesPage(),
-              ),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppConstants.primaryColor,
+              unselectedItemColor: Colors.grey,
+              currentIndex: 3, // Profile tab selected
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pop(context);
+                } else if (index == 1) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RequesterActivityPage(),
+                    ),
+                  );
+                } else if (index == 2) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RequesterMessagesPage(),
+                    ),
+                  );
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.list_alt),
+                  label: 'Activity',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: 'Messages',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  label: 'Profile',
+                ),
+              ],
+            ),
     );
   }
 

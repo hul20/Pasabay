@@ -355,6 +355,250 @@ class _RequesterHomePageState extends State<RequesterHomePage>
     );
   }
 
+  Widget _buildOngoingTransactionCard(double scaleFactor) {
+    final serviceType = _ongoingRequest!['service_type'] ?? 'Pasabay';
+    final status = _ongoingRequest!['status'] ?? 'Accepted';
+    final serviceFee = (_ongoingRequest!['service_fee'] ?? 0).toDouble();
+    final isCompleted = status == 'Completed';
+
+    // Determine the service type display name and icon
+    String displayServiceType;
+    IconData serviceIcon;
+    if (serviceType == 'Pabakal') {
+      displayServiceType = 'Buy & Deliver';
+      serviceIcon = Icons.shopping_bag_outlined;
+    } else {
+      displayServiceType = 'Package Delivery';
+      serviceIcon = Icons.local_shipping_outlined;
+    }
+
+    // White Timeline Card only
+    return Container(
+      padding: EdgeInsets.all(16 * scaleFactor),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16 * scaleFactor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row: Icon, Service Type & Fee, Arrow
+          GestureDetector(
+            onTap: () {
+              if (status == 'On the Way') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TrackingMapPage(
+                      requestId: _ongoingRequest!['id'],
+                      travelerName: 'Traveler',
+                      serviceType: serviceType,
+                      status: status,
+                    ),
+                  ),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RequesterActivityPage(),
+                  ),
+                );
+              }
+            },
+            child: Row(
+              children: [
+                // Service Icon
+                Container(
+                  width: 48 * scaleFactor,
+                  height: 48 * scaleFactor,
+                  decoration: BoxDecoration(
+                    color: Color(0xFF00B4D8).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  ),
+                  child: Icon(
+                    serviceIcon,
+                    color: Color(0xFF00B4D8),
+                    size: 26 * scaleFactor,
+                  ),
+                ),
+                SizedBox(width: 12 * scaleFactor),
+                // Service Type and Fee
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayServiceType,
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 2 * scaleFactor),
+                      Row(
+                        children: [
+                          Text(
+                            'Service Fee: ',
+                            style: TextStyle(
+                              fontSize: 13 * scaleFactor,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          Text(
+                            '₱${serviceFee.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 13 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF00B4D8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Arrow
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.grey[400],
+                  size: 24 * scaleFactor,
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: 20 * scaleFactor),
+
+          // Progress Timeline
+          _buildProgressBar(
+            _getProgressSteps(serviceType),
+            _getCurrentStepIndex(status, serviceType),
+            scaleFactor,
+          ),
+
+          SizedBox(height: 16 * scaleFactor),
+
+          // Action Buttons
+          Row(
+            children: [
+              // Details/Track Button
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    if (status == 'On the Way') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TrackingMapPage(
+                            requestId: _ongoingRequest!['id'],
+                            travelerName: 'Traveler',
+                            serviceType: serviceType,
+                            status: status,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => RequesterActivityPage(),
+                        ),
+                      );
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 12 * scaleFactor),
+                    side: BorderSide(color: Color(0xFF00B4D8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (status == 'On the Way') ...[
+                        Icon(
+                          Icons.location_on,
+                          color: Color(0xFF00B4D8),
+                          size: 18 * scaleFactor,
+                        ),
+                        SizedBox(width: 4 * scaleFactor),
+                      ],
+                      Text(
+                        status == 'On the Way' ? 'Track' : 'Details',
+                        style: TextStyle(
+                          fontSize: 14 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF00B4D8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(width: 12 * scaleFactor),
+              // Completed or Action Button
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isCompleted
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => RequesterMessagesPage(),
+                            ),
+                          );
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isCompleted
+                        ? Colors.grey[300]
+                        : Color(0xFF00B4D8),
+                    padding: EdgeInsets.symmetric(vertical: 12 * scaleFactor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isCompleted) ...[
+                        Icon(
+                          Icons.check,
+                          color: Colors.grey[600],
+                          size: 18 * scaleFactor,
+                        ),
+                        SizedBox(width: 4 * scaleFactor),
+                      ],
+                      Text(
+                        isCompleted ? 'Completed' : 'Chat',
+                        style: TextStyle(
+                          fontSize: 14 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: isCompleted ? Colors.grey[600] : Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -565,237 +809,18 @@ class _RequesterHomePageState extends State<RequesterHomePage>
                       ),
                     )
                   else if (_ongoingRequest != null)
-                    GestureDetector(
-                      onTap: () {
-                        // Navigate to tracking map if status is "On the Way"
-                        if (_ongoingRequest!['status'] == 'On the Way') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TrackingMapPage(
-                                requestId: _ongoingRequest!['id'],
-                                travelerName:
-                                    'Traveler', // You can fetch this from users table
-                                serviceType:
-                                    _ongoingRequest!['service_type'] ??
-                                    'Service',
-                                status: _ongoingRequest!['status'] ?? 'Active',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(20 * scaleFactor),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16 * scaleFactor),
-                          border: Border.all(
-                            color: Color(0xFF00B4D8),
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0xFF00B4D8).withOpacity(0.15),
-                              blurRadius: 12,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Header with service type badge
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 12 * scaleFactor,
-                                    vertical: 6 * scaleFactor,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFF00B4D8).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(
-                                      8 * scaleFactor,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _ongoingRequest!['service_type'] ??
-                                        'Pasabay',
-                                    style: TextStyle(
-                                      fontSize: 13 * scaleFactor,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF00B4D8),
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 12 * scaleFactor,
-                                    vertical: 6 * scaleFactor,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        _ongoingRequest!['status'] == 'Accepted'
-                                        ? Colors.green.withOpacity(0.1)
-                                        : Colors.orange.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(
-                                      8 * scaleFactor,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _ongoingRequest!['status'] ?? 'Pending',
-                                    style: TextStyle(
-                                      fontSize: 13 * scaleFactor,
-                                      fontWeight: FontWeight.w600,
-                                      color:
-                                          _ongoingRequest!['status'] ==
-                                              'Accepted'
-                                          ? Colors.green
-                                          : Colors.orange,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 16 * scaleFactor),
-
-                            // Traveler name or product details
-                            Text(
-                              _ongoingRequest!['service_type'] == 'Pabakal'
-                                  ? _ongoingRequest!['product_name'] ?? 'Item'
-                                  : _ongoingRequest!['recipient_name'] ??
-                                        'Package',
-                              style: TextStyle(
-                                fontSize: 18 * scaleFactor,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                            SizedBox(height: 8 * scaleFactor),
-
-                            // Destination info
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on_outlined,
-                                  size: 16 * scaleFactor,
-                                  color: Colors.grey[600],
-                                ),
-                                SizedBox(width: 6 * scaleFactor),
-                                Expanded(
-                                  child: Text(
-                                    _ongoingRequest!['service_type'] ==
-                                            'Pabakal'
-                                        ? 'To: ${_ongoingRequest!['delivery_address'] ?? 'N/A'}'
-                                        : 'To: ${_ongoingRequest!['recipient_address'] ?? 'N/A'}',
-                                    style: TextStyle(
-                                      fontSize: 13 * scaleFactor,
-                                      color: Colors.grey[600],
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 16 * scaleFactor),
-
-                            // Progress Bar
-                            _buildProgressBar(
-                              _getProgressSteps(
-                                _ongoingRequest!['service_type'] ?? 'Pasabay',
-                              ),
-                              _getCurrentStepIndex(
-                                _ongoingRequest!['status'] ?? 'Accepted',
-                                _ongoingRequest!['service_type'] ?? 'Pasabay',
-                              ),
-                              scaleFactor,
-                            ),
-                            SizedBox(height: 16 * scaleFactor),
-
-                            // Divider
-                            Divider(color: Colors.grey[300]),
-                            SizedBox(height: 12 * scaleFactor),
-
-                            // Amount
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Total Amount',
-                                  style: TextStyle(
-                                    fontSize: 14 * scaleFactor,
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  '₱${(_ongoingRequest!['total_amount'] ?? 0).toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                    fontSize: 20 * scaleFactor,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF00B4D8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 12 * scaleFactor),
-
-                            // Chat button
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const RequesterMessagesPage(),
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xFF00B4D8),
-                                padding: EdgeInsets.symmetric(
-                                  vertical: 12 * scaleFactor,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    10 * scaleFactor,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.chat_bubble_outline,
-                                    color: Colors.white,
-                                    size: 18 * scaleFactor,
-                                  ),
-                                  SizedBox(width: 8 * scaleFactor),
-                                  Text(
-                                    'Chat',
-                                    style: TextStyle(
-                                      fontSize: 15 * scaleFactor,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
+                    _buildOngoingTransactionCard(scaleFactor)
                   else
                     Container(
+                      width: double.infinity,
                       padding: EdgeInsets.all(20 * scaleFactor),
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(16 * scaleFactor),
                       ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.inbox_outlined,
@@ -805,6 +830,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
                           SizedBox(height: 12 * scaleFactor),
                           Text(
                             'No Ongoing Transactions',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16 * scaleFactor,
                               fontWeight: FontWeight.w600,
@@ -814,6 +840,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
                           SizedBox(height: 4 * scaleFactor),
                           Text(
                             'Search for travelers below to start',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13 * scaleFactor,
                               color: Colors.grey[500],

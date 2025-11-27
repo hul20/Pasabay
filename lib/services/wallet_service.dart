@@ -299,4 +299,48 @@ class WalletService {
         )
         .subscribe();
   }
+
+  /// Get total earnings for the current user
+  Future<double> getTotalEarnings() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Get wallet first
+      final walletResponse = await _supabase
+          .from('wallets')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (walletResponse == null) {
+        return 0.0;
+      }
+
+      final walletId = walletResponse['id'] as String;
+
+      // Sum all earning transactions
+      final response = await _supabase
+          .from('wallet_transactions')
+          .select('amount')
+          .eq('wallet_id', walletId)
+          .eq('transaction_type', 'earning');
+
+      if (response == null || (response as List).isEmpty) {
+        return 0.0;
+      }
+
+      double total = 0.0;
+      for (var transaction in response) {
+        total += (transaction['amount'] as num).toDouble();
+      }
+
+      return total;
+    } catch (e) {
+      print('❌ Error getting total earnings: $e');
+      return 0.0;
+    }
+  }
 }

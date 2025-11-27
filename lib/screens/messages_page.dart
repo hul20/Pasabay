@@ -11,13 +11,19 @@ import 'activity_page.dart';
 import 'notifications_page.dart';
 
 class MessagesPage extends StatefulWidget {
-  const MessagesPage({super.key});
+  final bool embedded;
+
+  const MessagesPage({super.key, this.embedded = false});
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
 }
 
-class _MessagesPageState extends State<MessagesPage> {
+class _MessagesPageState extends State<MessagesPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final MessagingService _messagingService = MessagingService();
   final NotificationService _notificationService = NotificationService();
   List<Conversation> _conversations = [];
@@ -111,6 +117,7 @@ class _MessagesPageState extends State<MessagesPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
@@ -322,45 +329,51 @@ class _MessagesPageState extends State<MessagesPage> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppConstants.primaryColor,
-        unselectedItemColor: Colors.grey,
-        currentIndex: 2, // Messages tab selected
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pop(context);
-          } else if (index == 1) {
-            // Navigate to Activity page
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ActivityPage()),
-            );
-          } else if (index == 3) {
-            // Navigate to Profile page
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
-            );
-          }
-          // Handle other navigation items
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppConstants.primaryColor,
+              unselectedItemColor: Colors.grey,
+              currentIndex: 2, // Messages tab selected
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pop(context);
+                } else if (index == 1) {
+                  // Navigate to Activity page
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ActivityPage(),
+                    ),
+                  );
+                } else if (index == 3) {
+                  // Navigate to Profile page
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfilePage(),
+                    ),
+                  );
+                }
+                // Handle other navigation items
+              },
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.show_chart),
+                  label: 'Activity',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: 'Messages',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  label: 'Profile',
+                ),
+              ],
+            ),
     );
   }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pasabay_app/utils/helpers.dart';
 import 'package:pasabay_app/utils/constants.dart';
-import '../traveler_home_page.dart';
+import 'traveler_main_page.dart';
 
 class VerificationSuccessfulScreen extends StatelessWidget {
   const VerificationSuccessfulScreen({super.key});
@@ -142,7 +142,7 @@ class VerificationSuccessfulScreen extends StatelessWidget {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const TravelerHomePage(),
+                    builder: (context) => const TravelerMainPage(),
                   ),
                   (route) => false,
                 );

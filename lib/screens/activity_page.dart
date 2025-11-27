@@ -15,13 +15,19 @@ import 'traveler/edit_trip_page.dart';
 import 'traveler/request_detail_page.dart';
 
 class ActivityPage extends StatefulWidget {
-  const ActivityPage({super.key});
+  final bool embedded;
+
+  const ActivityPage({super.key, this.embedded = false});
 
   @override
   State<ActivityPage> createState() => _ActivityPageState();
 }
 
-class _ActivityPageState extends State<ActivityPage> {
+class _ActivityPageState extends State<ActivityPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   int _selectedTab = 0; // 0: Requests, 1: Ongoing, 2: Completed
   final TripService _tripService = TripService();
   final RequestService _requestService = RequestService();
@@ -124,7 +130,13 @@ class _ActivityPageState extends State<ActivityPage> {
 
       final ongoing = tripRequests
           .where(
-            (req) => req.status == 'Accepted' || req.status == 'Order Sent',
+            (req) =>
+                req.status == 'Accepted' ||
+                req.status == 'Order Sent' ||
+                req.status == 'Item Bought' ||
+                req.status == 'Picked Up' ||
+                req.status == 'On the Way' ||
+                req.status == 'Dropped Off',
           )
           .toList();
 
@@ -784,6 +796,7 @@ class _ActivityPageState extends State<ActivityPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
@@ -1240,42 +1253,122 @@ class _ActivityPageState extends State<ActivityPage> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppConstants.primaryColor,
-        unselectedItemColor: Colors.grey,
-        currentIndex: 1, // Activity tab selected
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pop(context);
-          } else if (index == 2) {
-            // Navigate to Messages page
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const MessagesPage()),
-            );
-          } else if (index == 3) {
-            // Navigate to Profile page
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
-            );
-          }
-          // Handle other navigation items
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
+      bottomNavigationBar: widget.embedded
+          ? null
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppConstants.primaryColor,
+              unselectedItemColor: Colors.grey,
+              currentIndex: 1, // Activity tab selected
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.pop(context);
+                } else if (index == 2) {
+                  // Navigate to Messages page
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MessagesPage(),
+                    ),
+                  );
+                } else if (index == 3) {
+                  // Navigate to Profile page
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfilePage(),
+                    ),
+                  );
+                }
+                // Handle other navigation items
+              },
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.show_chart),
+                  label: 'Activity',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: 'Messages',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  label: 'Profile',
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status, double scaleFactor) {
+    Color bgColor;
+    IconData icon;
+    String label;
+
+    switch (status) {
+      case 'Accepted':
+        bgColor = Colors.green;
+        icon = Icons.check_circle;
+        label = 'Accepted';
+        break;
+      case 'Item Bought':
+        bgColor = Colors.teal;
+        icon = Icons.shopping_cart;
+        label = 'Item Bought';
+        break;
+      case 'Picked Up':
+        bgColor = Colors.teal;
+        icon = Icons.inventory_2;
+        label = 'Picked Up';
+        break;
+      case 'On the Way':
+        bgColor = Colors.orange;
+        icon = Icons.local_shipping;
+        label = 'On the Way';
+        break;
+      case 'Dropped Off':
+        bgColor = Colors.purple;
+        icon = Icons.place;
+        label = 'Dropped Off';
+        break;
+      case 'Order Sent':
+        bgColor = Colors.orange;
+        icon = Icons.local_shipping;
+        label = 'Order Sent';
+        break;
+      case 'Completed':
+        bgColor = Colors.blue;
+        icon = Icons.check_circle;
+        label = 'Completed';
+        break;
+      default:
+        bgColor = Colors.grey;
+        icon = Icons.info;
+        label = status;
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 8 * scaleFactor,
+        vertical: 3 * scaleFactor,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10 * scaleFactor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12 * scaleFactor, color: Colors.white),
+          SizedBox(width: 4 * scaleFactor),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11 * scaleFactor,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
@@ -1414,13 +1507,13 @@ class _ActivityPageState extends State<ActivityPage> {
                   SizedBox(height: 5 * scaleFactor),
                   Row(
                     children: [
-                      Icon(
-                        Icons.attach_money,
-                        size: 14 * scaleFactor,
-                        color: Colors.green[700],
-                      ),
+                      // Icon(
+                      //   Icons.attach_money,
+                      //   size: 14 * scaleFactor,
+                      //   color: Colors.green[700],
+                      // ),
                       Text(
-                        '₱${request.serviceFee.toStringAsFixed(2)} fee',
+                        '₱ ${request.serviceFee.toStringAsFixed(2)} fee',
                         style: TextStyle(
                           fontSize: 13 * scaleFactor,
                           fontWeight: FontWeight.w600,
@@ -1428,99 +1521,7 @@ class _ActivityPageState extends State<ActivityPage> {
                         ),
                       ),
                       Spacer(),
-                      if (request.status == 'Accepted')
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8 * scaleFactor,
-                            vertical: 3 * scaleFactor,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(
-                              10 * scaleFactor,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle,
-                                size: 12 * scaleFactor,
-                                color: Colors.white,
-                              ),
-                              SizedBox(width: 4 * scaleFactor),
-                              Text(
-                                'Accepted',
-                                style: TextStyle(
-                                  fontSize: 11 * scaleFactor,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else if (request.status == 'Completed')
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8 * scaleFactor,
-                            vertical: 3 * scaleFactor,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(
-                              10 * scaleFactor,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle,
-                                size: 12 * scaleFactor,
-                                color: Colors.white,
-                              ),
-                              SizedBox(width: 4 * scaleFactor),
-                              Text(
-                                'Completed',
-                                style: TextStyle(
-                                  fontSize: 11 * scaleFactor,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else if (request.status == 'Order Sent')
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8 * scaleFactor,
-                            vertical: 3 * scaleFactor,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange,
-                            borderRadius: BorderRadius.circular(
-                              10 * scaleFactor,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.local_shipping,
-                                size: 12 * scaleFactor,
-                                color: Colors.white,
-                              ),
-                              SizedBox(width: 4 * scaleFactor),
-                              Text(
-                                'Order Sent',
-                                style: TextStyle(
-                                  fontSize: 11 * scaleFactor,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      _buildStatusBadge(request.status, scaleFactor),
                     ],
                   ),
                   SizedBox(height: 5 * scaleFactor),

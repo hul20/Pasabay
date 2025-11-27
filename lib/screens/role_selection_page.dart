@@ -3,7 +3,7 @@ import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
 import 'traveler/identity_verification_screen.dart';
-import 'requester/requester_home_page.dart';
+import 'requester/requester_main_page.dart';
 
 class RoleSelectionPage extends StatefulWidget {
   const RoleSelectionPage({super.key});
@@ -41,7 +41,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         MaterialPageRoute(
           builder: (context) => _selectedRole == 'Traveler'
               ? const IdentityVerificationScreen()
-              : const RequesterHomePage(),
+              : const RequesterMainPage(),
         ),
       );
     } catch (e) {

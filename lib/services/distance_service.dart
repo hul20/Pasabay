@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:math' show cos, sqrt, asin, pi;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// Service for calculating distances and pricing
 class DistanceService {
@@ -9,8 +10,8 @@ class DistanceService {
   factory DistanceService() => _instance;
   DistanceService._internal();
 
-  // Google Maps API Key - loaded from local.properties
-  static const String _apiKey = 'AIzaSyA_NbVgJyqKX2HehA9Xkm4CZ6ItBXL7f4s';
+  // Google Maps API Key
+  static const String _apiKey = 'AIzaSyDa4-qOXBHMVcyCt9Wj7LldHQB6v_VlM5M';
 
   // Pricing constants - ₱1 per kilometer
   static const double _pricePerKm = 1.0;
@@ -187,6 +188,123 @@ class DistanceService {
   /// Format price for display
   String formatPrice(double price) {
     return '₱${price.toStringAsFixed(2)}';
+  }
+
+  /// Fetch route polyline from Google Directions API
+  Future<List<LatLng>> getRoutePolyline({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+  }) async {
+    try {
+      final origin = '$originLat,$originLng';
+      final destination = '$destLat,$destLng';
+
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=$origin'
+        '&destination=$destination'
+        '&key=$_apiKey'
+        '&mode=driving',
+      );
+
+      print('🗺️ ====== DIRECTIONS API CALL ======');
+      print('🗺️ Origin: $origin');
+      print('🗺️ Destination: $destination');
+      print('🗺️ URL: $url');
+
+      final response = await http.get(url);
+      print('📡 Response status code: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('📡 API status: ${data['status']}');
+
+        if (data['error_message'] != null) {
+          print('❌ API error message: ${data['error_message']}');
+        }
+
+        if (data['status'] == 'OK' &&
+            data['routes'] != null &&
+            data['routes'].isNotEmpty) {
+          // Get the encoded polyline from the overview_polyline
+          final encodedPolyline =
+              data['routes'][0]['overview_polyline']['points'] as String;
+          print('📍 Encoded polyline length: ${encodedPolyline.length} chars');
+
+          // Decode the polyline
+          final List<LatLng> points = _decodePolyline(encodedPolyline);
+          print('✅ Decoded ${points.length} route points');
+          print('🗺️ ====== END DIRECTIONS API ======');
+          return points;
+        } else if (data['status'] == 'REQUEST_DENIED') {
+          print('❌ REQUEST_DENIED: ${data['error_message']}');
+          print(
+            '⚠️ Make sure Directions API is enabled in Google Cloud Console',
+          );
+          print(
+            '⚠️ Also check API key restrictions (HTTP referrers, IP addresses)',
+          );
+        } else if (data['status'] == 'ZERO_RESULTS') {
+          print('⚠️ ZERO_RESULTS: No route found between locations');
+        } else {
+          print('⚠️ Unexpected status: ${data['status']}');
+          print('⚠️ Full response: ${response.body.substring(0, 500)}...');
+        }
+      } else {
+        print('❌ HTTP error: ${response.statusCode}');
+        print('❌ Response body: ${response.body}');
+      }
+
+      print('⚠️ Falling back to straight line');
+      print('🗺️ ====== END DIRECTIONS API ======');
+      return [LatLng(originLat, originLng), LatLng(destLat, destLng)];
+    } catch (e, stackTrace) {
+      print('❌ Exception in getRoutePolyline: $e');
+      print('❌ Stack trace: $stackTrace');
+      return [LatLng(originLat, originLng), LatLng(destLat, destLng)];
+    }
+  }
+
+  /// Decode an encoded polyline string into a list of LatLng points
+  List<LatLng> _decodePolyline(String encoded) {
+    List<LatLng> points = [];
+    int index = 0;
+    int len = encoded.length;
+    int lat = 0;
+    int lng = 0;
+
+    while (index < len) {
+      int b;
+      int shift = 0;
+      int result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.add(LatLng(lat / 1E5, lng / 1E5));
+    }
+
+    return points;
   }
 }
 

@@ -8,8 +8,8 @@ import 'signup_page.dart';
 import 'verify_page.dart';
 import 'role_selection_page.dart';
 import 'traveler/identity_verification_screen.dart';
-import 'traveler_home_page.dart';
-import 'requester/requester_home_page.dart';
+import 'traveler/traveler_main_page.dart';
+import 'requester/requester_main_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -109,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
             // Navigate to traveler home page
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const TravelerHomePage()),
+              MaterialPageRoute(builder: (context) => const TravelerMainPage()),
             );
           }
         } else {
@@ -119,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
           // Navigate to requester home page (no verification needed)
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const RequesterHomePage()),
+            MaterialPageRoute(builder: (context) => const RequesterMainPage()),
           );
         }
       } catch (e) {

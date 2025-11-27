@@ -12,13 +12,18 @@ import 'requester_activity_page.dart';
 import 'requester_profile_page.dart';
 
 class RequesterMessagesPage extends StatefulWidget {
-  const RequesterMessagesPage({super.key});
+  final bool embedded;
+  const RequesterMessagesPage({super.key, this.embedded = false});
 
   @override
   State<RequesterMessagesPage> createState() => _RequesterMessagesPageState();
 }
 
-class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
+class _RequesterMessagesPageState extends State<RequesterMessagesPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final MessagingService _messagingService = MessagingService();
   final NotificationService _notificationService = NotificationService();
   List<Conversation> _conversations = [];
@@ -112,6 +117,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
@@ -146,7 +152,9 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(scaleFactor),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : _buildBottomNav(scaleFactor),
     );
   }
 
@@ -175,9 +183,9 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage> {
                   Text(
                     'Pasabay',
                     style: TextStyle(
-                      fontSize: 22 * scaleFactor,
-                      fontWeight: FontWeight.w700,
-                      color: AppConstants.textPrimaryColor,
+                      fontSize: 18 * scaleFactor,
+                      fontWeight: FontWeight.w600,
+                      color: AppConstants.primaryColor,
                     ),
                   ),
                 ],

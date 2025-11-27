@@ -7,20 +7,27 @@ import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
 import 'activity_page.dart';
 import 'messages_page.dart';
-import 'requester/requester_home_page.dart';
+import 'requester/requester_main_page.dart';
+import 'traveler/traveler_main_page.dart';
 import 'landing_page.dart';
 import 'edit_profile_page.dart';
 import 'settings_page.dart';
 import 'wallet_page.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final bool embedded;
+
+  const ProfilePage({super.key, this.embedded = false});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
+class _ProfilePageState extends State<ProfilePage>
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   // Default data
   String userName = "Juan Carlos Santos";
   String userEmail = "juan.santos@email.com";
@@ -318,7 +325,15 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const RequesterHomePage(),
+                    builder: (context) => const RequesterMainPage(),
+                  ),
+                  (route) => false,
+                );
+              } else if (newRole == 'Traveler') {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TravelerMainPage(),
                   ),
                   (route) => false,
                 );
@@ -355,6 +370,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
@@ -770,46 +786,52 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppConstants.primaryColor,
-        unselectedItemColor: Colors.grey,
-        currentIndex: 3, // Profile tab selected
-        onTap: (index) {
-          if (index == 0) {
-            // Navigate to Home
-            Navigator.pop(context);
-          } else if (index == 1) {
-            // Navigate to Activity page
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ActivityPage()),
-            );
-          } else if (index == 2) {
-            // Navigate to Messages page
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const MessagesPage()),
-            );
-          }
-          // Profile tab is already selected (index 3)
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppConstants.primaryColor,
+              unselectedItemColor: Colors.grey,
+              currentIndex: 3, // Profile tab selected
+              onTap: (index) {
+                if (index == 0) {
+                  // Navigate to Home
+                  Navigator.pop(context);
+                } else if (index == 1) {
+                  // Navigate to Activity page
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ActivityPage(),
+                    ),
+                  );
+                } else if (index == 2) {
+                  // Navigate to Messages page
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MessagesPage(),
+                    ),
+                  );
+                }
+                // Profile tab is already selected (index 3)
+              },
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.show_chart),
+                  label: 'Activity',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: 'Messages',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  label: 'Profile',
+                ),
+              ],
+            ),
     );
   }
 

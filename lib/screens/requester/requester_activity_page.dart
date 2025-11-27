@@ -13,15 +13,19 @@ import '../chat_detail_page.dart';
 import '../../services/messaging_service.dart';
 import '../../services/notification_service.dart';
 import '../notifications_page.dart';
+import '../tracking_map_page.dart';
 
 class RequesterActivityPage extends StatefulWidget {
-  const RequesterActivityPage({super.key});
+  final bool embedded;
+
+  const RequesterActivityPage({super.key, this.embedded = false});
 
   @override
   State<RequesterActivityPage> createState() => _RequesterActivityPageState();
 }
 
-class _RequesterActivityPageState extends State<RequesterActivityPage> {
+class _RequesterActivityPageState extends State<RequesterActivityPage>
+    with AutomaticKeepAliveClientMixin {
   final RequestService _requestService = RequestService();
   final MessagingService _messagingService = MessagingService();
   final NotificationService _notificationService = NotificationService();
@@ -35,6 +39,9 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
   int _selectedTab = 0; // 0: Pending, 1: Ongoing, 2: Completed
   int _unreadNotifications = 0;
   RealtimeChannel? _notificationSubscription;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -88,6 +95,8 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
           pending.add(request);
         } else if (request.status == 'Accepted' ||
             request.status == 'Order Sent' ||
+            request.status == 'Item Bought' ||
+            request.status == 'Picked Up' ||
             request.status == 'On the Way' ||
             request.status == 'Dropped Off') {
           accepted.add(request); // All active/ongoing statuses
@@ -169,6 +178,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
@@ -458,7 +468,9 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(scaleFactor),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : _buildBottomNav(scaleFactor),
     );
   }
 
@@ -569,6 +581,26 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
         ? '${travelerInfo['first_name']} ${travelerInfo['last_name']}'
         : 'Unknown Traveler';
 
+    // Check if this is an ongoing request (not pending, not completed)
+    final isOngoing =
+        request.status == 'Accepted' ||
+        request.status == 'Order Sent' ||
+        request.status == 'Item Bought' ||
+        request.status == 'Picked Up' ||
+        request.status == 'On the Way' ||
+        request.status == 'Dropped Off';
+
+    // Determine the service type display name and icon
+    String displayServiceType;
+    IconData serviceIcon;
+    if (request.serviceType == 'Pabakal') {
+      displayServiceType = 'Buy & Deliver';
+      serviceIcon = Icons.shopping_bag_outlined;
+    } else {
+      displayServiceType = 'Package Delivery';
+      serviceIcon = Icons.local_shipping_outlined;
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: 12 * scaleFactor),
       padding: EdgeInsets.all(16 * scaleFactor),
@@ -586,180 +618,364 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 12 * scaleFactor,
-                  vertical: 6 * scaleFactor,
-                ),
-                decoration: BoxDecoration(
-                  color: request.serviceType == 'Pabakal'
-                      ? Colors.blue.withOpacity(0.1)
-                      : Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12 * scaleFactor),
-                ),
-                child: Text(
-                  request.serviceType,
-                  style: TextStyle(
-                    fontSize: 12 * scaleFactor,
-                    fontWeight: FontWeight.w600,
-                    color: request.serviceType == 'Pabakal'
-                        ? Colors.blue[700]
-                        : Colors.green[700],
+          // Header with icon for ongoing requests
+          if (isOngoing) ...[
+            // Enhanced card header for ongoing requests
+            Row(
+              children: [
+                Container(
+                  width: 48 * scaleFactor,
+                  height: 48 * scaleFactor,
+                  decoration: BoxDecoration(
+                    color: Color(0xFF00B4D8).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  ),
+                  child: Icon(
+                    serviceIcon,
+                    color: Color(0xFF00B4D8),
+                    size: 26 * scaleFactor,
                   ),
                 ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 12 * scaleFactor,
-                  vertical: 6 * scaleFactor,
-                ),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(request.status).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12 * scaleFactor),
-                ),
-                child: Text(
-                  request.status,
-                  style: TextStyle(
-                    fontSize: 12 * scaleFactor,
-                    fontWeight: FontWeight.w600,
-                    color: _getStatusColor(request.status),
+                SizedBox(width: 12 * scaleFactor),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayServiceType,
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 2 * scaleFactor),
+                      Row(
+                        children: [
+                          Text(
+                            'Service Fee: ',
+                            style: TextStyle(
+                              fontSize: 13 * scaleFactor,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          Text(
+                            '₱${request.serviceFee.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 13 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF00B4D8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12 * scaleFactor),
-          Row(
-            children: [
-              Icon(
-                Icons.person,
-                size: 16 * scaleFactor,
-                color: Colors.grey[600],
-              ),
-              SizedBox(width: 6 * scaleFactor),
-              Text(
-                travelerName,
-                style: TextStyle(
-                  fontSize: 15 * scaleFactor,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                IconButton(
+                  icon: Icon(Icons.chevron_right, size: 24 * scaleFactor),
+                  color: Colors.grey[400],
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RequestStatusPage(
+                          request: request,
+                          travelerInfo: travelerInfo,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8 * scaleFactor),
-          if (request.serviceType == 'Pabakal') ...[
-            Text(
-              request.productName ?? 'Product',
-              style: TextStyle(
-                fontSize: 14 * scaleFactor,
-                color: Colors.grey[700],
-              ),
+              ],
             ),
-            Text(
-              '${request.storeName ?? 'Store'}',
-              style: TextStyle(
-                fontSize: 13 * scaleFactor,
-                color: Colors.grey[600],
-              ),
+            SizedBox(height: 16 * scaleFactor),
+            // Progress Timeline
+            _buildProgressBar(
+              _getProgressSteps(request.serviceType),
+              _getCurrentStepIndex(request.status, request.serviceType),
+              scaleFactor,
             ),
-          ] else ...[
-            Text(
-              request.packageDescription ?? 'Package',
-              style: TextStyle(
-                fontSize: 14 * scaleFactor,
-                color: Colors.grey[700],
-              ),
-            ),
-            Text(
-              'To: ${request.recipientName ?? 'Recipient'}',
-              style: TextStyle(
-                fontSize: 13 * scaleFactor,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-          SizedBox(height: 12 * scaleFactor),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '₱${request.totalAmount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 18 * scaleFactor,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF00B4D8),
-                ),
-              ),
-              Row(
-                children: [
-                  if (request.status == 'Accepted')
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        // Get conversation for this request
-                        final conversations = await _messagingService
-                            .getConversations();
-                        final conversation = conversations.firstWhere(
-                          (c) => c.requestId == request.id,
-                          orElse: () => throw 'Conversation not found',
-                        );
-
+            SizedBox(height: 16 * scaleFactor),
+            // Action Buttons for ongoing
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      if (request.status == 'On the Way') {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                ChatDetailPage(conversation: conversation),
+                            builder: (context) => TrackingMapPage(
+                              requestId: request.id,
+                              travelerName:
+                                  travelerInfo?['full_name'] ?? 'Traveler',
+                              serviceType: request.serviceType,
+                              status: request.status,
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RequestStatusPage(
+                              request: request,
+                              travelerInfo: travelerInfo,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 12 * scaleFactor),
+                      side: BorderSide(color: Color(0xFF00B4D8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8 * scaleFactor),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (request.status == 'On the Way') ...[
+                          Icon(
+                            Icons.location_on,
+                            color: Color(0xFF00B4D8),
+                            size: 18 * scaleFactor,
+                          ),
+                          SizedBox(width: 4 * scaleFactor),
+                        ],
+                        Text(
+                          request.status == 'On the Way' ? 'Track' : 'Details',
+                          style: TextStyle(
+                            fontSize: 14 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF00B4D8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12 * scaleFactor),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: request.status == 'Completed'
+                        ? null
+                        : () async {
+                            // Get conversation for this request
+                            try {
+                              final conversations = await _messagingService
+                                  .getConversations();
+                              final conversation = conversations.firstWhere(
+                                (c) => c.requestId == request.id,
+                                orElse: () => throw 'Conversation not found',
+                              );
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatDetailPage(
+                                    conversation: conversation,
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Could not open chat'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: request.status == 'Completed'
+                          ? Colors.grey[300]
+                          : Color(0xFF00B4D8),
+                      padding: EdgeInsets.symmetric(vertical: 12 * scaleFactor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8 * scaleFactor),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (request.status == 'Completed') ...[
+                          Icon(
+                            Icons.check,
+                            color: Colors.grey[600],
+                            size: 18 * scaleFactor,
+                          ),
+                          SizedBox(width: 4 * scaleFactor),
+                        ],
+                        Text(
+                          request.status == 'Completed' ? 'Completed' : 'Chat',
+                          style: TextStyle(
+                            fontSize: 14 * scaleFactor,
+                            fontWeight: FontWeight.w600,
+                            color: request.status == 'Completed'
+                                ? Colors.grey[600]
+                                : Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            // Original card layout for pending/completed requests
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12 * scaleFactor,
+                    vertical: 6 * scaleFactor,
+                  ),
+                  decoration: BoxDecoration(
+                    color: request.serviceType == 'Pabakal'
+                        ? Colors.blue.withOpacity(0.1)
+                        : Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  ),
+                  child: Text(
+                    request.serviceType,
+                    style: TextStyle(
+                      fontSize: 12 * scaleFactor,
+                      fontWeight: FontWeight.w600,
+                      color: request.serviceType == 'Pabakal'
+                          ? Colors.blue[700]
+                          : Colors.green[700],
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12 * scaleFactor,
+                    vertical: 6 * scaleFactor,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(request.status).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  ),
+                  child: Text(
+                    request.status,
+                    style: TextStyle(
+                      fontSize: 12 * scaleFactor,
+                      fontWeight: FontWeight.w600,
+                      color: _getStatusColor(request.status),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12 * scaleFactor),
+            Row(
+              children: [
+                Icon(
+                  Icons.person,
+                  size: 16 * scaleFactor,
+                  color: Colors.grey[600],
+                ),
+                SizedBox(width: 6 * scaleFactor),
+                Text(
+                  travelerName,
+                  style: TextStyle(
+                    fontSize: 15 * scaleFactor,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8 * scaleFactor),
+            if (request.serviceType == 'Pabakal') ...[
+              Text(
+                request.productName ?? 'Product',
+                style: TextStyle(
+                  fontSize: 14 * scaleFactor,
+                  color: Colors.grey[700],
+                ),
+              ),
+              Text(
+                '${request.storeName ?? 'Store'}',
+                style: TextStyle(
+                  fontSize: 13 * scaleFactor,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ] else ...[
+              Text(
+                request.packageDescription ?? 'Package',
+                style: TextStyle(
+                  fontSize: 14 * scaleFactor,
+                  color: Colors.grey[700],
+                ),
+              ),
+              Text(
+                'To: ${request.recipientName ?? 'Recipient'}',
+                style: TextStyle(
+                  fontSize: 13 * scaleFactor,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+            SizedBox(height: 12 * scaleFactor),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '₱${request.totalAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18 * scaleFactor,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF00B4D8),
+                  ),
+                ),
+                Row(
+                  children: [
+                    if (showCancel) ...[
+                      OutlinedButton(
+                        onPressed: () => _cancelRequest(request),
+                        child: Text('Cancel'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: BorderSide(color: Colors.red),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16 * scaleFactor,
+                            vertical: 8 * scaleFactor,
+                          ),
+                        ),
+                      ),
+                    ],
+                    SizedBox(width: 8 * scaleFactor),
+                    IconButton(
+                      icon: Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16 * scaleFactor,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RequestStatusPage(
+                              request: request,
+                              travelerInfo: travelerInfo,
+                            ),
                           ),
                         );
                       },
-                      icon: Icon(Icons.chat, size: 16 * scaleFactor),
-                      label: Text('Chat'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF00B4D8),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16 * scaleFactor,
-                          vertical: 8 * scaleFactor,
-                        ),
-                      ),
-                    ),
-                  if (showCancel) ...[
-                    SizedBox(width: 8 * scaleFactor),
-                    OutlinedButton(
-                      onPressed: () => _cancelRequest(request),
-                      child: Text('Cancel'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: BorderSide(color: Colors.red),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16 * scaleFactor,
-                          vertical: 8 * scaleFactor,
-                        ),
-                      ),
                     ),
                   ],
-                  SizedBox(width: 8 * scaleFactor),
-                  IconButton(
-                    icon: Icon(Icons.arrow_forward_ios, size: 16 * scaleFactor),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => RequestStatusPage(
-                            request: request,
-                            travelerInfo: travelerInfo,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -780,6 +996,127 @@ class _RequesterActivityPageState extends State<RequesterActivityPage> {
       default:
         return Colors.grey;
     }
+  }
+
+  List<String> _getProgressSteps(String serviceType) {
+    if (serviceType == 'Pabakal') {
+      return [
+        'Order Accepted',
+        'Item Bought',
+        'On the Way',
+        'Dropped Off',
+        'Completed',
+      ];
+    } else {
+      return [
+        'Order Accepted',
+        'Picked Up',
+        'On the Way',
+        'Dropped Off',
+        'Completed',
+      ];
+    }
+  }
+
+  int _getCurrentStepIndex(String status, String serviceType) {
+    final Map<String, int> pabakalSteps = {
+      'Accepted': 0,
+      'Item Bought': 1,
+      'On the Way': 2,
+      'Dropped Off': 3,
+      'Order Sent': 3,
+      'Completed': 4,
+    };
+
+    final Map<String, int> pasabaySteps = {
+      'Accepted': 0,
+      'Picked Up': 1,
+      'On the Way': 2,
+      'Dropped Off': 3,
+      'Order Sent': 3,
+      'Completed': 4,
+    };
+
+    if (serviceType == 'Pabakal') {
+      return pabakalSteps[status] ?? 0;
+    } else {
+      return pasabaySteps[status] ?? 0;
+    }
+  }
+
+  Widget _buildProgressBar(
+    List<String> steps,
+    int currentStep,
+    double scaleFactor,
+  ) {
+    return Column(
+      children: [
+        // Progress dots and lines
+        Row(
+          children: List.generate(steps.length * 2 - 1, (index) {
+            if (index.isEven) {
+              // Dot
+              int stepIndex = index ~/ 2;
+              bool isCompleted = stepIndex <= currentStep;
+              return Container(
+                width: 24 * scaleFactor,
+                height: 24 * scaleFactor,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[300],
+                  border: Border.all(
+                    color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[400]!,
+                    width: 2,
+                  ),
+                ),
+                child: isCompleted
+                    ? Icon(
+                        Icons.check,
+                        size: 14 * scaleFactor,
+                        color: Colors.white,
+                      )
+                    : null,
+              );
+            } else {
+              // Line
+              int stepIndex = index ~/ 2;
+              bool isCompleted = stepIndex < currentStep;
+              return Expanded(
+                child: Container(
+                  height: 2,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[300],
+                ),
+              );
+            }
+          }),
+        ),
+        SizedBox(height: 8 * scaleFactor),
+        // Step labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: steps.asMap().entries.map((entry) {
+            int stepIndex = entry.key;
+            String label = entry.value;
+            bool isCompleted = stepIndex <= currentStep;
+            return Expanded(
+              child: Text(
+                label,
+                textAlign: stepIndex == 0
+                    ? TextAlign.start
+                    : stepIndex == steps.length - 1
+                    ? TextAlign.end
+                    : TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10 * scaleFactor,
+                  fontWeight: isCompleted ? FontWeight.w600 : FontWeight.w400,
+                  color: isCompleted ? Color(0xFF00B4D8) : Colors.grey[600],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   Widget _buildBottomNav(double scaleFactor) {

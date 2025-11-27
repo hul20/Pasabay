@@ -15,20 +15,26 @@ import '../models/trip.dart';
 import '../services/trip_service.dart';
 import '../services/notification_service.dart';
 import '../services/distance_service.dart';
+import '../services/wallet_service.dart';
 import 'activity_page.dart';
 import 'messages_page.dart';
 import 'profile_page.dart';
 import 'notifications_page.dart';
 
 class TravelerHomePage extends StatefulWidget {
-  const TravelerHomePage({super.key});
+  final bool embedded;
+
+  const TravelerHomePage({super.key, this.embedded = false});
 
   @override
   State<TravelerHomePage> createState() => _TravelerHomePageState();
 }
 
 class _TravelerHomePageState extends State<TravelerHomePage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   int _selectedIndex = 0;
   String userName = "Juan"; // Will be loaded from database
   int activeTrips = 0; // Will be loaded from TripService
@@ -67,6 +73,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
 
   final TripService _tripService = TripService();
   final NotificationService _notificationService = NotificationService();
+  final WalletService _walletService = WalletService();
   int _unreadNotifications = 0;
   RealtimeChannel? _notificationSubscription;
 
@@ -77,6 +84,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
     _checkVerificationStatus();
     _loadUserName();
     _loadTripStats();
+    _loadTotalEarnings();
     _loadUnreadNotifications();
     _setupNotificationSubscription();
     _setDefaultDeparture(); // Set current location as default departure
@@ -142,11 +150,23 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       if (mounted) {
         setState(() {
           activeTrips = stats.activeTrips;
-          totalEarnings = stats.currentMonthEarnings.toInt();
         });
       }
     } catch (e) {
       print('Error loading trip stats: $e');
+    }
+  }
+
+  Future<void> _loadTotalEarnings() async {
+    try {
+      final earnings = await _walletService.getTotalEarnings();
+      if (mounted) {
+        setState(() {
+          totalEarnings = earnings.toInt();
+        });
+      }
+    } catch (e) {
+      print('Error loading total earnings: $e');
     }
   }
 
@@ -169,6 +189,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       _checkVerificationStatus();
       _loadUserName();
       _loadTripStats();
+      _loadTotalEarnings();
       _loadUnreadNotifications();
     }
   }
@@ -271,6 +292,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
 
   Future<void> _updateMapMarkers() async {
     Set<Marker> newMarkers = {};
+    Set<Polyline> newPolylines = {};
 
     // Try to geocode departure if we have text but no coordinates
     if (_departureController.text.isNotEmpty &&
@@ -306,45 +328,96 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       }
     }
 
-    // Add departure marker
-    if (_departureLat != null && _departureLng != null) {
-      newMarkers.add(
-        Marker(
-          markerId: MarkerId('departure'),
-          position: LatLng(_departureLat!, _departureLng!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen,
-          ),
-          infoWindow: InfoWindow(
-            title: 'Departure',
-            snippet: _departureController.text.isEmpty
-                ? 'Starting point'
-                : _departureController.text,
-          ),
-        ),
-      );
-    }
+    // Fetch and draw route polyline if both locations are set
+    if (_departureLat != null &&
+        _departureLng != null &&
+        _destinationLat != null &&
+        _destinationLng != null) {
+      try {
+        print('🗺️ Fetching route polyline...');
+        final routePoints = await _distanceService.getRoutePolyline(
+          originLat: _departureLat!,
+          originLng: _departureLng!,
+          destLat: _destinationLat!,
+          destLng: _destinationLng!,
+        );
 
-    // Add destination marker
-    if (_destinationLat != null && _destinationLng != null) {
-      newMarkers.add(
-        Marker(
-          markerId: MarkerId('destination'),
-          position: LatLng(_destinationLat!, _destinationLng!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: InfoWindow(
-            title: 'Destination',
-            snippet: _destinationController.text.isEmpty
-                ? 'End point'
-                : _destinationController.text,
+        print('📍 Got ${routePoints.length} route points');
+
+        if (routePoints.length > 2) {
+          // Real route from API - draw polyline only, no markers
+          newPolylines.add(
+            Polyline(
+              polylineId: PolylineId('route'),
+              points: routePoints,
+              color: Color(0xFF00B4D8), // Cyan color matching the UI
+              width: 6,
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+            ),
+          );
+          print(
+            '✅ Route polyline added with ${routePoints.length} points - NO MARKERS',
+          );
+        } else {
+          // Fallback straight line - still draw it but thicker to be visible
+          newPolylines.add(
+            Polyline(
+              polylineId: PolylineId('route'),
+              points: routePoints,
+              color: Color(0xFF00B4D8),
+              width: 6,
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+            ),
+          );
+          print('⚠️ Using straight line fallback (API may not be enabled)');
+        }
+      } catch (e) {
+        print('❌ Error fetching route polyline: $e');
+      }
+    } else {
+      // Show individual markers only when we don't have both locations yet
+      if (_departureLat != null && _departureLng != null) {
+        newMarkers.add(
+          Marker(
+            markerId: MarkerId('departure'),
+            position: LatLng(_departureLat!, _departureLng!),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueGreen,
+            ),
+            infoWindow: InfoWindow(
+              title: 'Departure',
+              snippet: _departureController.text.isEmpty
+                  ? 'Starting point'
+                  : _departureController.text,
+            ),
           ),
-        ),
-      );
+        );
+      }
+      if (_destinationLat != null && _destinationLng != null) {
+        newMarkers.add(
+          Marker(
+            markerId: MarkerId('destination'),
+            position: LatLng(_destinationLat!, _destinationLng!),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueRed,
+            ),
+            infoWindow: InfoWindow(
+              title: 'Destination',
+              snippet: _destinationController.text.isEmpty
+                  ? 'End point'
+                  : _destinationController.text,
+            ),
+          ),
+        );
+      }
     }
 
     if (mounted) {
       setState(() {
         _markers = newMarkers;
+        _polylines = newPolylines;
       });
 
       // Animate camera to show both markers
@@ -682,99 +755,81 @@ class _TravelerHomePageState extends State<TravelerHomePage>
     LatLng initialPosition;
     double initialZoom = 11.0;
 
-    if (_currentLat != null && _currentLng != null) {
-      // Use current location if available
+    if (_departureLat != null &&
+        _departureLng != null &&
+        _destinationLat != null &&
+        _destinationLng != null) {
+      // Center between both points
+      initialPosition = LatLng(
+        (_departureLat! + _destinationLat!) / 2,
+        (_departureLng! + _destinationLng!) / 2,
+      );
+      initialZoom = 10.0;
+    } else if (_currentLat != null && _currentLng != null) {
       initialPosition = LatLng(_currentLat!, _currentLng!);
       initialZoom = 13.0;
     } else if (_departureLat != null && _departureLng != null) {
-      // Use departure location
       initialPosition = LatLng(_departureLat!, _departureLng!);
+      initialZoom = 13.0;
     } else if (_destinationLat != null && _destinationLng != null) {
-      // Use destination location
       initialPosition = LatLng(_destinationLat!, _destinationLng!);
+      initialZoom = 13.0;
     } else {
       // Default to Manila
       initialPosition = LatLng(14.5995, 120.9842);
     }
 
     return GoogleMap(
-      key: ValueKey(
-        'expanded_map_${_markers.length}',
-      ), // Force rebuild when markers change
       initialCameraPosition: CameraPosition(
         target: initialPosition,
         zoom: initialZoom,
       ),
       markers: _markers,
       polylines: _polylines,
-      gestureRecognizers: Set()
-        ..add(Factory<PanGestureRecognizer>(() => PanGestureRecognizer()))
-        ..add(Factory<ScaleGestureRecognizer>(() => ScaleGestureRecognizer()))
-        ..add(Factory<TapGestureRecognizer>(() => TapGestureRecognizer()))
-        ..add(
-          Factory<VerticalDragGestureRecognizer>(
-            () => VerticalDragGestureRecognizer(),
-          ),
-        )
-        ..add(
-          Factory<HorizontalDragGestureRecognizer>(
-            () => HorizontalDragGestureRecognizer(),
-          ),
+      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+        Factory<PanGestureRecognizer>(() => PanGestureRecognizer()),
+        Factory<ScaleGestureRecognizer>(() => ScaleGestureRecognizer()),
+        Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        Factory<VerticalDragGestureRecognizer>(
+          () => VerticalDragGestureRecognizer(),
         ),
-      onMapCreated: (GoogleMapController controller) async {
+        Factory<HorizontalDragGestureRecognizer>(
+          () => HorizontalDragGestureRecognizer(),
+        ),
+      },
+      onMapCreated: (GoogleMapController controller) {
         if (!mounted) return;
-
-        try {
-          _expandedMapController = controller;
-          print('✅ Expanded map initialized successfully!');
-
-          // Center on current location if available
-          if (_currentLat != null && _currentLng != null) {
-            await Future.delayed(Duration(milliseconds: 500));
-            controller.animateCamera(
-              CameraUpdate.newLatLngZoom(
-                LatLng(_currentLat!, _currentLng!),
-                13.0,
-              ),
-            );
-          }
-
-          // Update markers after a short delay
-          await Future.delayed(Duration(milliseconds: 300));
-          await _updateMapMarkers();
-          if (onMarkerUpdate != null) {
-            onMarkerUpdate();
-          }
-        } catch (e) {
-          print('⚠️ Expanded map initialization warning: $e');
-        }
+        _expandedMapController = controller;
+        print('✅ Expanded map initialized');
       },
-      onTap: (LatLng position) async {
-        await _onMapTap(position);
-        if (onMarkerUpdate != null) {
-          onMarkerUpdate();
-        }
+      onTap: (LatLng position) {
+        _handleMapTap(position, onMarkerUpdate);
       },
-      myLocationEnabled: true, // Show user location
-      myLocationButtonEnabled: true, // Show location button
+      myLocationEnabled: true,
+      myLocationButtonEnabled: true,
       zoomControlsEnabled: true,
       mapType: MapType.normal,
       compassEnabled: true,
       rotateGesturesEnabled: true,
-      scrollGesturesEnabled: true, // Enable dragging
+      scrollGesturesEnabled: true,
       tiltGesturesEnabled: true,
-      zoomGesturesEnabled: true, // Enable zooming
+      zoomGesturesEnabled: true,
     );
   }
 
   Future<void> _showExpandedMap(double scaleFactor) async {
-    // Get current location before showing map
-    await _getCurrentLocation();
+    // Don't wait for location - show map immediately
+    // Location will be fetched in background if needed
+    if (_currentLat == null || _currentLng == null) {
+      _getCurrentLocation(); // Fire and forget
+    }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: true,
+      isDismissible: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -802,50 +857,38 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                         IconButton(
                           icon: Icon(Icons.close),
                           onPressed: () {
-                            _expandedMapController?.dispose();
-                            _expandedMapController = null;
                             Navigator.pop(context);
                           },
                         ),
                         Expanded(
                           child: Text(
-                            'Pin Destination on Map',
+                            'Select Location on Map',
                             style: TextStyle(
                               fontSize: 18 * scaleFactor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        if (_departureController.text.isNotEmpty ||
-                            _destinationController.text.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: () {
-                              _expandedMapController?.dispose();
-                              _expandedMapController = null;
-                              Navigator.pop(context);
-                              _updateMapMarkers();
-                            },
-                            icon: Icon(Icons.check, size: 20 * scaleFactor),
-                            label: Text('Done'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppConstants.primaryColor,
-                            ),
+                        TextButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _updateMapMarkers();
+                          },
+                          icon: Icon(Icons.check, size: 20 * scaleFactor),
+                          label: Text('Done'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppConstants.primaryColor,
                           ),
+                        ),
                       ],
                     ),
                   ),
                   // Expanded Map
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(24 * scaleFactor),
-                        bottomRight: Radius.circular(24 * scaleFactor),
-                      ),
-                      child: _buildExpandedMapWidget(scaleFactor, () {
-                        setModalState(() {});
-                        setState(() {});
-                      }),
-                    ),
+                    child: _buildExpandedMapWidget(scaleFactor, () {
+                      setModalState(() {});
+                      setState(() {});
+                    }),
                   ),
                   // Instructions
                   Container(
@@ -897,6 +940,124 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         );
       },
     );
+  }
+
+  // Optimized map tap handler - non-blocking
+  void _handleMapTap(LatLng position, VoidCallback? onMarkerUpdate) {
+    // Immediately update coordinates and show feedback
+    if (_departureController.text.isEmpty ||
+        (_departureLat == null && _destinationLat != null)) {
+      // Set as departure
+      setState(() {
+        _departureLat = position.latitude;
+        _departureLng = position.longitude;
+        _departureController.text =
+            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+      });
+      _showSnackBar('🟢 Departure set!', Colors.green);
+
+      // Geocode in background (non-blocking)
+      _geocodeLocationAsync(position, true);
+    } else if (_destinationController.text.isEmpty || _destinationLat == null) {
+      // Set as destination
+      setState(() {
+        _destinationLat = position.latitude;
+        _destinationLng = position.longitude;
+        _destinationController.text =
+            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+      });
+      _showSnackBar('🔴 Destination set!', Colors.red);
+
+      // Geocode in background (non-blocking)
+      _geocodeLocationAsync(position, false);
+
+      // Calculate distance if both locations are set
+      if (_departureLat != null && _departureLng != null) {
+        _calculateDistanceAndPrice();
+      }
+    } else {
+      _showSnackBar('Clear a location first to set a new one', Colors.orange);
+      return;
+    }
+
+    // Update markers immediately
+    _updateMapMarkersSync();
+    if (onMarkerUpdate != null) {
+      onMarkerUpdate();
+    }
+  }
+
+  // Sync version for immediate marker update (without route fetching)
+  void _updateMapMarkersSync() {
+    Set<Marker> newMarkers = {};
+
+    if (_departureLat != null &&
+        _departureLng != null &&
+        !(_destinationLat != null && _destinationLng != null)) {
+      newMarkers.add(
+        Marker(
+          markerId: MarkerId('departure'),
+          position: LatLng(_departureLat!, _departureLng!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+          infoWindow: InfoWindow(title: 'Departure'),
+        ),
+      );
+    }
+
+    if (_destinationLat != null &&
+        _destinationLng != null &&
+        !(_departureLat != null && _departureLng != null)) {
+      newMarkers.add(
+        Marker(
+          markerId: MarkerId('destination'),
+          position: LatLng(_destinationLat!, _destinationLng!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: InfoWindow(title: 'Destination'),
+        ),
+      );
+    }
+
+    // If both are set, fetch route async
+    if (_departureLat != null &&
+        _departureLng != null &&
+        _destinationLat != null &&
+        _destinationLng != null) {
+      _updateMapMarkers(); // This will fetch route in background
+    } else {
+      setState(() {
+        _markers = newMarkers;
+      });
+    }
+  }
+
+  // Background geocoding - doesn't block UI
+  Future<void> _geocodeLocationAsync(LatLng position, bool isDeparture) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      if (placemarks.isNotEmpty && mounted) {
+        final place = placemarks.first;
+        final address =
+            '${place.locality ?? place.subAdministrativeArea ?? ''}, ${place.country ?? ''}'
+                .trim();
+        if (address.isNotEmpty && address != ', ') {
+          setState(() {
+            if (isDeparture) {
+              _departureController.text = address;
+            } else {
+              _destinationController.text = address;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      // Keep the coordinate text, geocoding failed silently
+      print('Geocoding failed: $e');
+    }
   }
 
   Future<void> _onMapTap(LatLng position) async {
@@ -1064,6 +1225,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = ResponsiveHelper.getScaleFactor(screenWidth);
 
@@ -1460,286 +1622,259 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                   Text(
                     'Plan Your Route',
                     style: TextStyle(
-                      fontSize: 18 * scaleFactor,
+                      fontSize: 20 * scaleFactor,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 12 * scaleFactor),
+                  SizedBox(height: 16 * scaleFactor),
+
+                  // Route Card (Cyan) - Matching Requester's Find Travelers style
                   Container(
                     padding: EdgeInsets.all(20 * scaleFactor),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20 * scaleFactor),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                      color: Color(0xFF00B4D8),
+                      borderRadius: BorderRadius.circular(16 * scaleFactor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.map,
-                              color: AppConstants.primaryColor,
-                              size: 20 * scaleFactor,
-                            ),
-                            SizedBox(width: 8 * scaleFactor),
-                            Text(
-                              'Trip Details',
-                              style: TextStyle(
-                                fontSize: 16 * scaleFactor,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Route',
+                          style: TextStyle(
+                            fontSize: 32 * scaleFactor,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                        SizedBox(height: 16 * scaleFactor),
-                        // Departure Field - Editable
-                        TextField(
-                          controller: _departureController,
+                        SizedBox(height: 8 * scaleFactor),
+                        Text(
+                          'Set your departure and destination',
                           style: TextStyle(
                             fontSize: 14 * scaleFactor,
-                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withOpacity(0.9),
                           ),
-                          decoration: InputDecoration(
-                            hintText: 'From (Tap to change)',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14 * scaleFactor,
-                            ),
-                            helperText:
-                                'Current location auto-filled, tap to change',
-                            helperStyle: TextStyle(
-                              fontSize: 11 * scaleFactor,
-                              color: Colors.grey[600],
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16 * scaleFactor,
-                              vertical: 14 * scaleFactor,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(
-                                color: AppConstants.primaryColor,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            prefixIcon: Icon(
-                              Icons.my_location,
-                              color: AppConstants.primaryColor,
-                              size: 20 * scaleFactor,
-                            ),
-                            suffixIcon: _departureController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(
-                                      Icons.clear,
-                                      size: 18 * scaleFactor,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _departureController.clear();
-                                        _departureLat = null;
-                                        _departureLng = null;
-                                      });
-                                      _updateMapMarkers();
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                          onSubmitted: (value) async {
-                            if (value.isNotEmpty) {
-                              // Try to geocode the entered location
-                              try {
-                                final locations = await locationFromAddress(
-                                  value,
-                                );
-                                if (locations.isNotEmpty) {
-                                  setState(() {
-                                    _departureLat = locations.first.latitude;
-                                    _departureLng = locations.first.longitude;
-                                  });
-                                  _updateMapMarkers();
-                                  // Calculate if destination is also set
-                                  if (_destinationLat != null &&
-                                      _destinationLng != null) {
-                                    await _calculateDistanceAndPrice();
-                                  }
-                                }
-                              } catch (e) {
-                                _showSnackBar(
-                                  'Could not find location',
-                                  Colors.orange,
-                                );
-                              }
-                            }
-                          },
-                        ),
-                        SizedBox(height: 12 * scaleFactor),
-                        // Destination Field - "Where to?"
-                        TextField(
-                          controller: _destinationController,
-                          style: TextStyle(
-                            fontSize: 16 * scaleFactor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Where to?',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 16 * scaleFactor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16 * scaleFactor,
-                              vertical: 14 * scaleFactor,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(color: Colors.grey[200]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
-                              ),
-                              borderSide: BorderSide(
-                                color: AppConstants.primaryColor,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            prefixIcon: Icon(
-                              Icons.location_on,
-                              color: Colors.red,
-                              size: 20 * scaleFactor,
-                            ),
-                            suffixIcon: _destinationController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(
-                                      Icons.clear,
-                                      size: 18 * scaleFactor,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _destinationController.clear();
-                                        _destinationLat = null;
-                                        _destinationLng = null;
-                                      });
-                                      _updateMapMarkers();
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                          onSubmitted: (value) async {
-                            if (value.isNotEmpty) {
-                              // Try to geocode the entered location
-                              try {
-                                final locations = await locationFromAddress(
-                                  value,
-                                );
-                                if (locations.isNotEmpty) {
-                                  setState(() {
-                                    _destinationLat = locations.first.latitude;
-                                    _destinationLng = locations.first.longitude;
-                                  });
-                                  _updateMapMarkers();
-                                  // Calculate if departure is also set
-                                  if (_departureLat != null &&
-                                      _departureLng != null) {
-                                    await _calculateDistanceAndPrice();
-                                  }
-                                }
-                              } catch (e) {
-                                _showSnackBar(
-                                  'Could not find location',
-                                  Colors.orange,
-                                );
-                              }
-                            }
-                          },
                         ),
                         SizedBox(height: 16 * scaleFactor),
-                        // Pin on Maps Button
-                        GestureDetector(
-                          onTap: () => _showExpandedMap(scaleFactor),
-                          child: Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(
-                              vertical: 12 * scaleFactor,
+
+                        // Departure Location Input
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16 * scaleFactor,
+                            vertical: 4 * scaleFactor,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
                             ),
-                            decoration: BoxDecoration(
-                              color: AppConstants.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(
-                                12 * scaleFactor,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.trip_origin,
+                                color: Color(0xFF00B4D8),
+                                size: 22 * scaleFactor,
                               ),
-                              border: Border.all(
-                                color: AppConstants.primaryColor.withOpacity(
-                                  0.3,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.map_outlined,
-                                  color: AppConstants.primaryColor,
-                                  size: 20 * scaleFactor,
-                                ),
-                                SizedBox(width: 8 * scaleFactor),
-                                Text(
-                                  'Open Map to Select Destination',
+                              SizedBox(width: 12 * scaleFactor),
+                              Expanded(
+                                child: TextField(
+                                  controller: _departureController,
+                                  decoration: InputDecoration(
+                                    hintText: 'From (e.g., Iloilo)',
+                                    border: InputBorder.none,
+                                    hintStyle: TextStyle(
+                                      fontSize: 15 * scaleFactor,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
                                   style: TextStyle(
-                                    fontSize: 14 * scaleFactor,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppConstants.primaryColor,
+                                    fontSize: 15 * scaleFactor,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onSubmitted: (value) async {
+                                    if (value.isNotEmpty) {
+                                      try {
+                                        final locations =
+                                            await locationFromAddress(value);
+                                        if (locations.isNotEmpty) {
+                                          setState(() {
+                                            _departureLat =
+                                                locations.first.latitude;
+                                            _departureLng =
+                                                locations.first.longitude;
+                                          });
+                                          _updateMapMarkers();
+                                          if (_destinationLat != null &&
+                                              _destinationLng != null) {
+                                            await _calculateDistanceAndPrice();
+                                          }
+                                        }
+                                      } catch (e) {
+                                        _showSnackBar(
+                                          'Could not find location',
+                                          Colors.orange,
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                              // Use current location button
+                              GestureDetector(
+                                onTap: () async {
+                                  await _setDefaultDeparture();
+                                  _showSnackBar(
+                                    'Using current location',
+                                    Colors.green,
+                                  );
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(8 * scaleFactor),
+                                  child: Icon(
+                                    Icons.my_location,
+                                    color: Color(0xFF00B4D8),
+                                    size: 22 * scaleFactor,
                                   ),
                                 ),
-                              ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: 12 * scaleFactor),
+
+                        // Destination Location Input
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16 * scaleFactor,
+                            vertical: 4 * scaleFactor,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              12 * scaleFactor,
                             ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                color: Color(0xFF00B4D8),
+                                size: 22 * scaleFactor,
+                              ),
+                              SizedBox(width: 12 * scaleFactor),
+                              Expanded(
+                                child: TextField(
+                                  controller: _destinationController,
+                                  decoration: InputDecoration(
+                                    hintText: 'To (e.g., Roxas)',
+                                    border: InputBorder.none,
+                                    hintStyle: TextStyle(
+                                      fontSize: 15 * scaleFactor,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 15 * scaleFactor,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onSubmitted: (value) async {
+                                    if (value.isNotEmpty) {
+                                      try {
+                                        final locations =
+                                            await locationFromAddress(value);
+                                        if (locations.isNotEmpty) {
+                                          setState(() {
+                                            _destinationLat =
+                                                locations.first.latitude;
+                                            _destinationLng =
+                                                locations.first.longitude;
+                                          });
+                                          _updateMapMarkers();
+                                          if (_departureLat != null &&
+                                              _departureLng != null) {
+                                            await _calculateDistanceAndPrice();
+                                          }
+                                        }
+                                      } catch (e) {
+                                        _showSnackBar(
+                                          'Could not find location',
+                                          Colors.orange,
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                              // Clear destination button
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _destinationController.clear();
+                                    _destinationLat = null;
+                                    _destinationLng = null;
+                                    _totalDistanceKm = null;
+                                    _calculatedPrice = null;
+                                    _polylines.clear();
+                                  });
+                                  _updateMapMarkers();
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(8 * scaleFactor),
+                                  child: Icon(
+                                    Icons.close,
+                                    color: Colors.grey[500],
+                                    size: 22 * scaleFactor,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+
+                  SizedBox(height: 16 * scaleFactor),
+
+                  // Open Map Button
+                  GestureDetector(
+                    onTap: () => _showExpandedMap(scaleFactor),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                        border: Border.all(
+                          color: AppConstants.primaryColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.map_outlined,
+                            color: AppConstants.primaryColor,
+                            size: 22 * scaleFactor,
+                          ),
+                          SizedBox(width: 8 * scaleFactor),
+                          Text(
+                            'Open Map to Select Destination',
+                            style: TextStyle(
+                              fontSize: 15 * scaleFactor,
+                              fontWeight: FontWeight.w600,
+                              color: AppConstants.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                   SizedBox(height: 18 * scaleFactor),
                   SizedBox(height: 18 * scaleFactor),
                   // Schedule
@@ -2160,52 +2295,9 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                         children: [
                           // Map Widget with error handling
                           _buildMapWidgetWithErrorHandling(scaleFactor),
-                          // Instructions banner
-                          if (_markers.isEmpty)
-                            Positioned(
-                              top: 12 * scaleFactor,
-                              left: 12 * scaleFactor,
-                              right: 12 * scaleFactor,
-                              child: Container(
-                                padding: EdgeInsets.all(12 * scaleFactor),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(
-                                    12 * scaleFactor,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.touch_app,
-                                      color: AppConstants.primaryColor,
-                                      size: 20 * scaleFactor,
-                                    ),
-                                    SizedBox(width: 8 * scaleFactor),
-                                    Expanded(
-                                      child: Text(
-                                        'Tap map to drop pins or type locations above',
-                                        style: TextStyle(
-                                          fontSize: 12 * scaleFactor,
-                                          color: Colors.black87,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
 
-                          // Route preview badge (when markers exist)
-                          if (_markers.isNotEmpty)
+                          // Route preview badge (when polyline exists)
+                          if (_polylines.isNotEmpty)
                             Positioned(
                               top: 12 * scaleFactor,
                               left: 12 * scaleFactor,
@@ -2237,7 +2329,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
                                     ),
                                     SizedBox(width: 6 * scaleFactor),
                                     Text(
-                                      '${_markers.length} location${_markers.length > 1 ? 's' : ''}',
+                                      'Route Preview',
                                       style: TextStyle(
                                         fontSize: 13 * scaleFactor,
                                         color: Colors.black,
@@ -2297,67 +2389,75 @@ class _TravelerHomePageState extends State<TravelerHomePage>
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppConstants.primaryColor,
-        unselectedItemColor: Colors.grey,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == 1) {
-            // Navigate to Activity page
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ActivityPage()),
-            ).then((_) {
-              // Reset to home tab when returning from Activity page
-              setState(() {
-                _selectedIndex = 0;
-              });
-            });
-          } else if (index == 2) {
-            // Navigate to Messages page
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const MessagesPage()),
-            ).then((_) {
-              // Reset to home tab when returning from Messages page
-              setState(() {
-                _selectedIndex = 0;
-              });
-            });
-          } else if (index == 3) {
-            // Navigate to Profile page
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
-            ).then((_) {
-              // Reset to home tab when returning from Profile page
-              setState(() {
-                _selectedIndex = 0;
-              });
-            });
-          } else {
-            setState(() {
-              _selectedIndex = index;
-            });
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: widget.embedded
+          ? null
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppConstants.primaryColor,
+              unselectedItemColor: Colors.grey,
+              currentIndex: _selectedIndex,
+              onTap: (index) {
+                if (index == 1) {
+                  // Navigate to Activity page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ActivityPage(),
+                    ),
+                  ).then((_) {
+                    // Reset to home tab when returning from Activity page
+                    setState(() {
+                      _selectedIndex = 0;
+                    });
+                  });
+                } else if (index == 2) {
+                  // Navigate to Messages page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MessagesPage(),
+                    ),
+                  ).then((_) {
+                    // Reset to home tab when returning from Messages page
+                    setState(() {
+                      _selectedIndex = 0;
+                    });
+                  });
+                } else if (index == 3) {
+                  // Navigate to Profile page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfilePage(),
+                    ),
+                  ).then((_) {
+                    // Reset to home tab when returning from Profile page
+                    setState(() {
+                      _selectedIndex = 0;
+                    });
+                  });
+                } else {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.show_chart),
+                  label: 'Activity',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: 'Messages',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  label: 'Profile',
+                ),
+              ],
+            ),
     );
   }
 }

@@ -6,11 +6,10 @@ import '../widgets/responsive_wrapper.dart';
 import '../screens/auth_wrapper.dart';
 import '../screens/landing_page.dart';
 import '../screens/traveler/identity_verification_screen.dart';
-import '../screens/traveler_home_page.dart';
-import '../screens/requester/requester_home_page.dart';
+import '../screens/traveler/traveler_main_page.dart';
+import '../screens/requester/requester_main_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:pasabay_app/services/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,8 +64,8 @@ class MainUserApp extends StatelessWidget {
       routes: {
         '/identity_verification': (context) =>
             const IdentityVerificationScreen(),
-        '/traveler_home': (context) => const TravelerHomePage(),
-        '/requester_home': (context) => const RequesterHomePage(),
+        '/traveler_home': (context) => const TravelerMainPage(),
+        '/requester_home': (context) => const RequesterMainPage(),
       },
     );
   }

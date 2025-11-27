@@ -3,8 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/supabase_service.dart';
 import '../services/fcm_service.dart';
 import 'landing_page.dart';
-import 'traveler_home_page.dart';
-import 'requester/requester_home_page.dart';
+import 'traveler/traveler_main_page.dart';
+import 'requester/requester_main_page.dart';
 import 'traveler/identity_verification_screen.dart';
 
 /// Wrapper to handle authentication state and persistent login
@@ -80,7 +80,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             // Already submitted, go to home (will show in-progress message)
             await FCMService.initialize();
             setState(() {
-              _initialScreen = const TravelerHomePage();
+              _initialScreen = const TravelerMainPage();
               _isLoading = false;
             });
           } else {
@@ -94,7 +94,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           // Verified traveler, go to home
           await FCMService.initialize();
           setState(() {
-            _initialScreen = const TravelerHomePage();
+            _initialScreen = const TravelerMainPage();
             _isLoading = false;
           });
         }
@@ -102,7 +102,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Requester doesn't need verification
         await FCMService.initialize();
         setState(() {
-          _initialScreen = const RequesterHomePage();
+          _initialScreen = const RequesterMainPage();
           _isLoading = false;
         });
       } else {
