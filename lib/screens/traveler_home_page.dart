@@ -966,7 +966,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         _destinationController.text =
             '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
       });
-      _showSnackBar('🔴 Destination set!', Colors.red);
+      _showSnackBar('📍 Destination set!', Color(0xFF00B4D8));
 
       // Geocode in background (non-blocking)
       _geocodeLocationAsync(position, false);

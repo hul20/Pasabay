@@ -908,6 +908,238 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     }
   }
 
+  void _showReportDialog(double scaleFactor) {
+    final TextEditingController reportController = TextEditingController();
+    String? selectedReason;
+
+    final reasons = [
+      'Unprofessional behavior',
+      'Item not as described',
+      'Late delivery',
+      'Item damaged',
+      'Communication issues',
+      'Other',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.flag_outlined, color: Colors.red, size: 24),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Report Issue',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'What went wrong?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 12),
+                // Reason selection chips
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: reasons.map((reason) {
+                    final isSelected = selectedReason == reason;
+                    return GestureDetector(
+                      onTap: () {
+                        setDialogState(() {
+                          selectedReason = reason;
+                        });
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Color(0xFF00B4D8).withOpacity(0.1)
+                              : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? Color(0xFF00B4D8)
+                                : Colors.grey[300]!,
+                          ),
+                        ),
+                        child: Text(
+                          reason,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isSelected
+                                ? Color(0xFF00B4D8)
+                                : Colors.grey[700],
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Additional details (optional)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: reportController,
+                  maxLines: 3,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    hintText: 'Describe the issue...',
+                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Color(0xFF00B4D8),
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: EdgeInsets.all(12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
+            ),
+            ElevatedButton(
+              onPressed: selectedReason == null
+                  ? null
+                  : () async {
+                      Navigator.pop(context);
+
+                      // Show loading
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Text('Submitting report...'),
+                            ],
+                          ),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+
+                      // Submit report to database
+                      try {
+                        await _supabase.from('reports').insert({
+                          'reporter_id': _supabase.auth.currentUser?.id,
+                          'reported_user_id': widget.conversation.travelerId,
+                          'request_id': _serviceRequest?.id,
+                          'reason': selectedReason,
+                          'details': reportController.text.trim().isNotEmpty
+                              ? reportController.text.trim()
+                              : null,
+                          'status': 'pending',
+                        });
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Report submitted. We\'ll review it shortly.',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        print('Error submitting report: $e');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Failed to submit report. Please try again.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text('Submit Report'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _getNextActionLabel() {
     if (_serviceRequest == null) return 'Update Status';
 
@@ -1380,6 +1612,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             ),
           ],
         ),
+        actions: [
+          // Report button (only for requesters)
+          if (widget.conversation.requesterId == currentUserId)
+            IconButton(
+              icon: Icon(Icons.flag_outlined, color: Colors.grey[700]),
+              tooltip: 'Report Issue',
+              onPressed: () => _showReportDialog(scaleFactor),
+            ),
+        ],
       ),
       body: Column(
         children: [
