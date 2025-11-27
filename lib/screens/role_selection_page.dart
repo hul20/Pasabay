@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import '../services/haptic_service.dart';
 import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
 import 'traveler/identity_verification_screen.dart';
@@ -147,6 +148,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                             // Traveler Card
                             GestureDetector(
                               onTap: () {
+                                HapticService.selectionClick();
                                 setState(() {
                                   _selectedRole = 'Traveler';
                                 });
@@ -199,6 +201,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                             // Requester Card
                             GestureDetector(
                               onTap: () {
+                                HapticService.selectionClick();
                                 setState(() {
                                   _selectedRole = 'Requester';
                                 });

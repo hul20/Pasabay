@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/wallet.dart';
 import '../services/wallet_service.dart';
+import '../services/haptic_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WalletPage extends StatefulWidget {
@@ -100,6 +101,7 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   void _showTopUpDialog() {
+    HapticService.modalOpen();
     final amountController = TextEditingController();
 
     showDialog(

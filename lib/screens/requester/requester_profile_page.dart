@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../services/fcm_service.dart';
+import '../../services/haptic_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
@@ -752,6 +753,7 @@ Download Pasabay now and experience smarter delivery!''';
               unselectedItemColor: Colors.grey,
               currentIndex: 3, // Profile tab selected
               onTap: (index) {
+                HapticService.tabChange();
                 if (index == 0) {
                   Navigator.pop(context);
                 } else if (index == 1) {

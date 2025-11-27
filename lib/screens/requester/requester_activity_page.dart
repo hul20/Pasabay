@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../utils/constants.dart';
+import '../../services/haptic_service.dart';
 import '../../utils/helpers.dart';
 import '../../models/request.dart';
 import '../../services/request_service.dart';
@@ -1211,6 +1212,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage>
         selectedItemColor: AppConstants.primaryColor,
         unselectedItemColor: Colors.grey,
         onTap: (index) {
+          HapticService.tabChange();
           if (index == 0) {
             Navigator.pushReplacement(
               context,

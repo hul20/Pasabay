@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/constants.dart';
+import '../services/haptic_service.dart';
 import '../utils/helpers.dart';
 import '../models/trip.dart';
 import '../models/request.dart';
@@ -1338,6 +1339,7 @@ class _ActivityPageState extends State<ActivityPage>
               unselectedItemColor: Colors.grey,
               currentIndex: 1, // Activity tab selected
               onTap: (index) {
+                HapticService.tabChange();
                 if (index == 0) {
                   Navigator.pop(context);
                 } else if (index == 2) {

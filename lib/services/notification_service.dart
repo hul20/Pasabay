@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification.dart';
+import 'haptic_service.dart';
 
 class NotificationService {
   final _supabase = Supabase.instance.client;
@@ -116,6 +117,8 @@ class NotificationService {
           ),
           callback: (payload) {
             final notification = AppNotification.fromJson(payload.newRecord);
+            // Vibrate phone when notification received
+            HapticService.notification();
             onNotification(notification);
           },
         )

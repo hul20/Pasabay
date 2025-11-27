@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/constants.dart';
+import '../../services/haptic_service.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
 import '../../services/request_service.dart';
@@ -1158,6 +1159,7 @@ class _RequesterHomePageState extends State<RequesterHomePage>
         unselectedItemColor: Colors.grey,
         currentIndex: _selectedIndex,
         onTap: (index) async {
+          HapticService.tabChange();
           setState(() {
             _selectedIndex = index;
           });

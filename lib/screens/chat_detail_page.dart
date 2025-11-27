@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../utils/constants.dart';
+import '../services/haptic_service.dart';
 import '../utils/helpers.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
@@ -281,8 +282,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
       if (success) {
         _messageController.clear();
+        HapticService.lightImpact();
         // Message will be added via real-time subscription
       } else {
+        HapticService.error();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to send message'),
@@ -909,6 +912,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 
   void _showReportDialog(double scaleFactor) {
+    HapticService.modalOpen();
     final TextEditingController reportController = TextEditingController();
     String? selectedReason;
 

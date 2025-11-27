@@ -16,6 +16,7 @@ import '../services/trip_service.dart';
 import '../services/notification_service.dart';
 import '../services/distance_service.dart';
 import '../services/wallet_service.dart';
+import '../services/haptic_service.dart';
 import 'activity_page.dart';
 import 'messages_page.dart';
 import 'profile_page.dart';
@@ -478,6 +479,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
   }
 
   Future<void> _registerTrip() async {
+    HapticService.buttonTap();
     // Validation
     if (_departureController.text.isEmpty) {
       _showSnackBar('Please enter departure location', Colors.orange);
@@ -585,11 +587,13 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         // Reload stats
         _loadTripStats();
 
+        HapticService.success();
         _showSnackBar('Trip registered successfully!', Colors.green);
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
+        HapticService.error();
         _showSnackBar('Failed to register trip: ${e.toString()}', Colors.red);
       }
     }
@@ -954,6 +958,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         _departureController.text =
             '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
       });
+      HapticService.mapMarker();
       _showSnackBar('🟢 Departure set!', Colors.green);
 
       // Geocode in background (non-blocking)
@@ -966,6 +971,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
         _destinationController.text =
             '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
       });
+      HapticService.mapMarker();
       _showSnackBar('📍 Destination set!', Color(0xFF00B4D8));
 
       // Geocode in background (non-blocking)
@@ -2396,6 +2402,7 @@ class _TravelerHomePageState extends State<TravelerHomePage>
               unselectedItemColor: Colors.grey,
               currentIndex: _selectedIndex,
               onTap: (index) {
+                HapticService.tabChange();
                 if (index == 1) {
                   // Navigate to Activity page
                   Navigator.push(

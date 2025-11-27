@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/constants.dart';
+import '../services/haptic_service.dart';
 import '../utils/helpers.dart';
 import '../models/conversation.dart';
 import '../services/messaging_service.dart';
@@ -432,6 +433,7 @@ class _MessagesPageState extends State<MessagesPage>
               unselectedItemColor: Colors.grey,
               currentIndex: 2, // Messages tab selected
               onTap: (index) {
+                HapticService.tabChange();
                 if (index == 0) {
                   Navigator.pop(context);
                 } else if (index == 1) {

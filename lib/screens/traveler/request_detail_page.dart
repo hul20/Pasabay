@@ -8,6 +8,7 @@ import '../../models/request.dart';
 import '../../models/conversation.dart';
 import '../../services/request_service.dart';
 import '../../services/messaging_service.dart';
+import '../../services/haptic_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
@@ -380,6 +381,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
   }
 
   Future<void> _acceptRequest() async {
+    HapticService.modalOpen();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -570,6 +572,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
   }
 
   Future<void> _rejectRequest() async {
+    HapticService.modalOpen();
     final TextEditingController reasonController = TextEditingController();
 
     final confirm = await showDialog<bool>(

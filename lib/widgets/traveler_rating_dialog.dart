@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/traveler_stats_service.dart';
+import '../services/haptic_service.dart';
 import '../utils/constants.dart';
 
 /// Modern rating dialog for requesters to rate travelers after delivery
@@ -170,6 +171,7 @@ class _TravelerRatingDialogState extends State<TravelerRatingDialog>
                         onTap: _isSubmitting
                             ? null
                             : () {
+                                HapticService.ratingStar();
                                 setState(() {
                                   _rating = (index + 1).toDouble();
                                 });
