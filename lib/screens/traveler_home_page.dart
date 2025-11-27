@@ -991,9 +991,8 @@ class _TravelerHomePageState extends State<TravelerHomePage>
   void _updateMapMarkersSync() {
     Set<Marker> newMarkers = {};
 
-    if (_departureLat != null &&
-        _departureLng != null &&
-        !(_destinationLat != null && _destinationLng != null)) {
+    // Always show departure marker if set
+    if (_departureLat != null && _departureLng != null) {
       newMarkers.add(
         Marker(
           markerId: MarkerId('departure'),
@@ -1006,9 +1005,8 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       );
     }
 
-    if (_destinationLat != null &&
-        _destinationLng != null &&
-        !(_departureLat != null && _departureLng != null)) {
+    // Always show destination marker if set
+    if (_destinationLat != null && _destinationLng != null) {
       newMarkers.add(
         Marker(
           markerId: MarkerId('destination'),
@@ -1019,16 +1017,17 @@ class _TravelerHomePageState extends State<TravelerHomePage>
       );
     }
 
-    // If both are set, fetch route async
+    // Update markers immediately for visual feedback
+    setState(() {
+      _markers = newMarkers;
+    });
+
+    // If both are set, fetch route async (will update markers again with route)
     if (_departureLat != null &&
         _departureLng != null &&
         _destinationLat != null &&
         _destinationLng != null) {
       _updateMapMarkers(); // This will fetch route in background
-    } else {
-      setState(() {
-        _markers = newMarkers;
-      });
     }
   }
 

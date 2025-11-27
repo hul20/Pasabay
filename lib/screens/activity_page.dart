@@ -42,12 +42,17 @@ class _ActivityPageState extends State<ActivityPage>
   int _unreadNotifications = 0;
   RealtimeChannel? _notificationSubscription;
 
+  // Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
     _loadTrips();
     _loadUnreadNotifications();
     _setupNotificationSubscription();
+    _searchController.addListener(_onSearchChanged);
   }
 
   void _setupNotificationSubscription() {
@@ -73,8 +78,49 @@ class _ActivityPageState extends State<ActivityPage>
     }
   }
 
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
+  }
+
+  List<ServiceRequest> _filterRequests(List<ServiceRequest> requests) {
+    if (_searchQuery.isEmpty) return requests;
+
+    return requests.where((request) {
+      // Search by requester name
+      final requesterInfo = _requesterInfoCache[request.requesterId];
+      final requesterName = requesterInfo != null
+          ? '${requesterInfo['first_name'] ?? ''} ${requesterInfo['last_name'] ?? ''}'
+                .toLowerCase()
+          : '';
+
+      // Search by service type
+      final serviceType = request.serviceType.toLowerCase();
+
+      // Search by location
+      final pickup = (request.pickupLocation ?? '').toLowerCase();
+      final dropoff = (request.dropoffLocation ?? '').toLowerCase();
+      final store = (request.storeLocation ?? '').toLowerCase();
+
+      // Search by product/package description
+      final product = (request.productName ?? '').toLowerCase();
+      final package = (request.packageDescription ?? '').toLowerCase();
+
+      return requesterName.contains(_searchQuery) ||
+          serviceType.contains(_searchQuery) ||
+          pickup.contains(_searchQuery) ||
+          dropoff.contains(_searchQuery) ||
+          store.contains(_searchQuery) ||
+          product.contains(_searchQuery) ||
+          package.contains(_searchQuery);
+    }).toList();
+  }
+
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     _notificationSubscription?.unsubscribe();
     super.dispose();
   }
@@ -642,7 +688,9 @@ class _ActivityPageState extends State<ActivityPage>
   }
 
   List<Widget> _buildPendingRequestsList(double scaleFactor) {
-    if (_pendingRequests.isEmpty) {
+    final filteredRequests = _filterRequests(_pendingRequests);
+
+    if (filteredRequests.isEmpty) {
       return [
         Center(
           child: Padding(
@@ -656,7 +704,9 @@ class _ActivityPageState extends State<ActivityPage>
                 ),
                 SizedBox(height: 12 * scaleFactor),
                 Text(
-                  'No Pending Requests',
+                  _searchQuery.isNotEmpty
+                      ? 'No Matching Requests'
+                      : 'No Pending Requests',
                   style: TextStyle(
                     fontSize: 18 * scaleFactor,
                     fontWeight: FontWeight.w600,
@@ -665,7 +715,9 @@ class _ActivityPageState extends State<ActivityPage>
                 ),
                 SizedBox(height: 8 * scaleFactor),
                 Text(
-                  'New requests for this trip\nwill appear here',
+                  _searchQuery.isNotEmpty
+                      ? 'Try a different search term'
+                      : 'New requests for this trip\nwill appear here',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14 * scaleFactor,
@@ -679,7 +731,7 @@ class _ActivityPageState extends State<ActivityPage>
       ];
     }
 
-    return _pendingRequests.map((request) {
+    return filteredRequests.map((request) {
       final requesterInfo = _requesterInfoCache[request.requesterId];
       return Padding(
         padding: EdgeInsets.only(bottom: 12 * scaleFactor),
@@ -693,7 +745,9 @@ class _ActivityPageState extends State<ActivityPage>
   }
 
   List<Widget> _buildOngoingRequestsList(double scaleFactor) {
-    if (_ongoingRequests.isEmpty) {
+    final filteredRequests = _filterRequests(_ongoingRequests);
+
+    if (filteredRequests.isEmpty) {
       return [
         Center(
           child: Padding(
@@ -707,7 +761,9 @@ class _ActivityPageState extends State<ActivityPage>
                 ),
                 SizedBox(height: 12 * scaleFactor),
                 Text(
-                  'No Ongoing Requests',
+                  _searchQuery.isNotEmpty
+                      ? 'No Matching Requests'
+                      : 'No Ongoing Requests',
                   style: TextStyle(
                     fontSize: 18 * scaleFactor,
                     fontWeight: FontWeight.w600,
@@ -716,7 +772,9 @@ class _ActivityPageState extends State<ActivityPage>
                 ),
                 SizedBox(height: 8 * scaleFactor),
                 Text(
-                  'Accepted requests will\nappear here',
+                  _searchQuery.isNotEmpty
+                      ? 'Try a different search term'
+                      : 'Accepted requests will\nappear here',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14 * scaleFactor,
@@ -730,7 +788,7 @@ class _ActivityPageState extends State<ActivityPage>
       ];
     }
 
-    return _ongoingRequests.map((request) {
+    return filteredRequests.map((request) {
       final requesterInfo = _requesterInfoCache[request.requesterId];
       return Padding(
         padding: EdgeInsets.only(bottom: 12 * scaleFactor),
@@ -744,7 +802,9 @@ class _ActivityPageState extends State<ActivityPage>
   }
 
   List<Widget> _buildCompletedRequestsList(double scaleFactor) {
-    if (_completedRequests.isEmpty) {
+    final filteredRequests = _filterRequests(_completedRequests);
+
+    if (filteredRequests.isEmpty) {
       return [
         Center(
           child: Padding(
@@ -758,7 +818,9 @@ class _ActivityPageState extends State<ActivityPage>
                 ),
                 SizedBox(height: 12 * scaleFactor),
                 Text(
-                  'No Completed Requests',
+                  _searchQuery.isNotEmpty
+                      ? 'No Matching Requests'
+                      : 'No Completed Requests',
                   style: TextStyle(
                     fontSize: 18 * scaleFactor,
                     fontWeight: FontWeight.w600,
@@ -767,7 +829,9 @@ class _ActivityPageState extends State<ActivityPage>
                 ),
                 SizedBox(height: 8 * scaleFactor),
                 Text(
-                  'Completed requests for\nthis trip will appear here',
+                  _searchQuery.isNotEmpty
+                      ? 'Try a different search term'
+                      : 'Completed requests for\nthis trip will appear here',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14 * scaleFactor,
@@ -781,7 +845,7 @@ class _ActivityPageState extends State<ActivityPage>
       ];
     }
 
-    return _completedRequests.map((request) {
+    return filteredRequests.map((request) {
       final requesterInfo = _requesterInfoCache[request.requesterId];
       return Padding(
         padding: EdgeInsets.only(bottom: 12 * scaleFactor),
@@ -875,6 +939,7 @@ class _ActivityPageState extends State<ActivityPage>
                             ],
                           ),
                           child: TextField(
+                            controller: _searchController,
                             decoration: InputDecoration(
                               hintText: 'Search for an activity',
                               hintStyle: TextStyle(
@@ -886,6 +951,18 @@ class _ActivityPageState extends State<ActivityPage>
                                 Icons.search,
                                 color: Colors.grey,
                               ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: Colors.grey,
+                                        size: 20 * scaleFactor,
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                      },
+                                    )
+                                  : null,
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 16 * scaleFactor,
                               ),

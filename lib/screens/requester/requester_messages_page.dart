@@ -34,9 +34,14 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage>
   RealtimeChannel? _notificationSubscription;
   final _supabase = Supabase.instance.client;
 
+  // Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _loadConversations();
     _subscribeToConversations();
     _loadUnreadNotifications();
@@ -45,11 +50,44 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage>
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     if (_conversationsChannel != null) {
       _messagingService.unsubscribe(_conversationsChannel!);
     }
     _notificationSubscription?.unsubscribe();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
+  }
+
+  List<Conversation> _filterConversations(List<Conversation> conversations) {
+    if (_searchQuery.isEmpty) return conversations;
+
+    return conversations.where((conversation) {
+      // Search by other user's name
+      final otherUserName = (conversation.otherUserName ?? '').toLowerCase();
+
+      // Search by last message
+      final lastMessage = (conversation.lastMessageText ?? '').toLowerCase();
+
+      // Search by service type
+      final serviceType = (conversation.serviceType ?? '').toLowerCase();
+
+      // Search by locations
+      final pickup = (conversation.pickupLocation ?? '').toLowerCase();
+      final dropoff = (conversation.dropoffLocation ?? '').toLowerCase();
+
+      return otherUserName.contains(_searchQuery) ||
+          lastMessage.contains(_searchQuery) ||
+          serviceType.contains(_searchQuery) ||
+          pickup.contains(_searchQuery) ||
+          dropoff.contains(_searchQuery);
+    }).toList();
   }
 
   void _setupNotificationSubscription() {
@@ -132,21 +170,62 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage>
                   ? Center(child: CircularProgressIndicator())
                   : _conversations.isEmpty
                   ? _buildEmptyState(scaleFactor)
-                  : RefreshIndicator(
-                      onRefresh: _loadConversations,
-                      child: ListView.builder(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 18 * scaleFactor,
-                        ),
-                        itemCount: _conversations.length,
-                        itemBuilder: (context, index) {
-                          final conversation = _conversations[index];
-                          return _buildConversationCard(
-                            conversation,
-                            scaleFactor,
+                  : Builder(
+                      builder: (context) {
+                        final filteredConversations = _filterConversations(
+                          _conversations,
+                        );
+
+                        if (filteredConversations.isEmpty &&
+                            _searchQuery.isNotEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.search_off,
+                                  size: 60 * scaleFactor,
+                                  color: Colors.grey[400],
+                                ),
+                                SizedBox(height: 12 * scaleFactor),
+                                Text(
+                                  'No Matching Messages',
+                                  style: TextStyle(
+                                    fontSize: 18 * scaleFactor,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                SizedBox(height: 8 * scaleFactor),
+                                Text(
+                                  'Try a different search term',
+                                  style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           );
-                        },
-                      ),
+                        }
+
+                        return RefreshIndicator(
+                          onRefresh: _loadConversations,
+                          child: ListView.builder(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 18 * scaleFactor,
+                            ),
+                            itemCount: filteredConversations.length,
+                            itemBuilder: (context, index) {
+                              final conversation = filteredConversations[index];
+                              return _buildConversationCard(
+                                conversation,
+                                scaleFactor,
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
             ),
           ],
@@ -222,6 +301,7 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage>
                     ],
                   ),
                   child: TextField(
+                    controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Search for a message',
                       hintStyle: TextStyle(
@@ -230,6 +310,18 @@ class _RequesterMessagesPageState extends State<RequesterMessagesPage>
                       ),
                       border: InputBorder.none,
                       prefixIcon: Icon(Icons.search, color: Colors.grey),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: Colors.grey,
+                                size: 20 * scaleFactor,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                              },
+                            )
+                          : null,
                       contentPadding: EdgeInsets.symmetric(
                         vertical: 16 * scaleFactor,
                       ),

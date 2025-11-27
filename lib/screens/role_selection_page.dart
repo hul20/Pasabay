@@ -253,21 +253,11 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                         Positioned(
                           right: 8 * scaleFactor,
                           top: -10 * scaleFactor,
-                          child: Container(
+                          child: SizedBox(
                             width: 146 * scaleFactor,
                             height: 146 * scaleFactor,
-                            decoration: BoxDecoration(
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  spreadRadius: 0,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Image.network(
-                              'https://www.figma.com/api/mcp/asset/ba0aed9d-9f9e-4357-bee6-dad6c4fbff02',
+                            child: Image.asset(
+                              'assets/TravelerIcon.png',
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -277,21 +267,11 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                         Positioned(
                           right: 18 * scaleFactor,
                           bottom: -10 * scaleFactor,
-                          child: Container(
+                          child: SizedBox(
                             width: 117 * scaleFactor,
                             height: 117 * scaleFactor,
-                            decoration: BoxDecoration(
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  spreadRadius: 0,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Image.network(
-                              'https://www.figma.com/api/mcp/asset/3f4512e4-95c1-49bd-8e9e-80795f24bf3c',
+                            child: Image.asset(
+                              'assets/RequesterIcon.png',
                               fit: BoxFit.contain,
                             ),
                           ),

@@ -374,7 +374,7 @@ class RequestService {
       return requestId != null;
     } catch (e) {
       print('Error creating request: $e');
-      return false;
+      rethrow; // Rethrow so UI can handle specific errors like insufficient balance
     }
   }
 

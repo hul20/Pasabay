@@ -472,7 +472,7 @@ Download Pasabay now and experience smarter delivery!''';
                                   8 * scaleFactor,
                                 ),
                                 image: const DecorationImage(
-                                  image: AssetImage(AppConstants.logoPath),
+                                  image: AssetImage(AppConstants.smallLogoPath),
                                   fit: BoxFit.cover,
                                 ),
                               ),

@@ -7,6 +7,7 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../models/trip.dart';
 import '../../services/request_service.dart';
+import '../wallet_page.dart';
 
 class TravelerDetailPage extends StatefulWidget {
   final Trip trip;
@@ -529,13 +530,117 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 5),
-        ),
-      );
+      // Check if it's an insufficient balance error
+      final errorMessage = e.toString();
+      if (errorMessage.toLowerCase().contains('insufficient') ||
+          errorMessage.toLowerCase().contains('balance')) {
+        // Show a better dialog for insufficient funds
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: Colors.red,
+                    size: 28,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Insufficient Funds',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'You don\'t have enough balance in your wallet to complete this request.',
+                  style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                ),
+                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.orange.shade700,
+                        size: 20,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Please top up your wallet and try again.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.orange.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const WalletPage()),
+                  );
+                },
+                icon: Icon(Icons.account_balance_wallet, size: 18),
+                label: Text('Top Up Wallet'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppConstants.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Show generic error for other errors
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 

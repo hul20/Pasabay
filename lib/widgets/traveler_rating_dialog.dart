@@ -207,9 +207,11 @@ class _TravelerRatingDialogState extends State<TravelerRatingDialog>
                       hintText:
                           'Say something about ${widget.travelerName}\'s service?',
                       hintStyle: TextStyle(
-                        color: Colors.grey[400],
+                        color: Colors.grey[500],
                         fontSize: 14,
                       ),
+                      filled: true,
+                      fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Colors.grey[300]!),

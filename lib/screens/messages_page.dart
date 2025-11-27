@@ -34,9 +34,14 @@ class _MessagesPageState extends State<MessagesPage>
   RealtimeChannel? _notificationSubscription;
   final _supabase = Supabase.instance.client;
 
+  // Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _loadConversations();
     _subscribeToConversations();
     _loadUnreadNotifications();
@@ -45,11 +50,44 @@ class _MessagesPageState extends State<MessagesPage>
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     if (_conversationsChannel != null) {
       _messagingService.unsubscribe(_conversationsChannel!);
     }
     _notificationSubscription?.unsubscribe();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
+  }
+
+  List<Conversation> _filterConversations(List<Conversation> conversations) {
+    if (_searchQuery.isEmpty) return conversations;
+
+    return conversations.where((conversation) {
+      // Search by other user's name
+      final otherUserName = (conversation.otherUserName ?? '').toLowerCase();
+
+      // Search by last message
+      final lastMessage = (conversation.lastMessageText ?? '').toLowerCase();
+
+      // Search by service type
+      final serviceType = (conversation.serviceType ?? '').toLowerCase();
+
+      // Search by locations
+      final pickup = (conversation.pickupLocation ?? '').toLowerCase();
+      final dropoff = (conversation.dropoffLocation ?? '').toLowerCase();
+
+      return otherUserName.contains(_searchQuery) ||
+          lastMessage.contains(_searchQuery) ||
+          serviceType.contains(_searchQuery) ||
+          pickup.contains(_searchQuery) ||
+          dropoff.contains(_searchQuery);
+    }).toList();
   }
 
   void _setupNotificationSubscription() {
@@ -196,6 +234,7 @@ class _MessagesPageState extends State<MessagesPage>
                             ],
                           ),
                           child: TextField(
+                            controller: _searchController,
                             decoration: InputDecoration(
                               hintText: 'Search for a message',
                               hintStyle: TextStyle(
@@ -207,6 +246,18 @@ class _MessagesPageState extends State<MessagesPage>
                                 Icons.search,
                                 color: Colors.grey,
                               ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: Colors.grey,
+                                        size: 20 * scaleFactor,
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                      },
+                                    )
+                                  : null,
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 16 * scaleFactor,
                               ),
@@ -277,53 +328,97 @@ class _MessagesPageState extends State<MessagesPage>
                   ? Center(child: CircularProgressIndicator())
                   : _conversations.isEmpty
                   ? _buildEmptyState(scaleFactor)
-                  : RefreshIndicator(
-                      onRefresh: _loadConversations,
-                      child: ListView.builder(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 18 * scaleFactor,
-                        ),
-                        itemCount: _conversations.length + 1, // +1 for header
-                        itemBuilder: (context, index) {
-                          if (index == 0) {
-                            // Header
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Messages',
-                                      style: TextStyle(
-                                        fontSize: 28 * scaleFactor,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                    if (_totalUnread > 0)
-                                      Text(
-                                        '$_totalUnread Unread',
-                                        style: TextStyle(
-                                          fontSize: 15 * scaleFactor,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                SizedBox(height: 18 * scaleFactor),
-                              ],
-                            );
-                          }
+                  : Builder(
+                      builder: (context) {
+                        final filteredConversations = _filterConversations(
+                          _conversations,
+                        );
 
-                          final conversation = _conversations[index - 1];
-                          return _buildConversationCard(
-                            conversation,
-                            scaleFactor,
+                        if (filteredConversations.isEmpty &&
+                            _searchQuery.isNotEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.search_off,
+                                  size: 60 * scaleFactor,
+                                  color: Colors.grey[400],
+                                ),
+                                SizedBox(height: 12 * scaleFactor),
+                                Text(
+                                  'No Matching Messages',
+                                  style: TextStyle(
+                                    fontSize: 18 * scaleFactor,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                SizedBox(height: 8 * scaleFactor),
+                                Text(
+                                  'Try a different search term',
+                                  style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           );
-                        },
-                      ),
+                        }
+
+                        return RefreshIndicator(
+                          onRefresh: _loadConversations,
+                          child: ListView.builder(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 18 * scaleFactor,
+                            ),
+                            itemCount:
+                                filteredConversations.length +
+                                1, // +1 for header
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                // Header
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Messages',
+                                          style: TextStyle(
+                                            fontSize: 28 * scaleFactor,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                        if (_totalUnread > 0)
+                                          Text(
+                                            '$_totalUnread Unread',
+                                            style: TextStyle(
+                                              fontSize: 15 * scaleFactor,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 18 * scaleFactor),
+                                  ],
+                                );
+                              }
+
+                              final conversation =
+                                  filteredConversations[index - 1];
+                              return _buildConversationCard(
+                                conversation,
+                                scaleFactor,
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
             ),
           ],

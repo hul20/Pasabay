@@ -1083,7 +1083,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Confirm Drop Off',
+                        title,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -1097,7 +1097,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                   ),
                   SizedBox(height: 20),
                   Text(
-                    'Please upload a photo proof that you have dropped off the item/package.',
+                    description,
                     style: TextStyle(color: Colors.grey[600], fontSize: 16),
                   ),
                   SizedBox(height: 20),

@@ -40,15 +40,59 @@ class _RequesterActivityPageState extends State<RequesterActivityPage>
   int _unreadNotifications = 0;
   RealtimeChannel? _notificationSubscription;
 
+  // Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _loadRequests();
     _loadUnreadNotifications();
     _setupNotificationSubscription();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
+  }
+
+  List<ServiceRequest> _filterRequests(List<ServiceRequest> requests) {
+    if (_searchQuery.isEmpty) return requests;
+
+    return requests.where((request) {
+      // Search by traveler name
+      final travelerInfo = _travelerInfoCache[request.travelerId];
+      final travelerName = travelerInfo != null
+          ? '${travelerInfo['first_name'] ?? ''} ${travelerInfo['last_name'] ?? ''}'
+                .toLowerCase()
+          : '';
+
+      // Search by service type
+      final serviceType = request.serviceType.toLowerCase();
+
+      // Search by location
+      final pickup = (request.pickupLocation ?? '').toLowerCase();
+      final dropoff = (request.dropoffLocation ?? '').toLowerCase();
+      final store = (request.storeLocation ?? '').toLowerCase();
+
+      // Search by product/package description
+      final product = (request.productName ?? '').toLowerCase();
+      final package = (request.packageDescription ?? '').toLowerCase();
+
+      return travelerName.contains(_searchQuery) ||
+          serviceType.contains(_searchQuery) ||
+          pickup.contains(_searchQuery) ||
+          dropoff.contains(_searchQuery) ||
+          store.contains(_searchQuery) ||
+          product.contains(_searchQuery) ||
+          package.contains(_searchQuery);
+    }).toList();
   }
 
   void _setupNotificationSubscription() {
@@ -76,6 +120,8 @@ class _RequesterActivityPageState extends State<RequesterActivityPage>
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     _notificationSubscription?.unsubscribe();
     super.dispose();
   }
@@ -257,6 +303,7 @@ class _RequesterActivityPageState extends State<RequesterActivityPage>
                             ],
                           ),
                           child: TextField(
+                            controller: _searchController,
                             decoration: InputDecoration(
                               hintText: 'Search for an activity',
                               hintStyle: TextStyle(
@@ -268,6 +315,18 @@ class _RequesterActivityPageState extends State<RequesterActivityPage>
                                 Icons.search,
                                 color: Colors.grey,
                               ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: Colors.grey,
+                                        size: 20 * scaleFactor,
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                      },
+                                    )
+                                  : null,
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 16 * scaleFactor,
                               ),
@@ -441,19 +500,19 @@ class _RequesterActivityPageState extends State<RequesterActivityPage>
                               // Content based on selected tab
                               if (_selectedTab == 0)
                                 ..._buildRequestsList(
-                                  _pendingRequests,
+                                  _filterRequests(_pendingRequests),
                                   true,
                                   scaleFactor,
                                 )
                               else if (_selectedTab == 1)
                                 ..._buildRequestsList(
-                                  _acceptedRequests,
+                                  _filterRequests(_acceptedRequests),
                                   false,
                                   scaleFactor,
                                 )
                               else
                                 ..._buildRequestsList(
-                                  _completedRequests,
+                                  _filterRequests(_completedRequests),
                                   false,
                                   scaleFactor,
                                 ),
@@ -545,19 +604,34 @@ class _RequesterActivityPageState extends State<RequesterActivityPage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.inbox_outlined,
+                  _searchQuery.isNotEmpty
+                      ? Icons.search_off
+                      : Icons.inbox_outlined,
                   size: 60 * scaleFactor,
                   color: Colors.grey[300],
                 ),
                 SizedBox(height: 16 * scaleFactor),
                 Text(
-                  'No requests here',
+                  _searchQuery.isNotEmpty
+                      ? 'No matching requests'
+                      : 'No requests here',
                   style: TextStyle(
                     fontSize: 18 * scaleFactor,
                     color: Colors.grey[600],
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (_searchQuery.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: 8 * scaleFactor),
+                    child: Text(
+                      'Try a different search term',
+                      style: TextStyle(
+                        fontSize: 14 * scaleFactor,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
