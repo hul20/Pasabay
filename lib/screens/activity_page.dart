@@ -340,7 +340,7 @@ class _ActivityPageState extends State<ActivityPage> {
                                                   ),
                                             ),
                                             child: Text(
-                                              '${trip.currentRequests}/${trip.availableCapacity} requests',
+                                              '${trip.currentRequests}/${trip.availableCapacity + trip.currentRequests} requests',
                                               style: TextStyle(
                                                 fontSize: 11 * scaleFactor,
                                                 fontWeight: FontWeight.w600,

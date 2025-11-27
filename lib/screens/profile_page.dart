@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/fcm_service.dart';
+import '../services/traveler_stats_service.dart';
+import '../models/traveler_statistics.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/supabase_service.dart';
@@ -24,6 +26,13 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   String userRole = "Traveler";
   String? profileImageUrl;
   bool _isVerified = false;
+
+  // Statistics data
+  TravelerStatistics? _statistics;
+  List<TravelerBadge> _badges = [];
+  List<RouteStatistic> _topRoutes = [];
+  bool _isLoadingStats = true;
+  final TravelerStatsService _statsService = TravelerStatsService();
 
   @override
   void initState() {
@@ -61,6 +70,37 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         profileImageUrl = userData['profile_image_url'];
         _isVerified = isVerified;
       });
+
+      // Fetch traveler statistics if user is a traveler
+      if (userRole == 'Traveler') {
+        _fetchTravelerStatistics();
+      }
+    }
+  }
+
+  Future<void> _fetchTravelerStatistics() async {
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      final profileData = await _statsService.getMyCompleteProfile();
+
+      if (mounted) {
+        setState(() {
+          _statistics = profileData['statistics'] as TravelerStatistics?;
+          _badges = profileData['badges'] as List<TravelerBadge>;
+          _topRoutes = profileData['top_routes'] as List<RouteStatistic>;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching traveler statistics: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingStats = false;
+        });
+      }
     }
   }
 
@@ -500,6 +540,12 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                   children: [
                     SizedBox(height: 24 * scaleFactor),
 
+                    // Traveler Statistics Section (only for travelers)
+                    if (userRole == 'Traveler') ...[
+                      _buildStatisticsSection(scaleFactor),
+                      SizedBox(height: 24 * scaleFactor),
+                    ],
+
                     // Account Section
                     Text(
                       'Account',
@@ -808,6 +854,314 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Build Traveler Statistics Section
+  Widget _buildStatisticsSection(double scaleFactor) {
+    if (_isLoadingStats) {
+      return Container(
+        padding: EdgeInsets.all(24 * scaleFactor),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16 * scaleFactor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Title
+        Row(
+          children: [
+            Icon(
+              Icons.bar_chart,
+              color: Color(0xFF00B4D8),
+              size: 24 * scaleFactor,
+            ),
+            SizedBox(width: 8 * scaleFactor),
+            Text(
+              'Traveler Profile',
+              style: TextStyle(
+                fontSize: 18 * scaleFactor,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16 * scaleFactor),
+
+        // Statistics Cards
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16 * scaleFactor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Rating and Stats Row
+              Container(
+                padding: EdgeInsets.all(20 * scaleFactor),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF00B4D8), Color(0xFF0096C7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16 * scaleFactor),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItemWithIcon(
+                      icon: Icons.star,
+                      label: 'Trust Score',
+                      value: _statistics != null
+                          ? '${_statistics!.formattedRating}/5.0'
+                          : '0.0/5.0',
+                      scaleFactor: scaleFactor,
+                      isWhite: true,
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40 * scaleFactor,
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                    _buildStatItemWithIcon(
+                      icon: Icons.check_circle,
+                      label: 'Successful Trips',
+                      value: _statistics?.successfulTrips.toString() ?? '0',
+                      scaleFactor: scaleFactor,
+                      isWhite: true,
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40 * scaleFactor,
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                    _buildStatItemWithIcon(
+                      icon: Icons.adjust,
+                      label: 'Reliability Rate',
+                      value: _statistics?.formattedReliabilityRate ?? '0%',
+                      scaleFactor: scaleFactor,
+                      isWhite: true,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Badges Section
+              if (_badges.isNotEmpty) ...[
+                Divider(height: 1),
+                Padding(
+                  padding: EdgeInsets.all(20 * scaleFactor),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Badges',
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 12 * scaleFactor),
+                      Wrap(
+                        spacing: 8 * scaleFactor,
+                        runSpacing: 8 * scaleFactor,
+                        children: _badges.map((badge) {
+                          return _buildBadgeChip(badge, scaleFactor);
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Top Routes Section
+              if (_topRoutes.isNotEmpty) ...[
+                Divider(height: 1),
+                Padding(
+                  padding: EdgeInsets.all(20 * scaleFactor),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Top Routes',
+                        style: TextStyle(
+                          fontSize: 16 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 12 * scaleFactor),
+                      ..._topRoutes.take(3).map((route) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: 8 * scaleFactor),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.route,
+                                size: 18 * scaleFactor,
+                                color: Color(0xFF00B4D8),
+                              ),
+                              SizedBox(width: 8 * scaleFactor),
+                              Expanded(
+                                child: Text(
+                                  route.routeString,
+                                  style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8 * scaleFactor,
+                                  vertical: 4 * scaleFactor,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF00B4D8).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(
+                                    12 * scaleFactor,
+                                  ),
+                                ),
+                                child: Text(
+                                  '${route.tripCount}x',
+                                  style: TextStyle(
+                                    fontSize: 12 * scaleFactor,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF00B4D8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItemWithIcon({
+    required IconData icon,
+    required String label,
+    required String value,
+    required double scaleFactor,
+    bool isWhite = false,
+  }) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          size: 28 * scaleFactor,
+          color: isWhite ? Colors.white : Color(0xFF00B4D8),
+        ),
+        SizedBox(height: 8 * scaleFactor),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18 * scaleFactor,
+            fontWeight: FontWeight.bold,
+            color: isWhite ? Colors.white : Colors.black,
+          ),
+        ),
+        SizedBox(height: 4 * scaleFactor),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11 * scaleFactor,
+            color: isWhite ? Colors.white.withOpacity(0.9) : Colors.grey[600],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem({
+    required String icon,
+    required String label,
+    required String value,
+    required double scaleFactor,
+    bool isWhite = false,
+  }) {
+    return Column(
+      children: [
+        Text(icon, style: TextStyle(fontSize: 24 * scaleFactor)),
+        SizedBox(height: 8 * scaleFactor),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18 * scaleFactor,
+            fontWeight: FontWeight.bold,
+            color: isWhite ? Colors.white : Colors.black,
+          ),
+        ),
+        SizedBox(height: 4 * scaleFactor),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11 * scaleFactor,
+            color: isWhite ? Colors.white.withOpacity(0.9) : Colors.grey[600],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBadgeChip(TravelerBadge badge, double scaleFactor) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 12 * scaleFactor,
+        vertical: 8 * scaleFactor,
+      ),
+      decoration: BoxDecoration(
+        color: Color(0xFF00B4D8).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20 * scaleFactor),
+        border: Border.all(color: Color(0xFF00B4D8).withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(badge.icon, style: TextStyle(fontSize: 16 * scaleFactor)),
+          SizedBox(width: 6 * scaleFactor),
+          Text(
+            badge.displayName.replaceAll(RegExp(r'[⚡🛍️🛣️📦]'), '').trim(),
+            style: TextStyle(
+              fontSize: 13 * scaleFactor,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF00B4D8),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -9,6 +9,8 @@ import '../models/request.dart';
 import '../services/messaging_service.dart';
 import '../services/request_service.dart';
 import '../services/location_tracking_service.dart';
+import '../services/traveler_stats_service.dart';
+import '../widgets/traveler_rating_dialog.dart';
 import 'tracking_map_page.dart';
 
 import 'package:image_picker/image_picker.dart';
@@ -798,6 +800,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             backgroundColor: Colors.green,
           ),
         );
+
+        // Show rating dialog after a brief delay
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showRatingDialog();
+          }
+        });
       }
     } catch (e) {
       print('❌ Error confirming item received: $e');
@@ -807,6 +816,48 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _showRatingDialog() async {
+    // Check if already rated
+    final statsService = TravelerStatsService();
+    final hasRated = await statsService.hasRatedRequest(_serviceRequest!.id);
+
+    if (hasRated) {
+      print('ℹ️ Request already rated, skipping dialog');
+      return;
+    }
+
+    if (!mounted) return;
+
+    // Get traveler info
+    final travelerInfo = await _requestService.getTravelerInfo(
+      _serviceRequest!.travelerId,
+    );
+    final travelerName = travelerInfo != null
+        ? '${travelerInfo['first_name']} ${travelerInfo['last_name']}'
+        : 'Traveler';
+
+    if (!mounted) return;
+
+    // Show rating dialog
+    final rated = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => TravelerRatingDialog(
+        travelerId: _serviceRequest!.travelerId,
+        travelerName: travelerName,
+        tripId: _serviceRequest!.tripId,
+        requestId: _serviceRequest!.id,
+        serviceType: _serviceRequest!.serviceType,
+      ),
+    );
+
+    if (rated == true) {
+      print('✅ Rating submitted successfully');
+    } else {
+      print('ℹ️ Rating skipped by user');
     }
   }
 

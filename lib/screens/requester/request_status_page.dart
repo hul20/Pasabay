@@ -5,6 +5,9 @@ import '../../models/request.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../services/messaging_service.dart';
+import '../../services/request_service.dart';
+import '../../services/traveler_stats_service.dart';
+import '../../widgets/traveler_rating_dialog.dart';
 
 class RequestStatusPage extends StatefulWidget {
   final ServiceRequest request;
@@ -24,6 +27,7 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
   late ServiceRequest _request;
   final _supabase = Supabase.instance.client;
   final MessagingService _messagingService = MessagingService();
+  final RequestService _requestService = RequestService();
   bool _isUpdating = false;
 
   @override
@@ -136,6 +140,13 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
             backgroundColor: Colors.green,
           ),
         );
+
+        // Show rating dialog after a brief delay
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showRatingDialog();
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -144,6 +155,50 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _showRatingDialog() async {
+    // Check if already rated
+    final statsService = TravelerStatsService();
+    final hasRated = await statsService.hasRatedRequest(_request.id);
+
+    if (hasRated) {
+      print('ℹ️ Request already rated, skipping dialog');
+      return;
+    }
+
+    if (!mounted) return;
+
+    // Get traveler info
+    final travelerInfo = await _requestService.getTravelerInfo(
+      _request.travelerId,
+    );
+    final travelerName = travelerInfo != null
+        ? '${travelerInfo['first_name']} ${travelerInfo['last_name']}'
+        : widget.travelerInfo != null
+        ? '${widget.travelerInfo!['first_name']} ${widget.travelerInfo!['last_name']}'
+        : 'Traveler';
+
+    if (!mounted) return;
+
+    // Show rating dialog
+    final rated = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => TravelerRatingDialog(
+        travelerId: _request.travelerId,
+        travelerName: travelerName,
+        tripId: _request.tripId,
+        requestId: _request.id,
+        serviceType: _request.serviceType,
+      ),
+    );
+
+    if (rated == true) {
+      print('✅ Rating submitted successfully');
+    } else {
+      print('ℹ️ Rating skipped by user');
     }
   }
 
