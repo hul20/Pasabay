@@ -115,6 +115,20 @@ class _RequestStatusPageState extends State<RequestStatusPage> {
           })
           .eq('id', _request.id);
 
+      // Complete payment - transfer money to traveler
+      print('💰 Processing payment transfer...');
+      final paymentResult = await _supabase.rpc(
+        'complete_request_payment',
+        params: {'p_request_id': _request.id},
+      );
+
+      if (paymentResult['success'] == true) {
+        print('✅ Payment completed: ₱${paymentResult['amount']}');
+        // System message is automatically sent by the database function
+      } else {
+        print('⚠️ Payment completion warning: ${paymentResult['error']}');
+      }
+
       // Get conversation ID to send message
       final conversationResponse = await _supabase
           .from('conversations')

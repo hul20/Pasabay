@@ -223,7 +223,8 @@ class Trip {
   bool get isActive => tripStatus == 'Upcoming' || tripStatus == 'In Progress';
 
   /// Check if trip can accept more requests
-  bool get canAcceptRequests => currentRequests < availableCapacity && isActive;
+  /// availableCapacity represents remaining slots, not max capacity
+  bool get canAcceptRequests => availableCapacity > 0 && isActive;
 
   @override
   String toString() {

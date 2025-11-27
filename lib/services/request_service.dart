@@ -1,9 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/request.dart';
 import '../models/trip.dart';
+import 'wallet_service.dart';
 
 class RequestService {
   final _supabase = Supabase.instance.client;
+  final _walletService = WalletService();
 
   // Search for available trips based on location
   Future<List<Trip>> searchAvailableTrips({
@@ -46,7 +48,29 @@ class RequestService {
         }
 
         // Check if trip has available capacity
-        bool hasCapacity = trip.currentRequests < trip.availableCapacity;
+        // availableCapacity is the remaining slots (not max capacity)
+        // So we just need to check if there are any slots left
+        bool hasCapacity = trip.availableCapacity > 0;
+
+        // Debug logging for trips with 3 requests
+        if (trip.currentRequests == 3) {
+          print('🔍 Trip with 3 requests:');
+          print('   ID: ${trip.id}');
+          print('   Status: ${trip.tripStatus}');
+          print(
+            '   Route: ${trip.departureLocation} → ${trip.destinationLocation}',
+          );
+          print('   Available Capacity: ${trip.availableCapacity}');
+          print('   Current Requests: ${trip.currentRequests}');
+          print('   Is Active: $isActive');
+          print('   Matches Departure: $matchesDeparture');
+          print('   Matches Destination: $matchesDestination');
+          print('   Matches Date: $matchesDate');
+          print('   Has Capacity: $hasCapacity');
+          print(
+            '   Will Include: ${isActive && matchesDeparture && matchesDestination && matchesDate && hasCapacity}',
+          );
+        }
 
         return isActive &&
             matchesDeparture &&
@@ -82,12 +106,34 @@ class RequestService {
         throw 'User not authenticated';
       }
 
+      final totalAmount = productCost + serviceFee;
+
       print('📤 Submitting Pabakal request...');
       print('   Requester: $userId');
       print('   Traveler: $travelerId');
       print('   Trip: $tripId');
       print('   Product: $productName');
+      print('   Total Amount: ₱$totalAmount');
 
+      // Check wallet balance
+      final hasSufficientBalance = await _walletService.hasSufficientBalance(
+        totalAmount,
+      );
+      if (!hasSufficientBalance) {
+        throw 'Insufficient balance. Please top up your wallet.';
+      }
+
+      // Process payment (hold amount)
+      final paymentResult = await _walletService.processPayment(
+        amount: totalAmount,
+        description: 'Payment for $productName (Pabakal)',
+      );
+
+      if (paymentResult['success'] != true) {
+        throw paymentResult['error'] ?? 'Payment failed';
+      }
+
+      // Create service request
       final response = await _supabase
           .from('service_requests')
           .insert({
@@ -100,15 +146,17 @@ class RequestService {
             'store_location': storeLocation,
             'product_cost': productCost,
             'service_fee': serviceFee,
-            'total_amount': productCost + serviceFee,
+            'total_amount': totalAmount,
             'notes': notes,
             'status': 'Pending',
             'photo_urls': photoUrls,
+            'payment_status': 'held',
           })
           .select()
           .single();
 
       print('✅ Pabakal request submitted: ${response['id']}');
+      print('💰 Payment held: ₱$totalAmount');
       return response['id'];
     } catch (e) {
       print('❌ Error submitting Pabakal request: $e');
@@ -141,7 +189,27 @@ class RequestService {
       print('   Trip: $tripId');
       print('   Recipient: $recipientName');
       print('   Phone: $recipientPhone');
+      print('   Service Fee: ₱$serviceFee');
 
+      // Check wallet balance
+      final hasSufficientBalance = await _walletService.hasSufficientBalance(
+        serviceFee,
+      );
+      if (!hasSufficientBalance) {
+        throw 'Insufficient balance. Please top up your wallet.';
+      }
+
+      // Process payment (hold amount)
+      final paymentResult = await _walletService.processPayment(
+        amount: serviceFee,
+        description: 'Payment for Pasabay delivery',
+      );
+
+      if (paymentResult['success'] != true) {
+        throw paymentResult['error'] ?? 'Payment failed';
+      }
+
+      // Create service request
       final response = await _supabase
           .from('service_requests')
           .insert({
@@ -158,11 +226,13 @@ class RequestService {
             'notes': notes,
             'status': 'Pending',
             'photo_urls': photoUrls,
+            'payment_status': 'held',
           })
           .select()
           .single();
 
       print('✅ Pasabay request submitted: ${response['id']}');
+      print('💰 Payment held: ₱$serviceFee');
       return response['id'];
     } catch (e) {
       print('❌ Error submitting Pasabay request: $e');

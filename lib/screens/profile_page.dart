@@ -11,6 +11,7 @@ import 'requester/requester_home_page.dart';
 import 'landing_page.dart';
 import 'edit_profile_page.dart';
 import 'settings_page.dart';
+import 'wallet_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -102,6 +103,20 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  /// Get unique badges (deduplicate by badge_type)
+  List<TravelerBadge> _getUniqueBadges() {
+    final Map<BadgeType, TravelerBadge> uniqueBadgesMap = {};
+
+    for (final badge in _badges) {
+      // Keep only the first occurrence of each badge type (most recent)
+      if (!uniqueBadgesMap.containsKey(badge.badgeType)) {
+        uniqueBadgesMap[badge.badgeType] = badge;
+      }
+    }
+
+    return uniqueBadgesMap.values.toList();
   }
 
   Future<void> _navigateToEditProfile() async {
@@ -567,6 +582,23 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                     ),
                     SizedBox(height: 12 * scaleFactor),
 
+                    // Wallet
+                    _buildMenuItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Wallet',
+                      subtitle: 'Manage your balance and transactions',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const WalletPage(),
+                          ),
+                        );
+                      },
+                      scaleFactor: scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+
                     // Preferences
                     _buildMenuItem(
                       icon: Icons.settings_outlined,
@@ -988,7 +1020,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                       Wrap(
                         spacing: 8 * scaleFactor,
                         runSpacing: 8 * scaleFactor,
-                        children: _badges.map((badge) {
+                        children: _getUniqueBadges().map((badge) {
                           return _buildBadgeChip(badge, scaleFactor);
                         }).toList(),
                       ),
@@ -1083,38 +1115,6 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           size: 28 * scaleFactor,
           color: isWhite ? Colors.white : Color(0xFF00B4D8),
         ),
-        SizedBox(height: 8 * scaleFactor),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18 * scaleFactor,
-            fontWeight: FontWeight.bold,
-            color: isWhite ? Colors.white : Colors.black,
-          ),
-        ),
-        SizedBox(height: 4 * scaleFactor),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11 * scaleFactor,
-            color: isWhite ? Colors.white.withOpacity(0.9) : Colors.grey[600],
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatItem({
-    required String icon,
-    required String label,
-    required String value,
-    required double scaleFactor,
-    bool isWhite = false,
-  }) {
-    return Column(
-      children: [
-        Text(icon, style: TextStyle(fontSize: 24 * scaleFactor)),
         SizedBox(height: 8 * scaleFactor),
         Text(
           value,

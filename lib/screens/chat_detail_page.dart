@@ -778,11 +778,58 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
       print('✅ Request updated successfully');
 
-      // Send automated message
+      // Send automated message FIRST
       await _messagingService.sendMessage(
         conversationId: widget.conversation.id,
         messageText: 'Transaction completed! Item received. ✅',
       );
+
+      // Complete payment - transfer money to traveler
+      print('💰 Processing payment transfer...');
+      print('💰 Request ID: ${_serviceRequest!.id}');
+
+      try {
+        final paymentResult = await _supabase.rpc(
+          'complete_request_payment',
+          params: {'p_request_id': _serviceRequest!.id},
+        );
+
+        print('💰 Payment result received: $paymentResult');
+
+        if (paymentResult != null) {
+          if (paymentResult['success'] == true) {
+            print('✅ Payment completed: ₱${paymentResult['amount']}');
+          } else {
+            print('⚠️ Payment error: ${paymentResult['error']}');
+            // Show payment error to user
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Payment transfer issue: ${paymentResult['error']}',
+                  ),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+          }
+        } else {
+          print('⚠️ Payment result is null');
+        }
+      } catch (paymentError) {
+        print('❌ Payment transfer error: $paymentError');
+        // Show error but don't stop the flow
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Payment transfer failed: $paymentError'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      }
 
       if (mounted) {
         Navigator.pop(context); // Close loading
@@ -802,7 +849,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         );
 
         // Show rating dialog after a brief delay
-        Future.delayed(Duration(milliseconds: 500), () {
+        Future.delayed(Duration(milliseconds: 1000), () {
           if (mounted) {
             _showRatingDialog();
           }

@@ -10,6 +10,7 @@ import '../traveler_home_page.dart';
 import '../landing_page.dart';
 import '../settings_page.dart';
 import '../edit_profile_page.dart';
+import '../wallet_page.dart';
 
 class RequesterProfilePage extends StatefulWidget {
   const RequesterProfilePage({super.key});
@@ -482,6 +483,23 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
                       title: 'Edit Profile',
                       subtitle: 'Update personal information',
                       onTap: _navigateToEditProfile,
+                      scaleFactor: scaleFactor,
+                    ),
+                    SizedBox(height: 12 * scaleFactor),
+
+                    // Wallet
+                    _buildMenuItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Wallet',
+                      subtitle: 'Manage your balance and transactions',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const WalletPage(),
+                          ),
+                        );
+                      },
                       scaleFactor: scaleFactor,
                     ),
                     SizedBox(height: 12 * scaleFactor),

@@ -445,10 +445,74 @@ class _TravelerDetailPageState extends State<TravelerDetailPage> {
 
       if (success) {
         print('✅ Request submitted successfully!');
-        // Show success screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const RequestSentScreen()),
+
+        // Calculate total amount
+        final totalAmount = _selectedServiceType == 'Pabakal'
+            ? double.parse(_costController.text) + _serviceFee
+            : _serviceFee;
+
+        // Show payment deduction notification
+        if (!mounted) return;
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 28),
+                SizedBox(width: 12),
+                Text('Payment Deducted'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '₱${totalAmount.toStringAsFixed(2)} has been deducted from your wallet.',
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Payment will be released to traveler once you confirm item received.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.blue.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  // Navigate to success screen
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RequestSentScreen(),
+                    ),
+                  );
+                },
+                child: Text('Continue'),
+              ),
+            ],
+          ),
         );
       } else {
         print('❌ Request submission failed');
