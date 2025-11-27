@@ -5,6 +5,8 @@ import '../../utils/helpers.dart';
 import '../../utils/supabase_service.dart';
 import '../../services/request_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/distance_service.dart';
+import '../../services/location_tracking_service.dart';
 import '../notifications_page.dart';
 import '../tracking_map_page.dart';
 import 'traveler_search_results_page.dart';
@@ -29,11 +31,18 @@ class _RequesterHomeContentState extends State<RequesterHomeContent>
   final TextEditingController _destinationController = TextEditingController();
   final RequestService _requestService = RequestService();
   final NotificationService _notificationService = NotificationService();
+  final DistanceService _distanceService = DistanceService();
+  final LocationTrackingService _trackingService = LocationTrackingService();
   int _unreadNotifications = 0;
 
   // Ongoing transaction
   Map<String, dynamic>? _ongoingRequest;
   bool _loadingRequest = false;
+  
+  // ETA for ongoing request
+  double _etaMinutes = 0;
+  double _distanceKm = 0;
+  bool _isCalculatingETA = false;
 
   @override
   bool get wantKeepAlive => true; // Keep this page alive when swiping
@@ -87,7 +96,14 @@ class _RequesterHomeContentState extends State<RequesterHomeContent>
 
       final response = await supabase
           .from('service_requests')
-          .select()
+          .select('''
+            *,
+            trips:trip_id (
+              destination_location,
+              destination_lat,
+              destination_lng
+            )
+          ''')
           .eq('requester_id', userId)
           .inFilter('status', [
             'Accepted',
@@ -105,12 +121,83 @@ class _RequesterHomeContentState extends State<RequesterHomeContent>
           _ongoingRequest = response;
           _loadingRequest = false;
         });
+        
+        // Calculate ETA if status is "On the Way"
+        if (response != null && response['status'] == 'On the Way') {
+          _calculateETA(response);
+        }
       }
     } catch (e) {
       print('Error fetching ongoing request: $e');
       if (mounted) {
         setState(() => _loadingRequest = false);
       }
+    }
+  }
+
+  Future<void> _calculateETA(Map<String, dynamic> request) async {
+    if (_isCalculatingETA) return;
+    
+    setState(() => _isCalculatingETA = true);
+    
+    try {
+      // Get traveler's current location
+      final location = await _trackingService.getCurrentLocation(request['id']);
+      
+      if (location == null) {
+        setState(() => _isCalculatingETA = false);
+        return;
+      }
+      
+      // Get destination coordinates from trip
+      final tripData = request['trips'];
+      if (tripData == null) {
+        setState(() => _isCalculatingETA = false);
+        return;
+      }
+      
+      final destLat = tripData['destination_lat'];
+      final destLng = tripData['destination_lng'];
+      
+      if (destLat == null || destLng == null) {
+        setState(() => _isCalculatingETA = false);
+        return;
+      }
+      
+      // Calculate distance and ETA
+      final result = await _distanceService.calculateDistance(
+        originLat: location['latitude']!,
+        originLng: location['longitude']!,
+        destLat: (destLat as num).toDouble(),
+        destLng: (destLng as num).toDouble(),
+      );
+      
+      if (mounted && result.success) {
+        setState(() {
+          _etaMinutes = result.durationInMinutes;
+          _distanceKm = result.distanceInKm;
+          _isCalculatingETA = false;
+        });
+      } else {
+        setState(() => _isCalculatingETA = false);
+      }
+    } catch (e) {
+      print('Error calculating ETA: $e');
+      if (mounted) {
+        setState(() => _isCalculatingETA = false);
+      }
+    }
+  }
+
+  String _formatETA() {
+    if (_etaMinutes < 1) {
+      return 'Arriving now';
+    } else if (_etaMinutes < 60) {
+      return '${_etaMinutes.round()} min';
+    } else {
+      final hours = _etaMinutes ~/ 60;
+      final mins = (_etaMinutes % 60).round();
+      return mins > 0 ? '${hours}h ${mins}m' : '${hours}h';
     }
   }
 
@@ -660,6 +747,50 @@ class _RequesterHomeContentState extends State<RequesterHomeContent>
                 ],
               ),
             ),
+
+            // ETA Badge (only show when status is "On the Way" and ETA is available)
+            if (status == 'On the Way' && _etaMinutes > 0) ...[
+              SizedBox(height: 12 * scaleFactor),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 12 * scaleFactor,
+                  vertical: 8 * scaleFactor,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8 * scaleFactor),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.access_time_filled,
+                      color: Colors.green[700],
+                      size: 16 * scaleFactor,
+                    ),
+                    SizedBox(width: 6 * scaleFactor),
+                    Text(
+                      'Arriving in ${_formatETA()}',
+                      style: TextStyle(
+                        fontSize: 13 * scaleFactor,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                    if (_distanceKm > 0) ...[
+                      Text(
+                        ' • ${_distanceKm.toStringAsFixed(1)} km away',
+                        style: TextStyle(
+                          fontSize: 12 * scaleFactor,
+                          color: Colors.green[600],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
 
             SizedBox(height: 20 * scaleFactor),
 
