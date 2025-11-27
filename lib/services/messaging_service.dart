@@ -8,9 +8,10 @@ class MessagingService {
   // Get or create conversation for a request (after acceptance)
   Future<String?> getOrCreateConversation(String requestId) async {
     try {
-      final response = await _supabase.rpc('get_or_create_conversation', params: {
-        'req_id': requestId,
-      });
+      final response = await _supabase.rpc(
+        'get_or_create_conversation',
+        params: {'req_id': requestId},
+      );
 
       print('✅ Conversation ID: $response');
       return response as String?;
@@ -41,7 +42,9 @@ class MessagingService {
             created_at,
             updated_at
           ''')
-          .or('requester_id.eq.${currentUser.id},traveler_id.eq.${currentUser.id}')
+          .or(
+            'requester_id.eq.${currentUser.id},traveler_id.eq.${currentUser.id}',
+          )
           .order('last_message_at', ascending: false);
 
       List<Conversation> conversations = (response as List)
@@ -62,7 +65,10 @@ class MessagingService {
   }
 
   // Load details for a conversation (other user info, request info)
-  Future<void> _loadConversationDetails(Conversation conversation, String currentUserId) async {
+  Future<void> _loadConversationDetails(
+    Conversation conversation,
+    String currentUserId,
+  ) async {
     try {
       // Get other user ID
       final otherUserId = conversation.getOtherUserId(currentUserId);
@@ -74,18 +80,34 @@ class MessagingService {
           .eq('id', otherUserId)
           .single();
 
-      conversation.otherUserName = 
+      conversation.otherUserName =
           '${userResponse['first_name']} ${userResponse['last_name']}';
       conversation.otherUserImage = userResponse['profile_image_url'];
 
-      // Fetch request info to get service type
+      // Fetch request info to get service type and trip_id
       final requestResponse = await _supabase
           .from('service_requests')
-          .select('service_type')
+          .select('service_type, trip_id')
           .eq('id', conversation.requestId)
           .single();
 
       conversation.serviceType = requestResponse['service_type'];
+
+      // Fetch trip info to get the route (departure -> destination)
+      if (requestResponse['trip_id'] != null) {
+        try {
+          final tripResponse = await _supabase
+              .from('trips')
+              .select('departure_location, destination_location')
+              .eq('id', requestResponse['trip_id'])
+              .single();
+
+          conversation.pickupLocation = tripResponse['departure_location'];
+          conversation.dropoffLocation = tripResponse['destination_location'];
+        } catch (e) {
+          print('❌ Error fetching trip details: $e');
+        }
+      }
 
       // Get last message text
       final messageResponse = await _supabase
@@ -144,7 +166,7 @@ class MessagingService {
         'sender_id': currentUser.id,
         'message_text': messageText.trim(),
         'is_read': false,
-        'created_at': DateTime.now().toIso8601String(),
+        // Let Supabase handle timestamp with default value
       });
 
       print('✅ Message sent');
@@ -163,10 +185,13 @@ class MessagingService {
         throw 'No user logged in';
       }
 
-      final response = await _supabase.rpc('mark_messages_as_read', params: {
-        'conversation_uuid': conversationId,
-        'reader_uuid': currentUser.id,
-      });
+      final response = await _supabase.rpc(
+        'mark_messages_as_read',
+        params: {
+          'conversation_uuid': conversationId,
+          'reader_uuid': currentUser.id,
+        },
+      );
 
       print('✅ Messages marked as read: $response');
       return response == true;
@@ -179,7 +204,7 @@ class MessagingService {
             .update({'is_read': true})
             .eq('conversation_id', conversationId)
             .neq('sender_id', _supabase.auth.currentUser!.id);
-        
+
         return true;
       } catch (fallbackError) {
         print('❌ Fallback also failed: $fallbackError');
@@ -219,9 +244,7 @@ class MessagingService {
   }
 
   // Subscribe to conversation updates (real-time)
-  RealtimeChannel subscribeToConversations(
-    Function() onUpdate,
-  ) {
+  RealtimeChannel subscribeToConversations(Function() onUpdate) {
     final channel = _supabase
         .channel('conversations')
         .onPostgresChanges(
@@ -251,8 +274,10 @@ class MessagingService {
           .eq('request_id', requestId)
           .single();
 
-      final conversation = Conversation.fromJson(response as Map<String, dynamic>);
-      
+      final conversation = Conversation.fromJson(
+        response as Map<String, dynamic>,
+      );
+
       // Load details
       final currentUser = _supabase.auth.currentUser;
       if (currentUser != null) {
@@ -269,10 +294,7 @@ class MessagingService {
   // Delete a conversation (and all its messages)
   Future<bool> deleteConversation(String conversationId) async {
     try {
-      await _supabase
-          .from('conversations')
-          .delete()
-          .eq('id', conversationId);
+      await _supabase.from('conversations').delete().eq('id', conversationId);
 
       print('✅ Conversation deleted');
       return true;
@@ -282,4 +304,3 @@ class MessagingService {
     }
   }
 }
-

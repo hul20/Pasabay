@@ -10,12 +10,14 @@ class Conversation {
   final int travelerUnreadCount;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  
+
   // Additional fields (not from DB, loaded separately)
   String? otherUserName;
   String? otherUserImage;
   String? lastMessageText;
   String? serviceType;
+  String? pickupLocation;
+  String? dropoffLocation;
 
   Conversation({
     required this.id,
@@ -31,23 +33,37 @@ class Conversation {
     this.otherUserImage,
     this.lastMessageText,
     this.serviceType,
+    this.pickupLocation,
+    this.dropoffLocation,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
+    // Helper to parse and convert to local time
+    // Supabase returns timestamps in UTC without timezone indicator
+    DateTime? parseToLocalTime(String? dateStr) {
+      if (dateStr == null) return null;
+
+      // If no timezone indicator, treat as UTC by appending Z
+      if (!dateStr.contains('Z') &&
+          !dateStr.contains('+') &&
+          !dateStr.contains('-', 10)) {
+        dateStr = '${dateStr}Z';
+      }
+
+      DateTime parsed = DateTime.parse(dateStr);
+      return parsed.toLocal();
+    }
+
     return Conversation(
       id: json['id'] as String,
       requestId: json['request_id'] as String,
       requesterId: json['requester_id'] as String,
       travelerId: json['traveler_id'] as String,
-      lastMessageAt: json['last_message_at'] != null
-          ? DateTime.parse(json['last_message_at'] as String)
-          : null,
+      lastMessageAt: parseToLocalTime(json['last_message_at'] as String?),
       requesterUnreadCount: json['requester_unread_count'] as int? ?? 0,
       travelerUnreadCount: json['traveler_unread_count'] as int? ?? 0,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
-          : null,
+      createdAt: parseToLocalTime(json['created_at'] as String)!,
+      updatedAt: parseToLocalTime(json['updated_at'] as String?),
     );
   }
 
@@ -67,21 +83,35 @@ class Conversation {
 
   String get formattedLastMessageTime {
     if (lastMessageAt == null) return '';
-    
+
     final now = DateTime.now();
-    final difference = now.difference(lastMessageAt!);
-    
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return DateFormat('MMM dd').format(lastMessageAt!);
+    final messageDate = lastMessageAt!;
+
+    // If today, show time only (e.g., "11:42 AM")
+    if (now.year == messageDate.year &&
+        now.month == messageDate.month &&
+        now.day == messageDate.day) {
+      return DateFormat('h:mm a').format(messageDate);
     }
+
+    // If this year, show date without year (e.g., "Nov 27, 11:42 AM")
+    if (now.year == messageDate.year) {
+      return DateFormat('MMM d, h:mm a').format(messageDate);
+    }
+
+    // Otherwise show full date (e.g., "Nov 27, 2024")
+    return DateFormat('MMM d, yyyy').format(messageDate);
+  }
+
+  String get routeDisplay {
+    if (pickupLocation != null && dropoffLocation != null) {
+      return '$pickupLocation → $dropoffLocation';
+    } else if (pickupLocation != null) {
+      return pickupLocation!;
+    } else if (dropoffLocation != null) {
+      return dropoffLocation!;
+    }
+    return '';
   }
 
   String getOtherUserId(String currentUserId) {
@@ -89,8 +119,8 @@ class Conversation {
   }
 
   int getUnreadCount(String currentUserId) {
-    return currentUserId == requesterId 
-        ? requesterUnreadCount 
+    return currentUserId == requesterId
+        ? requesterUnreadCount
         : travelerUnreadCount;
   }
 
@@ -98,4 +128,3 @@ class Conversation {
     return requesterUnreadCount > 0 || travelerUnreadCount > 0;
   }
 }
-

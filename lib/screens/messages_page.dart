@@ -511,6 +511,30 @@ class _MessagesPageState extends State<MessagesPage>
                         ),
                     ],
                   ),
+                  if (conversation.routeDisplay.isNotEmpty) ...[
+                    SizedBox(height: 4 * scaleFactor),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.route,
+                          size: 14 * scaleFactor,
+                          color: Colors.grey[500],
+                        ),
+                        SizedBox(width: 4 * scaleFactor),
+                        Expanded(
+                          child: Text(
+                            conversation.routeDisplay,
+                            style: TextStyle(
+                              fontSize: 12 * scaleFactor,
+                              color: Colors.grey[500],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   SizedBox(height: 6 * scaleFactor),
                   Row(
                     children: [
