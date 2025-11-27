@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../services/fcm_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
@@ -296,6 +298,69 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
     }
   }
 
+  Future<void> _openHelpAndSupport() async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: 'pasabayHelp@gmail.com',
+      query:
+          'subject=Help & Support Request&body=Hi Pasabay Support Team,\n\nI need help with:\n\n',
+    );
+
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Could not open email app. Please email us at pasabayHelp@gmail.com',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening email: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _inviteFriends() async {
+    const String shareMessage = '''🚀 Join Pasabay - The Smart Delivery App!
+
+Send and receive packages with travelers heading your way. Save money, earn extra, and connect with your community!
+
+📦 Need something delivered? Find travelers going your route.
+🚗 Traveling somewhere? Earn by carrying packages along the way.
+
+Download Pasabay now and experience smarter delivery!''';
+
+    try {
+      await Share.share(
+        shareMessage,
+        subject: 'Check out Pasabay - Smart Delivery App',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sharing: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _navigateToEditProfile() async {
     final result = await Navigator.push(
       context,
@@ -573,7 +638,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
                       icon: Icons.help_outline,
                       title: 'Help and Support',
                       subtitle: 'Get help and contact support',
-                      onTap: () {},
+                      onTap: _openHelpAndSupport,
                       scaleFactor: scaleFactor,
                     ),
                     SizedBox(height: 12 * scaleFactor),
@@ -583,7 +648,7 @@ class _RequesterProfilePageState extends State<RequesterProfilePage>
                       icon: Icons.share_outlined,
                       title: 'Invite Friends',
                       subtitle: 'Share Pasabay with others',
-                      onTap: () {},
+                      onTap: _inviteFriends,
                       scaleFactor: scaleFactor,
                     ),
                     SizedBox(height: 24 * scaleFactor),
