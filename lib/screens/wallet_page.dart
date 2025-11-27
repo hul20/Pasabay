@@ -205,7 +205,7 @@ class _WalletPageState extends State<WalletPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Wallet'),
+        title: const Text('PasaPay'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
