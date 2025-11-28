@@ -1093,7 +1093,7 @@ Download Pasabay now and experience smarter delivery!''';
               if (_badges.isNotEmpty) ...[
                 Divider(height: 1),
                 Padding(
-                  padding: EdgeInsets.all(20 * scaleFactor),
+                  padding: EdgeInsets.all(10 * scaleFactor),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1106,12 +1106,17 @@ Download Pasabay now and experience smarter delivery!''';
                         ),
                       ),
                       SizedBox(height: 12 * scaleFactor),
-                      Wrap(
-                        spacing: 8 * scaleFactor,
-                        runSpacing: 8 * scaleFactor,
-                        children: _getUniqueBadges().map((badge) {
-                          return _buildBadgeChip(badge, scaleFactor);
-                        }).toList(),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _getUniqueBadges().map((badge) {
+                            return Padding(
+                              padding: EdgeInsets.only(right: 1 * scaleFactor),
+                              child: _buildBadgeImage(badge, scaleFactor),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ],
                   ),
@@ -1226,31 +1231,37 @@ Download Pasabay now and experience smarter delivery!''';
     );
   }
 
-  Widget _buildBadgeChip(TravelerBadge badge, double scaleFactor) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 12 * scaleFactor,
-        vertical: 8 * scaleFactor,
-      ),
-      decoration: BoxDecoration(
-        color: Color(0xFF00B4D8).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20 * scaleFactor),
-        border: Border.all(color: Color(0xFF00B4D8).withOpacity(0.3), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(badge.icon, style: TextStyle(fontSize: 16 * scaleFactor)),
-          SizedBox(width: 6 * scaleFactor),
-          Text(
-            badge.displayName.replaceAll(RegExp(r'[⚡🛍️🛣️📦]'), '').trim(),
-            style: TextStyle(
-              fontSize: 13 * scaleFactor,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF00B4D8),
-            ),
+  Widget _buildBadgeImage(TravelerBadge badge, double scaleFactor) {
+    return Tooltip(
+      message: badge.displayName.replaceAll(RegExp(r'[⚡🛍️🛣️📦]'), '').trim(),
+      child: Container(
+        width: 140 * scaleFactor,
+        height: 140 * scaleFactor,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20 * scaleFactor),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20 * scaleFactor),
+          child: Image.asset(
+            badge.imagePath,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback to emoji if image fails to load
+              return Container(
+                decoration: BoxDecoration(
+                  color: Color(0xFF00B4D8).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20 * scaleFactor),
+                ),
+                child: Center(
+                  child: Text(
+                    badge.icon,
+                    style: TextStyle(fontSize: 60 * scaleFactor),
+                  ),
+                ),
+              );
+            },
           ),
-        ],
+        ),
       ),
     );
   }

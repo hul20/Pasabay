@@ -215,6 +215,20 @@ class TravelerBadge {
         return '📦';
     }
   }
+
+  /// Get badge image asset path
+  String get imagePath {
+    switch (badgeType) {
+      case BadgeType.flashTraveler:
+        return 'assets/pasabayTravellerBadges/flashTraveler.png';
+      case BadgeType.pasabuyPro:
+        return 'assets/pasabayTravellerBadges/pasabayPro.png';
+      case BadgeType.routeMaster:
+        return 'assets/pasabayTravellerBadges/pasabayPro.png'; // Using pasabayPro as fallback
+      case BadgeType.gentleHandler:
+        return 'assets/pasabayTravellerBadges/gentleHandler.png';
+    }
+  }
 }
 
 /// Enum for badge types
