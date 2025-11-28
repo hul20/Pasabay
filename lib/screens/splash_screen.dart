@@ -22,53 +22,51 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    
+
     // Single controller for all animations - more efficient
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 2800),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
 
-    // Logo scale: 0-40% of timeline
-    _logoScale = Tween<double>(begin: 0.8, end: 1.0).animate(
+    // Logo scale: 0-30% of timeline
+    _logoScale = Tween<double>(begin: 0.9, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.4, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
       ),
     );
 
-    // Logo opacity: 0-30% of timeline
+    // Logo opacity: 0-20% of timeline
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.3, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.2, curve: Curves.easeIn),
       ),
     );
 
-    // Text opacity: 25-55% of timeline
+    // Text opacity: 15-40% of timeline
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.25, 0.55, curve: Curves.easeIn),
+        curve: const Interval(0.15, 0.4, curve: Curves.easeIn),
       ),
     );
 
-    // Text slide: 25-55% of timeline
-    _textSlide = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.25, 0.55, curve: Curves.easeOutCubic),
-      ),
-    );
+    // Text slide: 15-40% of timeline
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.15, 0.4, curve: Curves.easeOut),
+          ),
+        );
 
-    // Fade out: 85-100% of timeline
+    // Fade out: 75-100% of timeline
     _fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.85, 1.0, curve: Curves.easeInOut),
+        curve: const Interval(0.75, 1.0, curve: Curves.easeIn),
       ),
     );
 
@@ -81,10 +79,11 @@ class _SplashScreenState extends State<SplashScreen>
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
                 widget.nextScreen,
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 400),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+            transitionDuration: const Duration(milliseconds: 300),
           ),
         );
       }
