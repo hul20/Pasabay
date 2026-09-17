@@ -68,6 +68,7 @@ class MainUserApp extends StatelessWidget {
             ),
           ),
         ),
+      ),
       builder: (context, child) {
         final mediaQuery = MediaQuery.of(context);
         final isDesktop =
