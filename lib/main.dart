@@ -70,19 +70,8 @@ class MainUserApp extends StatelessWidget {
         ),
       ),
       builder: (context, child) {
-        final mediaQuery = MediaQuery.of(context);
-        final isDesktop =
-            mediaQuery.size.width > AppConstants.maxContainerWidth;
-        final mobileWidth =
-            isDesktop ? AppConstants.maxContainerWidth : mediaQuery.size.width;
-
         return ResponsiveWrapper(
-          child: MediaQuery(
-            data: mediaQuery.copyWith(
-              size: Size(mobileWidth, mediaQuery.size.height),
-            ),
-            child: child ?? const SizedBox.shrink(),
-          ),
+          child: child ?? const SizedBox.shrink(),
         );
       },
       home: const SplashScreen(
