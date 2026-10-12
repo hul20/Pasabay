@@ -28,6 +28,12 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Ensure Supabase Config Exists
+        run: |
+          if [ ! -f lib/utils/supabase_config.dart ]; then
+            cp lib/utils/supabase_config.dart.example lib/utils/supabase_config.dart
+          fi
+
       - name: Install Dependencies
         run: flutter pub get
 
@@ -43,7 +49,7 @@ jobs:
           if [ -n "$SUPABASE_ANON_KEY" ]; then
             DART_DEFINES="$DART_DEFINES --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
           fi
-          flutter build web --release --base-href /Pasabay/ $DART_DEFINES
+          flutter build web --release --base-href /Pasabay/ --no-wasm-dry-run $DART_DEFINES
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
